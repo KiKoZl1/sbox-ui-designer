@@ -122,10 +122,11 @@ public class SuiHierarchyWidget : Widget
 		var btn = new Button( $"{element.Name}  ·  {element.Type}", IconForType( element.Type ), row );
 		btn.ToolTip = element.Id;
 		btn.FixedHeight = 22;
-		btn.PaintBackground = false;
+		// PaintBackground doesn't exist on Button in this engine snapshot;
+		// strip the chip look via SetStyles instead.
 		btn.SetStyles( isSelected
-			? "color: #ffffff;"
-			: "color: #d1d5db;" );
+			? "background-color: transparent; border: none; color: #ffffff;"
+			: "background-color: transparent; border: none; color: #d1d5db;" );
 
 		var captured = element;
 		btn.Clicked += () =>
