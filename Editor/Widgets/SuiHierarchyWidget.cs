@@ -62,7 +62,7 @@ public class SuiHierarchyWidget : Widget
 		header.SetStyles( "padding: 6px; font-weight: bold; color: #e5e7eb;" );
 		Layout.Add( header );
 
-		_tree = new TreeView( this );
+		_tree = new SuiHierarchyTreeView( this, this );
 		_tree.IndentWidth = 16;
 		_tree.ItemSpacing = 2;
 		_tree.ExpandForSelection = true;
@@ -137,10 +137,14 @@ public class SuiHierarchyWidget : Widget
 
 	private void OnTreeItemSelected( object obj )
 	{
-		if ( obj is SuiElementTreeNode node && node.Element != null )
+		// BaseItemWidget.ItemSelected passes the TreeNode's Value, not the node
+		// itself — and our nodes set Value = element. So obj is the SuiElement.
+		// (Earlier the type-test against SuiElementTreeNode silently swallowed
+		// every click because the actual payload was a SuiElement.)
+		if ( obj is SuiElement element )
 		{
-			_selected = node.Element;
-			ElementSelected?.Invoke( node.Element );
+			_selected = element;
+			ElementSelected?.Invoke( element );
 		}
 	}
 
@@ -287,6 +291,100 @@ public class SuiHierarchyWidget : Widget
 	{
 		if ( child == null || newParent == null ) return;
 		ReparentRequested?.Invoke( child, newParent, insertIndex );
+	}
+
+	/// <summary>
+	/// Resolve a target element + insert index for a drop operation. The rules:
+	/// - Dropping onto a sibling of the source: reorder within the same parent.
+	/// - Dropping onto a container that's not the source's current parent: reparent
+	///   as a new child appended to the container.
+	/// - Drop refused if it would create a cycle (source contains target) or if
+	///   target is the source itself.
+	/// </summary>
+	internal void HandleDrop( SuiElement source, SuiElement target )
+	{
+		if ( source == null || target == null || source.Id == target.Id ) return;
+		if ( _document == null ) return;
+		if ( string.IsNullOrEmpty( source.ParentId ) ) return; // refuse moving root
+
+		// Refuse cycle: target cannot be a descendant of source.
+		if ( IsDescendantInDoc( target.Id, source.Id ) ) return;
+
+		// Same-parent reorder.
+		if ( target.ParentId == source.ParentId )
+		{
+			var parent = _document.GetElement( source.ParentId );
+			if ( parent == null ) return;
+			var newIdx = parent.Children.IndexOf( target.Id );
+			if ( newIdx < 0 ) return;
+			ReparentRequested?.Invoke( source, parent, newIdx );
+			return;
+		}
+
+		// Reparent into a container — drop appends as last child.
+		if ( IsContainerType( target.Type ) )
+		{
+			ReparentRequested?.Invoke( source, target, target.Children.Count );
+			return;
+		}
+
+		// Drop onto a non-container leaf: become its sibling instead.
+		var newParent = _document.GetElement( target.ParentId );
+		if ( newParent == null ) return;
+		var siblingIdx = newParent.Children.IndexOf( target.Id );
+		if ( siblingIdx < 0 ) siblingIdx = newParent.Children.Count;
+		ReparentRequested?.Invoke( source, newParent, siblingIdx );
+	}
+
+	private bool IsDescendantInDoc( string candidateId, string ancestorId )
+	{
+		if ( _document == null ) return false;
+		var safety = 1024;
+		var currentId = candidateId;
+		while ( !string.IsNullOrEmpty( currentId ) && --safety > 0 )
+		{
+			if ( currentId == ancestorId ) return true;
+			var current = _document.GetElement( currentId );
+			if ( current == null ) return false;
+			currentId = current.ParentId;
+		}
+		return false;
+	}
+}
+
+/// <summary>
+/// TreeView subclass that translates drag-drop events on tree items into
+/// the widget's <see cref="SuiHierarchyWidget.ReparentRequested"/> event so
+/// the controller can produce a reorder/reparent command.
+///
+/// Pattern reference: Facepunch TerrainMaterialList.OnItemDrag
+/// (sbox-public/game/addons/tools/Code/Scene/Terrain/TerrainMaterialList.cs).
+/// </summary>
+internal sealed class SuiHierarchyTreeView : TreeView
+{
+	private readonly SuiHierarchyWidget _owner;
+
+	public SuiHierarchyTreeView( Widget parent, SuiHierarchyWidget owner ) : base( parent )
+	{
+		_owner = owner;
+	}
+
+	protected override DropAction OnItemDrag( ItemDragEvent e )
+	{
+		if ( e.IsDrop && e.Data.Object is SuiElement source && e.Item?.Object is SuiElement target )
+		{
+			_owner?.HandleDrop( source, target );
+			return DropAction.Move;
+		}
+
+		// Hover feedback — accept SuiElement-on-SuiElement drags so the cursor
+		// shows the move icon.
+		if ( !e.IsDrop && e.Data.Object is SuiElement && e.Item?.Object is SuiElement )
+		{
+			return DropAction.Move;
+		}
+
+		return base.OnItemDrag( e );
 	}
 }
 
