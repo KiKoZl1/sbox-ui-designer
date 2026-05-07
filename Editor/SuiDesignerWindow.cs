@@ -281,14 +281,19 @@ public class SuiDesignerWindow : DockWindow, IAssetEditor
 		DockManager.AddDock( _palette, _hierarchy, DockArea.Bottom, DockManager.DockProperty.HideOnClose, 0.5f );
 		DockManager.AddDock( _canvas, _details, DockArea.Right, DockManager.DockProperty.HideOnClose, 0.22f );
 		DockManager.AddDock( null, _compileResults, DockArea.BottomOuter, DockManager.DockProperty.HideOnClose, 0.22f );
-		DockManager.AddDock( _compileResults, _animations, DockArea.Inside, DockManager.DockProperty.HideOnClose );
+		DockManager.AddDock( null, _animations, DockArea.BottomOuter, DockManager.DockProperty.HideOnClose, 0.22f );
 
 		DockManager.Update();
 		_defaultDockState = DockManager.State;
 
-		if ( StateCookie != "SuiDesigner" )
+		// Cookie name bumps with layout schema. The previous "SuiDesigner" cookie
+		// referenced a single SuiBottomDockWidget that no longer exists; restoring
+		// it left the bottom area empty. Anything saved under the new cookie is
+		// fresh.
+		const string cookie = "SuiDesigner.v2";
+		if ( StateCookie != cookie )
 		{
-			StateCookie = "SuiDesigner";
+			StateCookie = cookie;
 		}
 		else
 		{
