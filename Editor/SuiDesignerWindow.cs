@@ -318,7 +318,7 @@ public class SuiDesignerWindow : DockWindow, IAssetEditor
 	[Shortcut( "editor.redo", "Ctrl+Y", ShortcutType.Window )]
 	private void OnShortcutRedo() => Redo();
 
-	[Shortcut( "editor.delete", "Del", ShortcutType.Window )]
+	[Shortcut( "editor.delete", "DEL", ShortcutType.Window )]
 	private void OnShortcutDelete() => _controller.DeleteElement();
 
 	private void ValidateDocument()
