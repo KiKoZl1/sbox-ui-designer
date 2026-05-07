@@ -31,7 +31,12 @@ public class SuiDesignerWindow : DockWindow, IAssetEditor
 
 	private Asset _asset;
 	private SuiAsset _resource;
-	private SuiDocument _document;
+
+	// M5 — controller mediates selection/dirty/commands between widgets.
+	private readonly SuiDesignerController _controller = new();
+
+	// Convenience access to the document; comes from the controller.
+	private SuiDocument Document => _controller.Document;
 
 	// Region widgets — recreated on hotload so we keep references for refresh.
 	private SuiPaletteWidget _palette;
@@ -50,6 +55,10 @@ public class SuiDesignerWindow : DockWindow, IAssetEditor
 		Size = new Vector2( 1600, 900 );
 		SetWindowIcon( "view_quilt" );
 
+		_controller.DocumentChanged += OnControllerDocumentChanged;
+		_controller.SelectionChanged += OnControllerSelectionChanged;
+		_controller.DirtyChanged += OnControllerDirtyChanged;
+
 		BuildMenuBar();
 		BuildToolBar();
 		BuildDocks();
@@ -67,29 +76,45 @@ public class SuiDesignerWindow : DockWindow, IAssetEditor
 		_resource = asset?.LoadResource<SuiAsset>();
 		_resource ??= new SuiAsset();
 
-		_document = _resource.Document;
-		if ( _document == null || _document.Elements.Count == 0 )
+		var doc = _resource.Document;
+		if ( doc == null || doc.Elements.Count == 0 )
 		{
 			var nameHint = !string.IsNullOrEmpty( asset?.Name ) ? asset.Name : "NewUi";
-			_document = SuiDocument.CreateDefault( nameHint );
-			_resource.Document = _document;
+			doc = SuiDocument.CreateDefault( nameHint );
+			_resource.Document = doc;
 		}
 
-		PushDocumentToWidgets();
+		_controller.SetDocument( doc );
+		// Controller raises DocumentChanged + SelectionChanged synchronously,
+		// which pushes state to all region widgets.
+	}
+
+	private void OnControllerDocumentChanged()
+	{
+		_hierarchy?.SetDocument( Document );
+		_canvas?.SetDocument( Document );
+		_details?.SetDocument( Document );
+		// Selection might also be affected (e.g. when document changes).
+		OnControllerSelectionChanged();
 		RefreshTitle();
 	}
 
-	private void PushDocumentToWidgets()
+	private void OnControllerSelectionChanged()
 	{
-		_hierarchy?.SetDocument( _document );
-		_canvas?.SetDocument( _document );
-		_details?.SetDocument( _document );
+		_hierarchy?.SetSelected( _controller.Selected );
+		_details?.SetSelected( _controller.Selected );
+	}
+
+	private void OnControllerDirtyChanged()
+	{
+		RefreshTitle();
 	}
 
 	private void RefreshTitle()
 	{
-		var docName = _document?.Name ?? "(unsaved)";
-		WindowTitle = $"Sbox UI Designer — {docName}";
+		var docName = Document?.Name ?? "(unsaved)";
+		var dirtyMark = _controller.IsDirty ? " *" : "";
+		WindowTitle = $"Sbox UI Designer — {docName}{dirtyMark}";
 		Title = WindowTitle;
 	}
 
@@ -99,19 +124,20 @@ public class SuiDesignerWindow : DockWindow, IAssetEditor
 
 	private void Save()
 	{
-		if ( _asset == null || _resource == null || _document == null )
+		if ( _asset == null || _resource == null || Document == null )
 		{
 			Log.Warning( "[Sui] cannot save — no document loaded" );
 			return;
 		}
 
-		var report = SuiDocumentValidator.Validate( _document );
+		var report = SuiDocumentValidator.Validate( Document );
 		foreach ( var err in report.Errors )
 			Log.Warning( $"[Sui] validation: {err}" );
 
-		_resource.Document = _document;
+		_resource.Document = Document;
 		_asset.SaveToDisk( _resource );
 		Log.Info( $"[Sui] saved {_asset.Path}" );
+		_controller.MarkSaved();
 		RefreshTitle();
 	}
 
@@ -224,13 +250,10 @@ public class SuiDesignerWindow : DockWindow, IAssetEditor
 		_details = new SuiDetailsWidget( this );
 		_bottom = new SuiBottomDockWidget( this );
 
-		// Wire selection: clicking the hierarchy updates Details. M5 routes this
-		// through SuiDesignerController so palette ↔ canvas ↔ details share state.
-		_hierarchy.ElementSelected += el => _details.SetSelected( el );
-
-		// Wire palette: M6 will hook ElementRequested into the controller's
-		// AddElement command. For now we just log so the user sees it works.
-		_palette.ElementRequested += type => Log.Info( $"[Sui] palette requested: {type} (M6 wires AddElement)" );
+		// All widget actions route through the controller so undo/redo, dirty
+		// state, and selection stay coherent across the editor.
+		_hierarchy.ElementSelected += el => _controller.SetSelected( el );
+		_palette.ElementRequested += type => _controller.AddElement( type );
 
 		DockManager.RegisterDockType( "Palette", "category", null, false );
 		DockManager.RegisterDockType( "Hierarchy", "account_tree", null, false );
@@ -278,27 +301,29 @@ public class SuiDesignerWindow : DockWindow, IAssetEditor
 		Log.Info( "[Sui] Open Generated Folder — wired in M12" );
 	}
 
-	private void Undo()
-	{
-		Log.Info( "[Sui] Undo — command stack lands in M5" );
-	}
+	private void Undo() => _controller.Undo();
+	private void Redo() => _controller.Redo();
 
-	private void Redo()
-	{
-		Log.Info( "[Sui] Redo — command stack lands in M5" );
-	}
+	[Shortcut( "editor.undo", "Ctrl+Z", ShortcutType.Window )]
+	private void OnShortcutUndo() => Undo();
+
+	[Shortcut( "editor.redo", "Ctrl+Y", ShortcutType.Window )]
+	private void OnShortcutRedo() => Redo();
+
+	[Shortcut( "editor.delete", "Del", ShortcutType.Window )]
+	private void OnShortcutDelete() => _controller.DeleteElement();
 
 	private void ValidateDocument()
 	{
-		if ( _document == null )
+		if ( Document == null )
 		{
 			Log.Warning( "[Sui] no document loaded" );
 			return;
 		}
-		var report = SuiDocumentValidator.Validate( _document );
+		var report = SuiDocumentValidator.Validate( Document );
 		if ( report.IsValid )
 		{
-			Log.Info( $"[Sui] document is valid ({_document.Elements.Count} elements)" );
+			Log.Info( $"[Sui] document is valid ({Document.Elements.Count} elements)" );
 		}
 		else
 		{
