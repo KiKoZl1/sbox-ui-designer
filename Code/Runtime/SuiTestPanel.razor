@@ -3,12 +3,27 @@
 @using Sandbox.UI;
 @inherits PanelComponent
 
-<root>
-	<div class="card">
-		<label class="title">Etapa B</label>
-		<label class="body">SceneRenderingWidget hosting ScreenPanel + PanelComponent</label>
-		<div class="swatch swatch-blue"></div>
-		<div class="swatch swatch-green"></div>
-		<div class="swatch swatch-pink"></div>
+@* Inline styles instead of paired SCSS to isolate SCSS loading from
+   panel rendering. If this magenta block shows up in the canvas,
+   the panel tree is building correctly and the previous attempt's
+   silence was the SCSS not loading. *@
+
+<root style="position: absolute; left: 0; top: 0; right: 0; bottom: 0; flex-direction: column; justify-content: center; align-items: center; background-color: rgba(0,0,0,0.4);">
+	<div style="flex-direction: column; align-items: center; gap: 12px; padding: 32px 48px; background-color: #ec4899; border-radius: 12px; border: 2px solid #f9a8d4;">
+		<label style="color: #ffffff; font-size: 28px; font-weight: bold;">Etapa B (inline)</label>
+		<label style="color: #fce7f3; font-size: 14px;">SceneRenderingWidget hosting WorldPanel + PanelComponent</label>
 	</div>
 </root>
+
+@code
+{
+	protected override void OnAwake()
+	{
+		Sandbox.Diagnostics.Log.Info( "[SuiTestPanel] OnAwake fired — panel tree is building" );
+	}
+
+	protected override void OnEnabled()
+	{
+		Sandbox.Diagnostics.Log.Info( "[SuiTestPanel] OnEnabled fired" );
+	}
+}
