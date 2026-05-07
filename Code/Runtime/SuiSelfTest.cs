@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Text.Json;
+using System.Text.RegularExpressions;
+using SboxUiDesigner.Generation;
 
 namespace SboxUiDesigner.Runtime;
 
@@ -46,6 +48,26 @@ public static class SuiSelfTest
 		Run( r, nameof( JsonRoundTrip_PreservesShape ), JsonRoundTrip_PreservesShape );
 		Run( r, nameof( Clone_DeepCopiesElements ), Clone_DeepCopiesElements );
 		Run( r, nameof( Manifest_FindByPath_IsCaseInsensitive ), Manifest_FindByPath_IsCaseInsensitive );
+
+		// M9 generator tests
+		Run( r, nameof( Generator_DefaultDocument_ProducesTwoFiles ), Generator_DefaultDocument_ProducesTwoFiles );
+		Run( r, nameof( Generator_RazorHasInheritsPanelComponent ), Generator_RazorHasInheritsPanelComponent );
+		Run( r, nameof( Generator_RazorWrapsInRootElement ), Generator_RazorWrapsInRootElement );
+		Run( r, nameof( Generator_BothFilesHaveParseableHeaders ), Generator_BothFilesHaveParseableHeaders );
+		Run( r, nameof( Generator_HeaderDocumentIdMatchesSource ), Generator_HeaderDocumentIdMatchesSource );
+		Run( r, nameof( Generator_NoAtExpressionInRazorBody ), Generator_NoAtExpressionInRazorBody );
+		Run( r, nameof( Generator_NoCodeBlockOrBuildHash ), Generator_NoCodeBlockOrBuildHash );
+		Run( r, nameof( Generator_NoForbiddenDisplayValues ), Generator_NoForbiddenDisplayValues );
+		Run( r, nameof( Generator_NoPositionFixed ), Generator_NoPositionFixed );
+		Run( r, nameof( Generator_NoCssGridProperties ), Generator_NoCssGridProperties );
+		Run( r, nameof( Generator_OutputIsDeterministic ), Generator_OutputIsDeterministic );
+		Run( r, nameof( Generator_TextElementEmitsLabel ), Generator_TextElementEmitsLabel );
+		Run( r, nameof( Generator_TextEscapesAtSign ), Generator_TextEscapesAtSign );
+		Run( r, nameof( Generator_ScssScopedUnderTypeName ), Generator_ScssScopedUnderTypeName );
+		Run( r, nameof( Generator_GridGeneratesWrappedFlex ), Generator_GridGeneratesWrappedFlex );
+		Run( r, nameof( AllowedPropertyList_RejectsDisplayGrid ), AllowedPropertyList_RejectsDisplayGrid );
+		Run( r, nameof( AllowedPropertyList_RejectsPositionFixed ), AllowedPropertyList_RejectsPositionFixed );
+		Run( r, nameof( HashUtility_IsStableAcrossCalls ), HashUtility_IsStableAcrossCalls );
 
 		return r;
 	}
@@ -188,6 +210,258 @@ public static class SuiSelfTest
 		m.GeneratedFiles.Add( new SuiGeneratedFileEntry { Path = "Code/UI/Foo.razor", Kind = SuiGeneratedFileKind.Razor } );
 		Assert( m.FindByPath( "code/ui/foo.razor" ) != null, "manifest lookup should be case-insensitive" );
 		Assert( m.FindByPath( "code/ui/missing.razor" ) == null, "missing path should return null" );
+	}
+
+	// ---------- M9 generator tests ----------
+
+	private static SuiGenerationResult RunGenerator( SuiDocument doc, string outputFolder = "test_output" )
+	{
+		return SuiGenerationPipeline.Run( new SuiGenerationContext
+		{
+			Document = doc,
+			Mode = SuiGenerationMode.Final,
+			OutputFolder = outputFolder,
+		} );
+	}
+
+	private static SuiDocument BuildSampleDoc()
+	{
+		var doc = SuiDocument.CreateDefault( "Sample" );
+		var root = doc.GetRoot();
+
+		// Panel as direct child of root
+		var panel = new SuiElement
+		{
+			Id = "el_panel1", Name = "Inventory", Type = SuiElementType.Panel, ParentId = root.Id,
+		};
+		panel.ApplyTypeDefaults();
+		panel.Style.ClassName = "inventory-panel";
+		panel.Style.BackgroundColor = "#151515cc";
+		panel.Style.BorderRadius = 16f;
+		panel.Layout.Width = 520; panel.Layout.Height = 760;
+		root.Children.Add( panel.Id );
+		doc.Elements.Add( panel );
+
+		// Text inside the panel
+		var title = new SuiElement
+		{
+			Id = "el_title", Name = "Title", Type = SuiElementType.Text, ParentId = panel.Id,
+		};
+		title.ApplyTypeDefaults();
+		title.Style.ClassName = "title-text";
+		title.Props.Text = "Inventory";
+		title.Props.FontSize = 32f;
+		title.Props.Color = "#ffffff";
+		panel.Children.Add( title.Id );
+		doc.Elements.Add( title );
+
+		return doc;
+	}
+
+	private static void Generator_DefaultDocument_ProducesTwoFiles()
+	{
+		var doc = BuildSampleDoc();
+		var r = RunGenerator( doc );
+		Assert( r.Ok, "generator should succeed: " + string.Join( "; ", r.Errors ) );
+		AssertEq( r.Files.Count, 2, "expected 2 files (razor + scss)" );
+		Assert( r.FindByKind( SuiGeneratedFileKind.Razor ) != null, "razor file present" );
+		Assert( r.FindByKind( SuiGeneratedFileKind.Scss ) != null, "scss file present" );
+	}
+
+	private static void Generator_RazorHasInheritsPanelComponent()
+	{
+		var r = RunGenerator( BuildSampleDoc() );
+		var razor = r.FindByKind( SuiGeneratedFileKind.Razor )?.Content ?? "";
+		Assert( razor.Contains( "@inherits PanelComponent" ),
+			"razor must @inherits PanelComponent" );
+	}
+
+	private static void Generator_RazorWrapsInRootElement()
+	{
+		var r = RunGenerator( BuildSampleDoc() );
+		var razor = r.FindByKind( SuiGeneratedFileKind.Razor )?.Content ?? "";
+		Assert( razor.Contains( "<root>" ) && razor.Contains( "</root>" ),
+			"razor must wrap markup in <root>...</root>" );
+	}
+
+	private static void Generator_BothFilesHaveParseableHeaders()
+	{
+		var r = RunGenerator( BuildSampleDoc() );
+		var razor = r.FindByKind( SuiGeneratedFileKind.Razor )?.Content ?? "";
+		var scss = r.FindByKind( SuiGeneratedFileKind.Scss )?.Content ?? "";
+		Assert( SuiHeaderEmitter.Parse( razor ) != null, "razor header must parse" );
+		Assert( SuiHeaderEmitter.Parse( scss ) != null, "scss header must parse" );
+	}
+
+	private static void Generator_HeaderDocumentIdMatchesSource()
+	{
+		var doc = BuildSampleDoc();
+		var r = RunGenerator( doc );
+		var razor = r.FindByKind( SuiGeneratedFileKind.Razor )?.Content ?? "";
+		var parsed = SuiHeaderEmitter.Parse( razor );
+		Assert( parsed != null, "header parse" );
+		AssertEq( parsed.DocumentId, doc.DocumentId, "header DocumentId must match source" );
+		Assert( parsed.MatchesDocument( doc ), "header.MatchesDocument should be true" );
+	}
+
+	private static void Generator_NoAtExpressionInRazorBody()
+	{
+		var r = RunGenerator( BuildSampleDoc() );
+		var razor = r.FindByKind( SuiGeneratedFileKind.Razor )?.Content ?? "";
+
+		// Strip header (@* ... *@) and the @using / @inherits / @namespace directives
+		// before scanning. What's left must contain ZERO `@` characters — else the
+		// MVP no-data-binding invariant is violated and BuildHash() must be added.
+		var stripped = Regex.Replace( razor, @"@\*[\s\S]*?\*@", "" );
+		stripped = Regex.Replace( stripped, @"^\s*@(using|inherits|namespace)[^\r\n]*", "", RegexOptions.Multiline );
+		stripped = Regex.Replace( stripped, @"@code\s*\{[\s\S]*?\}", "" );
+		Assert( !stripped.Contains( "@" ),
+			"MVP markup must contain zero @expression — found `@` after stripping directives:\n" + stripped );
+	}
+
+	private static void Generator_NoCodeBlockOrBuildHash()
+	{
+		var r = RunGenerator( BuildSampleDoc() );
+		var razor = r.FindByKind( SuiGeneratedFileKind.Razor )?.Content ?? "";
+		Assert( !razor.Contains( "@code" ),
+			"MVP must NOT emit an @code block (BuildHash override comes in V1.5)" );
+		Assert( !razor.Contains( "BuildHash" ),
+			"MVP must NOT emit a BuildHash override" );
+	}
+
+	private static void Generator_NoForbiddenDisplayValues()
+	{
+		var r = RunGenerator( BuildSampleDoc() );
+		var scss = r.FindByKind( SuiGeneratedFileKind.Scss )?.Content ?? "";
+		Assert( !Regex.IsMatch( scss, @"\bdisplay\s*:\s*grid\b" ), "scss must not emit display: grid" );
+		Assert( !Regex.IsMatch( scss, @"\bdisplay\s*:\s*block\b" ), "scss must not emit display: block" );
+		Assert( !Regex.IsMatch( scss, @"\bdisplay\s*:\s*contents\b" ), "scss must not emit display: contents" );
+		Assert( !Regex.IsMatch( scss, @"\bdisplay\s*:\s*inline" ), "scss must not emit display: inline*" );
+	}
+
+	private static void Generator_NoPositionFixed()
+	{
+		var r = RunGenerator( BuildSampleDoc() );
+		var scss = r.FindByKind( SuiGeneratedFileKind.Scss )?.Content ?? "";
+		Assert( !Regex.IsMatch( scss, @"\bposition\s*:\s*fixed\b" ), "scss must not emit position: fixed" );
+		Assert( !Regex.IsMatch( scss, @"\bposition\s*:\s*sticky\b" ), "scss must not emit position: sticky" );
+	}
+
+	private static void Generator_NoCssGridProperties()
+	{
+		var r = RunGenerator( BuildSampleDoc() );
+		var scss = r.FindByKind( SuiGeneratedFileKind.Scss )?.Content ?? "";
+		Assert( !scss.Contains( "grid-template" ), "scss must not contain grid-template-*" );
+		Assert( !scss.Contains( "grid-area" ), "scss must not contain grid-area" );
+		Assert( !scss.Contains( "grid-column:" ), "scss must not contain grid-column:" );
+		Assert( !scss.Contains( "grid-row:" ), "scss must not contain grid-row:" );
+	}
+
+	private static void Generator_OutputIsDeterministic()
+	{
+		var doc = BuildSampleDoc();
+		var r1 = RunGenerator( doc.Clone() );
+		var r2 = RunGenerator( doc.Clone() );
+
+		var razor1 = r1.FindByKind( SuiGeneratedFileKind.Razor )?.Content ?? "";
+		var razor2 = r2.FindByKind( SuiGeneratedFileKind.Razor )?.Content ?? "";
+		AssertEq( razor1, razor2, "razor output must be deterministic for the same document" );
+
+		var scss1 = r1.FindByKind( SuiGeneratedFileKind.Scss )?.Content ?? "";
+		var scss2 = r2.FindByKind( SuiGeneratedFileKind.Scss )?.Content ?? "";
+		AssertEq( scss1, scss2, "scss output must be deterministic for the same document" );
+
+		AssertEq(
+			r1.FindByKind( SuiGeneratedFileKind.Razor ).Sha256,
+			r2.FindByKind( SuiGeneratedFileKind.Razor ).Sha256,
+			"razor sha-256 must be deterministic" );
+	}
+
+	private static void Generator_TextElementEmitsLabel()
+	{
+		var r = RunGenerator( BuildSampleDoc() );
+		var razor = r.FindByKind( SuiGeneratedFileKind.Razor )?.Content ?? "";
+		Assert( razor.Contains( "<label class=\"title-text\">Inventory</label>" ),
+			"text element should emit <label> with class + content" );
+	}
+
+	private static void Generator_TextEscapesAtSign()
+	{
+		var doc = SuiDocument.CreateDefault( "Esc" );
+		var root = doc.GetRoot();
+		var t = new SuiElement
+		{
+			Id = "t1", Name = "T", Type = SuiElementType.Text, ParentId = root.Id,
+		};
+		t.ApplyTypeDefaults();
+		t.Style.ClassName = "lab";
+		t.Props.Text = "use @ to mention";
+		root.Children.Add( t.Id );
+		doc.Elements.Add( t );
+
+		var r = RunGenerator( doc );
+		var razor = r.FindByKind( SuiGeneratedFileKind.Razor )?.Content ?? "";
+		Assert( !razor.Contains( "use @ to mention" ),
+			"raw @ must be escaped (else Razor will treat it as a directive)" );
+		Assert( razor.Contains( "use &#64; to mention" ),
+			"@ should be escaped to &#64; in text content" );
+	}
+
+	private static void Generator_ScssScopedUnderTypeName()
+	{
+		var doc = SuiDocument.CreateDefault( "InventoryUI" );
+		doc.Output.ClassName = "InventoryUI";
+		var r = RunGenerator( doc );
+		var scss = r.FindByKind( SuiGeneratedFileKind.Scss )?.Content ?? "";
+		Assert( scss.Contains( "InventoryUI {" ),
+			"scss must use the panel type name as the outermost selector" );
+	}
+
+	private static void Generator_GridGeneratesWrappedFlex()
+	{
+		var doc = SuiDocument.CreateDefault( "Hud" );
+		var root = doc.GetRoot();
+		var grid = new SuiElement
+		{
+			Id = "grid1", Name = "Slots", Type = SuiElementType.InventoryGrid, ParentId = root.Id,
+		};
+		grid.ApplyTypeDefaults();
+		grid.Style.ClassName = "slot-grid";
+		grid.Props.Columns = 6;
+		grid.Props.Rows = 5;
+		grid.Props.CellWidth = 72f;
+		grid.Props.CellHeight = 72f;
+		grid.Props.GridGap = 8f;
+		root.Children.Add( grid.Id );
+		doc.Elements.Add( grid );
+
+		var r = RunGenerator( doc );
+		var scss = r.FindByKind( SuiGeneratedFileKind.Scss )?.Content ?? "";
+
+		Assert( scss.Contains( "display: flex" ), "grid should emit display: flex" );
+		Assert( scss.Contains( "flex-wrap: wrap" ), "InventoryGrid should wrap" );
+		Assert( !scss.Contains( "display: grid" ), "must NEVER emit display: grid" );
+	}
+
+	private static void AllowedPropertyList_RejectsDisplayGrid()
+	{
+		var err = SuiAllowedPropertyList.Validate( "display", "grid" );
+		Assert( err != null, "Validate must reject display: grid" );
+		Assert( err.Contains( "grid" ), "error should mention grid" );
+	}
+
+	private static void AllowedPropertyList_RejectsPositionFixed()
+	{
+		var err = SuiAllowedPropertyList.Validate( "position", "fixed" );
+		Assert( err != null, "Validate must reject position: fixed" );
+	}
+
+	private static void HashUtility_IsStableAcrossCalls()
+	{
+		var a = SuiHashUtility.Sha256( "hello world" );
+		var b = SuiHashUtility.Sha256( "hello world" );
+		AssertEq( a, b, "sha-256 must be stable for the same input" );
+		Assert( a.Length == 64, "sha-256 hex string must be 64 chars" );
 	}
 
 	// ---------- Helpers ----------

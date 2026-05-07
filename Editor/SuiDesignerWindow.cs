@@ -1,6 +1,7 @@
 using Editor;
 using Sandbox;
 using SboxUiDesigner.EditorUi.Widgets;
+using SboxUiDesigner.Generation;
 using SboxUiDesigner.Runtime;
 
 namespace SboxUiDesigner.EditorUi;
@@ -333,7 +334,35 @@ public class SuiDesignerWindow : DockWindow, IAssetEditor
 
 	private void Compile()
 	{
-		Log.Info( "[Sui] Compile clicked — generator lands in M9" );
+		if ( Document == null )
+		{
+			Log.Warning( "[Sui] cannot compile — no document loaded" );
+			return;
+		}
+
+		// Save first so the on-disk .sui matches what the generator sees.
+		Save();
+
+		var ctx = new SuiGenerationContext
+		{
+			Document = Document,
+			Mode = SuiGenerationMode.Final,
+			OutputFolder = Document.Output?.RootFolder ?? "(unset)",
+			ClassName = Document.Output?.ClassName,
+			Namespace = Document.Output?.Namespace,
+		};
+
+		var result = SuiGenerationPipeline.Run( ctx );
+		_compileResults?.DisplayResult( result );
+
+		if ( result.Ok )
+		{
+			Log.Info( $"[Sui] Compile OK — {result.Files.Count} file(s) generated. M12 will write to disk + manifest." );
+		}
+		else
+		{
+			foreach ( var e in result.Errors ) Log.Error( $"[Sui] {e}" );
+		}
 	}
 
 	private void ChangeOutputFolder()

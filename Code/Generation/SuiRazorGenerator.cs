@@ -1,0 +1,155 @@
+using System.Collections.Generic;
+using System.Text;
+using SboxUiDesigner.Runtime;
+
+namespace SboxUiDesigner.Generation;
+
+/// <summary>
+/// Razor markup emitter. Produces a single .razor file per .sui document
+/// containing <c>@inherits PanelComponent</c> + the element tree wrapped in
+/// <c>&lt;root&gt;</c>.
+///
+/// MVP invariants (per PRD doc 10 + ui-anti-patterns.md):
+///  - Zero <c>@expression</c> anywhere in the markup body. Every value baked
+///    in at generation time as a literal. Text content is HTML-escaped via
+///    <see cref="SuiNameSanitizer.EscapeRazorText"/> so user-typed text can't
+///    inject Razor directives.
+///  - No <c>@code</c> block. No <c>BuildHash()</c> override. The default
+///    runtime rebuild on hotload + interaction is sufficient because nothing
+///    in the markup depends on a runtime variable.
+///  - Element tags chosen to match the canonical s&box runtime panel tree:
+///    <c>&lt;label&gt;</c> for Text, <c>&lt;div&gt;</c> for everything else.
+///
+/// V1.5 will lift the no-@expression rule when data binding lands and add a
+/// matching <c>BuildHash()</c> override that includes every referenced
+/// property — see PRD doc 10 / 12.
+/// </summary>
+public sealed class SuiRazorGenerator
+{
+	private readonly StringBuilder _sb = new();
+	private SuiDocument _doc;
+	private Dictionary<string, SuiElement> _byId;
+
+	public string Generate( SuiGenerationContext ctx, SuiGenerationResult result )
+	{
+		_sb.Clear();
+
+		_doc = ctx?.Document;
+		if ( _doc == null )
+		{
+			result.Errors.Add( "razor: document is null" );
+			return "";
+		}
+
+		_byId = new();
+		foreach ( var el in _doc.Elements )
+			if ( !string.IsNullOrEmpty( el.Id ) ) _byId[el.Id] = el;
+
+		// Header (Razor comment block, parseable by manifest checker).
+		_sb.Append( SuiHeaderEmitter.EmitRazorHeader( _doc ) );
+		_sb.Append( '\n' );
+
+		// Standard preamble. @inherits PanelComponent makes this the root of
+		// a runtime UI tree (used inside ScreenPanel or WorldPanel).
+		_sb.AppendLine( "@using Sandbox;" );
+		_sb.AppendLine( "@using Sandbox.UI;" );
+		_sb.AppendLine( "@inherits PanelComponent" );
+		_sb.AppendLine();
+
+		// Markup tree.
+		_sb.AppendLine( "<root>" );
+		var root = _doc.GetRoot();
+		if ( root != null )
+		{
+			EmitElement( root, depth: 1 );
+		}
+		_sb.AppendLine( "</root>" );
+
+		return _sb.ToString();
+	}
+
+	// ─────────────────────────────────────────────────────────────────────
+	//  Per-element markup emission
+	// ─────────────────────────────────────────────────────────────────────
+
+	private void EmitElement( SuiElement el, int depth )
+	{
+		if ( el == null ) return;
+		var indent = new string( '\t', depth );
+		var className = SuiNameSanitizer.ToCssClass( el.Style?.ClassName ?? el.Type.ToString() );
+
+		switch ( el.Type )
+		{
+			case SuiElementType.Text:
+				EmitTextElement( el, className, indent );
+				break;
+
+			default:
+				EmitContainerElement( el, className, indent, depth );
+				break;
+		}
+	}
+
+	private void EmitTextElement( SuiElement el, string className, string indent )
+	{
+		var text = SuiNameSanitizer.EscapeRazorText( el.Props?.Text ?? "" );
+		_sb.Append( indent ).Append( "<label class=\"" ).Append( className ).Append( "\">" )
+			.Append( text )
+			.AppendLine( "</label>" );
+	}
+
+	private void EmitContainerElement( SuiElement el, string className, string indent, int depth )
+	{
+		var hasChildren = el.Children != null && el.Children.Count > 0;
+		var hasContent = false; // type-specific content like Button label
+
+		// Open tag
+		_sb.Append( indent ).Append( "<div class=\"" ).Append( className ).Append( "\"" );
+
+		// Self-closing if no children and no content
+		if ( !hasChildren && !HasIntrinsicContent( el ) )
+		{
+			_sb.AppendLine( "></div>" );
+			return;
+		}
+
+		_sb.AppendLine( ">" );
+
+		// Type-specific intrinsic content (Button label, ProgressBar fill+label, etc.)
+		EmitIntrinsicContent( el, depth + 1 );
+
+		// Children
+		foreach ( var childId in el.Children )
+		{
+			if ( _byId.TryGetValue( childId, out var child ) )
+				EmitElement( child, depth + 1 );
+		}
+
+		// Close tag
+		_sb.Append( indent ).AppendLine( "</div>" );
+	}
+
+	private bool HasIntrinsicContent( SuiElement el ) => el.Type switch
+	{
+		SuiElementType.Button when !string.IsNullOrEmpty( el.Props?.ButtonText ) => true,
+		_ => false,
+	};
+
+	private void EmitIntrinsicContent( SuiElement el, int depth )
+	{
+		var indent = new string( '\t', depth );
+
+		switch ( el.Type )
+		{
+			case SuiElementType.Button:
+				if ( !string.IsNullOrEmpty( el.Props?.ButtonText ) )
+				{
+					var text = SuiNameSanitizer.EscapeRazorText( el.Props.ButtonText );
+					_sb.Append( indent ).Append( "<label class=\"label\">" )
+						.Append( text )
+						.AppendLine( "</label>" );
+				}
+				break;
+		}
+	}
+}
