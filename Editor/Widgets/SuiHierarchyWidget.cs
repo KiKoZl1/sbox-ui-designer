@@ -434,8 +434,11 @@ internal sealed class SuiElementTreeNode : TreeNode
 		return true;
 	}
 
-	public override DropAction OnDragDrop( ItemDragEvent e )
+	public override DropAction OnDragDrop( BaseItemWidget.ItemDragEvent e )
 	{
+		// ItemDragEvent is nested inside Editor.BaseItemWidget — must be
+		// qualified from outside the Editor namespace. The base TreeNode
+		// declaration uses the bare name because it lives in 'namespace Editor'.
 		if ( _owner == null || Element == null ) return DropAction.Ignore;
 
 		// `e.Data.Object` is whatever OnDragStart put in there — for SUI nodes
