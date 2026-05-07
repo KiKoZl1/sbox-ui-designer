@@ -50,15 +50,20 @@ public sealed class SuiPreviewHost
 		var cameraGo = new GameObject( true, "Camera" );
 		Camera = cameraGo.GetOrAddComponent<CameraComponent>( false );
 		Camera.BackgroundColor = new Color( 0.08f, 0.08f, 0.10f, 1f );
-		Camera.ZFar = 4096;
+		Camera.ZFar = 8192;
 		Camera.FieldOfView = 60;
-		// Camera looks at origin (+X forward by s&box convention). Distance
-		// chosen so a 1920x1080 WorldPanel @ RenderScale 0.1 (so 192x108 world
-		// units) fills the viewport at FOV 60: ~108 / (2 * tan(30°)) ≈ 94 units.
-		// Pulling back to 200 leaves comfortable margin around the panel.
-		Camera.WorldPosition = new Vector3( -200, 0, 0 );
+		// Reading WorldPanel.OnPreRender: PanelBounds get divided by RenderScale
+		// (so they're 10x larger when RenderScale=0.1) and the world Transform
+		// is scaled by RenderScale. Net world-space size = PanelSize, regardless
+		// of RenderScale. So PanelSize=1920x1080 produces a 1920x1080 WORLD unit
+		// panel (huge). At FOV 60 vertical, distance D needs D * tan(30°) >=
+		// half-height (540). D = 540 / 0.577 ≈ 935. Pulling back to 1500 leaves
+		// margin for the cyan WorldPanel gizmo to also be visible.
+		Camera.WorldPosition = new Vector3( -1500, 0, 0 );
 		Camera.WorldRotation = Rotation.Identity;
 		Camera.Enabled = true;
+
+		Log.Info( $"[Sui preview] camera built at {Camera.WorldPosition}, FOV {Camera.FieldOfView}, ZFar {Camera.ZFar}" );
 	}
 
 	private void BuildLights()
@@ -94,11 +99,24 @@ public sealed class SuiPreviewHost
 		var worldPanel = _uiHost.AddComponent<WorldPanel>();
 		worldPanel.LookAtCamera = true;
 		worldPanel.PanelSize = new Vector2( 1920, 1080 );
-		worldPanel.RenderScale = 0.1f;
+		worldPanel.RenderScale = 1.0f; // keep simple for debug — see OnPreRender math in WorldPanel.cs
 		worldPanel.HorizontalAlign = WorldPanel.HAlignment.Center;
 		worldPanel.VerticalAlign = WorldPanel.VAlignment.Center;
 
-		_uiHost.AddComponent<SuiTestPanel>();
+		var testPanel = _uiHost.AddComponent<SuiTestPanel>();
+
+		Log.Info( $"[Sui preview] WorldPanel built. PanelSize={worldPanel.PanelSize}, RenderScale={worldPanel.RenderScale}, LookAtCamera={worldPanel.LookAtCamera}" );
+		Log.Info( $"[Sui preview] SuiTestPanel attached: {testPanel != null}, IsValid={testPanel?.IsValid()}" );
+
+		// Reference cube at the panel's right side to confirm camera sees this
+		// region. If the cube shows but the panel doesn't, the panel rendering
+		// itself is the issue. If neither shows, it's a camera/scene problem.
+		var probe = new GameObject( true, "DebugProbe" );
+		probe.WorldPosition = new Vector3( 0, 1100, 0 ); // 1100 units to the right (s&box +Y is right? Let me try this and see)
+		var probeRenderer = probe.GetOrAddComponent<ModelRenderer>( false );
+		probeRenderer.Model = Model.Load( "models/dev/box.vmdl" );
+		probeRenderer.Tint = new Color( 1f, 0.4f, 0.2f, 1f );
+		probeRenderer.Enabled = true;
 	}
 
 	/// <summary>

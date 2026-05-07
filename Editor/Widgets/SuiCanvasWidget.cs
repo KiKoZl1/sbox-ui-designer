@@ -41,6 +41,10 @@ public class SuiCanvasWidget : Widget
 		_sceneWidget.Scene = _previewHost.Scene;
 		_sceneWidget.Camera = _previewHost.Camera;
 		_sceneWidget.OnPreFrame += OnPreFrame;
+		// Engine overlays include WorldPanel's DrawGizmos cyan rectangle —
+		// turning them on lets us VISUALLY verify the WorldPanel is positioned
+		// where we expect, even if its content isn't rendering yet.
+		_sceneWidget.EnableEngineOverlays = true;
 		_sceneWidget.SetSizeMode( SizeMode.CanGrow, SizeMode.CanGrow );
 		Layout.Add( _sceneWidget, 1 );
 	}
