@@ -36,19 +36,22 @@ The technical PRD lives in [`docs/prd/`](docs/prd/). Start with [`00_overview.md
 ## Layout
 
 ```
-code/
-  Runtime/         data models, schema, generation support
-  Generation/      Razor/SCSS generator implementation
-editor/
-  Widgets/         Editor.Window + region widgets
-  Tools/           designer commands (move, resize, snap, zoom)
+Code/                          (capital — s&box compilable code root)
+  Runtime/                     data models, schema, generation support
+  Generation/                  Razor/SCSS generator implementation
+Editor/                        (capital — s&box editor code root)
+  Widgets/                     Editor.Window + region widgets
+  Tools/                       designer commands (move, resize, snap, zoom)
 samples/
-  ui/              sample .sui assets
-tests/             unit + golden-file tests
+  ui/                          sample .sui assets
+tests/                         unit + golden-file tests
 docs/
-  prd/             technical PRD
-.github/           PR template + CI
+  prd/                         technical PRD
+.github/                       PR template + CI
+sbox_ui_designer.sbproj        s&box library manifest
 ```
+
+**Naming note:** s&box auto-discovers compilable code under `Code/` and editor code under `Editor/` (capital first letter) for both `game` and `library` project types. PRD docs sometimes reference lowercase `code/` / `editor/` from earlier drafts — the actual on-disk layout uses the capitalized form.
 
 ## License
 
