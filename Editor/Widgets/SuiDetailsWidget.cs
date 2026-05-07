@@ -72,6 +72,7 @@ public class SuiDetailsWidget : Widget
 	{
 		if ( _bodyHost?.Layout == null ) return;
 		_bodyHost.Layout.Clear( true );
+		_activeBody = _bodyHost;
 
 		if ( _selected != null && _document != null )
 		{
@@ -87,6 +88,19 @@ public class SuiDetailsWidget : Widget
 		}
 
 		_bodyHost.Layout.AddStretchCell();
+		_activeBody = _bodyHost;
+	}
+
+	/// <summary>
+	/// Open a new collapsible section. Rows added afterwards land inside its
+	/// Body. The first call wraps everything; nested sections are not
+	/// supported in M8 polish.
+	/// </summary>
+	private void BeginSection( string title, bool defaultExpanded = true )
+	{
+		var section = new SuiCollapsibleSection( title, _bodyHost, defaultExpanded );
+		_bodyHost.Layout.Add( section );
+		_activeBody = section.Body;
 	}
 
 	// ─────────────────────────────────────────────────────────────────────
@@ -104,7 +118,7 @@ public class SuiDetailsWidget : Widget
 
 	private void BuildIdentitySection( SuiElement el )
 	{
-		AddSectionHeader( "Identity" );
+		BeginSection( "Identity" );
 		AddTextRow( "Name", el.Name, v => SetProp( el, e => e.Name, ( e, v2 ) => e.Name = v2, v, "Rename" ) );
 		AddReadonlyRow( "Id", el.Id );
 		AddReadonlyRow( "Type", el.Type.ToString() );
@@ -117,7 +131,7 @@ public class SuiDetailsWidget : Widget
 	private void BuildDesignerSection( SuiElement el )
 	{
 		if ( el.Flags == null ) el.Flags = new SuiElementFlags();
-		AddSectionHeader( "Designer" );
+		BeginSection( "Designer", defaultExpanded: false );
 		AddBoolRow( "Locked", el.Flags.Locked,
 			v => SetProp( el, e => e.Flags.Locked, ( e, v2 ) => e.Flags.Locked = v2, v, "Set locked" ) );
 		AddBoolRow( "Hidden in designer", el.Flags.HiddenInDesigner,
@@ -131,7 +145,7 @@ public class SuiDetailsWidget : Widget
 		if ( el.Layout == null ) el.Layout = new SuiLayoutData();
 		var layout = el.Layout;
 
-		AddSectionHeader( "Transform & Layout" );
+		BeginSection( "Transform & Layout" );
 
 		AddEnumRow<SuiLayoutMode>( "Mode", layout.Mode,
 			v => { SetProp( el, e => e.Layout.Mode, ( e, v2 ) => e.Layout.Mode = v2, v, "Change layout mode" ); Refresh(); } );
@@ -207,7 +221,7 @@ public class SuiDetailsWidget : Widget
 		if ( el.Style == null ) el.Style = new SuiStyleData();
 		var s = el.Style;
 
-		AddSectionHeader( "Appearance" );
+		BeginSection( "Appearance" );
 		AddTextRow( "Class Name", s.ClassName ?? "",
 			v => SetProp( el, e => e.Style.ClassName, ( e, v2 ) => e.Style.ClassName = v2, v, "Set class name" ) );
 		AddColorRow( "Background Color", s.BackgroundColor ?? "",
@@ -238,7 +252,7 @@ public class SuiDetailsWidget : Widget
 		switch ( el.Type )
 		{
 			case SuiElementType.Text:
-				AddSectionHeader( "Text" );
+				BeginSection( "Text" );
 				AddTextRow( "Text", p.Text,
 					v => SetProp( el, e => e.Props.Text, ( e, v2 ) => e.Props.Text = v2, v, "Set text" ) );
 				AddFloatRow( "Font Size", p.FontSize,
@@ -259,7 +273,7 @@ public class SuiDetailsWidget : Widget
 
 			case SuiElementType.Image:
 			case SuiElementType.ItemIcon:
-				AddSectionHeader( "Image" );
+				BeginSection( "Image" );
 				AddImageAssetRow( "Image Path", p.ImagePath ?? "",
 					v => SetProp( el, e => e.Props.ImagePath, ( e, v2 ) => e.Props.ImagePath = v2, v, "Set image path" ) );
 				AddColorRow( "Tint", p.Tint ?? "",
@@ -271,7 +285,7 @@ public class SuiDetailsWidget : Widget
 				break;
 
 			case SuiElementType.Button:
-				AddSectionHeader( "Button" );
+				BeginSection( "Button" );
 				AddTextRow( "Button Text", p.ButtonText ?? "",
 					v => SetProp( el, e => e.Props.ButtonText, ( e, v2 ) => e.Props.ButtonText = v2, v, "Set button text" ) );
 				break;
@@ -279,7 +293,7 @@ public class SuiDetailsWidget : Widget
 			case SuiElementType.Grid:
 			case SuiElementType.InventoryGrid:
 			case SuiElementType.Hotbar:
-				AddSectionHeader( "Grid" );
+				BeginSection( "Grid" );
 				AddIntRow( "Columns", p.Columns,
 					v => SetProp( el, e => e.Props.Columns, ( e, v2 ) => e.Props.Columns = v2, v, "Set columns" ) );
 				AddIntRow( "Rows", p.Rows,
@@ -297,7 +311,7 @@ public class SuiDetailsWidget : Widget
 				break;
 
 			case SuiElementType.ProgressBar:
-				AddSectionHeader( "Progress Bar" );
+				BeginSection( "Progress Bar" );
 				AddFloatRow( "Min", p.ProgressMin,
 					v => SetProp( el, e => e.Props.ProgressMin, ( e, v2 ) => e.Props.ProgressMin = v2, v, "Set min" ) );
 				AddFloatRow( "Max", p.ProgressMax,
@@ -309,7 +323,7 @@ public class SuiDetailsWidget : Widget
 				break;
 
 			case SuiElementType.InventorySlot:
-				AddSectionHeader( "Inventory Slot" );
+				BeginSection( "Inventory Slot" );
 				AddIntRow( "Slot Index", p.SlotIndex,
 					v => SetProp( el, e => e.Props.SlotIndex, ( e, v2 ) => e.Props.SlotIndex = v2, v, "Set slot index" ) );
 				AddImageAssetRow( "Preview Icon", p.PreviewIconPath ?? "",
@@ -326,7 +340,7 @@ public class SuiDetailsWidget : Widget
 
 	private void BuildDocumentSections()
 	{
-		AddSectionHeader( "Document" );
+		BeginSection( "Document" );
 		AddReadonlyRow( "Name", _document.Name ?? "" );
 		AddReadonlyRow( "Id", _document.DocumentId ?? "" );
 		AddReadonlyRow( "Schema", $"v{_document.SchemaVersion}" );
@@ -334,7 +348,7 @@ public class SuiDetailsWidget : Widget
 
 		if ( _document.Canvas != null )
 		{
-			AddSectionHeader( "Canvas" );
+			BeginSection( "Canvas" );
 			AddIntRow( "Base Width", _document.Canvas.BaseWidth,
 				v => { _document.Canvas.BaseWidth = v; } );
 			AddIntRow( "Base Height", _document.Canvas.BaseHeight,
@@ -345,7 +359,7 @@ public class SuiDetailsWidget : Widget
 
 		if ( _document.Output != null )
 		{
-			AddSectionHeader( "Output" );
+			BeginSection( "Output", defaultExpanded: false );
 			AddReadonlyRow( "Configured", _document.Output.Configured.ToString() );
 			AddReadonlyRow( "Folder", _document.Output.RootFolder ?? "(not set)" );
 			AddTextRow( "Namespace", _document.Output.Namespace ?? "",
@@ -384,17 +398,20 @@ public class SuiDetailsWidget : Widget
 
 	private void AddSectionHeader( string text )
 	{
-		var lbl = new Label( text.ToUpperInvariant(), _bodyHost );
-		lbl.SetStyles( "color: #9ca3af; font-size: 10px; font-weight: bold; padding-top: 10px; padding-bottom: 4px; letter-spacing: 1px;" );
-		_bodyHost.Layout.Add( lbl );
+		// Sub-header inside an already-open section (e.g. the "Notes" subgroup
+		// inside Identity). Top-level groups should use BeginSection so the
+		// user gets the collapsible chrome.
+		var lbl = new Label( text.ToUpperInvariant(), Container() );
+		lbl.SetStyles( "color: #9ca3af; font-size: 10px; font-weight: bold; padding-top: 6px; padding-bottom: 2px; letter-spacing: 1px;" );
+		Container().Layout.Add( lbl );
 	}
 
 	private void AddNote( string text )
 	{
-		var lbl = new Label( text, _bodyHost );
+		var lbl = new Label( text, Container() );
 		lbl.WordWrap = true;
 		lbl.SetStyles( "color: #6b7280; font-size: 10px; padding-top: 8px;" );
-		_bodyHost.Layout.Add( lbl );
+		Container().Layout.Add( lbl );
 	}
 
 	private void AddReadonlyRow( string label, string value )
@@ -404,8 +421,10 @@ public class SuiDetailsWidget : Widget
 		var v = new Label( value, row );
 		v.SetStyles( "color: #d1d5db; font-size: 11px;" );
 		row.Layout.Add( v, 1 );
-		_bodyHost.Layout.Add( row );
+		Container().Layout.Add( row );
 	}
+
+	private Widget Container() => _activeBody ?? _bodyHost;
 
 	private void AddTextRow( string label, string value, Action<string> onCommit )
 	{
@@ -415,7 +434,7 @@ public class SuiDetailsWidget : Widget
 		le.Text = value ?? "";
 		le.EditingFinished += () => onCommit?.Invoke( le.Text ?? "" );
 		row.Layout.Add( le, 1 );
-		_bodyHost.Layout.Add( row );
+		Container().Layout.Add( row );
 	}
 
 	/// <summary>
@@ -426,13 +445,14 @@ public class SuiDetailsWidget : Widget
 	private void AddTextAreaRow( string label, string value, Action<string> onCommit, int fixedHeight = 80 )
 	{
 		AddSectionHeader( label );
-		var te = new TextEdit( _bodyHost );
+		var host = Container();
+		var te = new TextEdit( host );
 		te.PlainText = value ?? "";
 		te.FixedHeight = fixedHeight;
-		// TextEdit.TextChanged is a parameterless Action; pull the current
-		// PlainText off the widget itself when it fires.
+		// TextEdit.TextChanged is Action<string>; pull the current PlainText
+		// off the widget so we don't depend on the arg's semantics.
 		te.TextChanged += ( _ ) => onCommit?.Invoke( te.PlainText ?? "" );
-		_bodyHost.Layout.Add( te );
+		host.Layout.Add( te );
 	}
 
 	/// <summary>
@@ -500,7 +520,7 @@ public class SuiDetailsWidget : Widget
 			}
 		};
 
-		_bodyHost.Layout.Add( row );
+		Container().Layout.Add( row );
 	}
 
 	private static string ColorToHex( Color c )
@@ -554,7 +574,7 @@ public class SuiDetailsWidget : Widget
 		};
 		row.Layout.Add( browseBtn );
 
-		_bodyHost.Layout.Add( row );
+		Container().Layout.Add( row );
 	}
 
 	private void AddFloatRow( string label, float value, Action<float> onCommit )
@@ -571,7 +591,7 @@ public class SuiDetailsWidget : Widget
 				le.Text = value.ToString( System.Globalization.CultureInfo.InvariantCulture );
 		};
 		row.Layout.Add( le, 1 );
-		_bodyHost.Layout.Add( row );
+		Container().Layout.Add( row );
 	}
 
 	private void AddIntRow( string label, int value, Action<int> onCommit )
@@ -588,7 +608,7 @@ public class SuiDetailsWidget : Widget
 				le.Text = value.ToString( System.Globalization.CultureInfo.InvariantCulture );
 		};
 		row.Layout.Add( le, 1 );
-		_bodyHost.Layout.Add( row );
+		Container().Layout.Add( row );
 	}
 
 	private void AddBoolRow( string label, bool value, Action<bool> onCommit )
@@ -605,7 +625,7 @@ public class SuiDetailsWidget : Widget
 			onCommit?.Invoke( captured );
 		};
 		row.Layout.Add( btn, 1 );
-		_bodyHost.Layout.Add( row );
+		Container().Layout.Add( row );
 	}
 
 	private void AddEnumRow<T>( string label, T value, Action<T> onCommit ) where T : struct, Enum
@@ -631,12 +651,12 @@ public class SuiDetailsWidget : Widget
 			menu.OpenAtCursor( true );
 		};
 		row.Layout.Add( btn, 1 );
-		_bodyHost.Layout.Add( row );
+		Container().Layout.Add( row );
 	}
 
 	private Widget MakeRow()
 	{
-		var row = new Widget( _bodyHost );
+		var row = new Widget( Container() );
 		row.Layout = Layout.Row();
 		row.Layout.Margin = new Sandbox.UI.Margin( 0, 2, 0, 2 );
 		row.Layout.Spacing = 6;
