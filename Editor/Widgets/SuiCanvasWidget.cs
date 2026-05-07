@@ -28,9 +28,8 @@ public class SuiCanvasWidget : Widget
 		Layout.Spacing = 0;
 
 		_placeholder = new Label( "Visual designer canvas\n\nSpike 01 (M10) embeds Editor.SceneRenderingWidget here.\n\nThe scene-rendering widget hosts an editor-owned Scene whose root\nGameObject carries ScreenPanel + the generated PanelComponent.\nEditor selection/handle overlays render on a stacked Editor.Widget.", this );
-		_placeholder.Alignment = TextFlag.Center;
 		_placeholder.WordWrap = true;
-		_placeholder.SetStyles( "color: #6b7280; font-size: 12px; padding: 24px;" );
+		_placeholder.SetStyles( "color: #6b7280; font-size: 12px; padding: 24px; text-align: center;" );
 		Layout.Add( _placeholder, 1 );
 	}
 

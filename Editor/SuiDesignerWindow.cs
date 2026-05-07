@@ -29,6 +29,14 @@ public class SuiDesignerWindow : DockWindow, IAssetEditor
 {
 	public bool CanOpenMultipleAssets => false;
 
+	/// <summary>
+	/// IAssetEditor contract — invoked when a host (e.g. graph editor) asks the
+	/// asset editor to focus on a named member of the asset. M5 has no member
+	/// navigation surface, so this is intentionally a no-op until M8 wires the
+	/// Details panel's per-property editors and gives them stable names.
+	/// </summary>
+	public void SelectMember( string memberName ) { }
+
 	private Asset _asset;
 	private SuiAsset _resource;
 
@@ -167,8 +175,8 @@ public class SuiDesignerWindow : DockWindow, IAssetEditor
 		BuildToolBar();
 		BuildDocks();
 
-		PushDocumentToWidgets();
-		RefreshTitle();
+		// Re-fan the controller's current state out to the freshly-rebuilt widgets.
+		OnControllerDocumentChanged();
 	}
 
 	protected override void RestoreDefaultDockLayout()

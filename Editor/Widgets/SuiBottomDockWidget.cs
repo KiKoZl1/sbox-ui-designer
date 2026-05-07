@@ -35,22 +35,22 @@ public class SuiBottomDockWidget : Widget
 
 	private void BuildAnimationsTab()
 	{
-		_animationsTab = new Widget( this );
+		_animationsTab = new Widget( null );
 		_animationsTab.Layout = Layout.Column();
 		_animationsTab.Layout.Margin = 12;
 
 		var msg = new Label( "Animations are planned for V2.\n\nThe schema reserves space for animation tracks per element\n(.sui field 'animations'); UI lands later.", _animationsTab );
-		msg.Alignment = TextFlag.Center;
 		msg.WordWrap = true;
-		msg.SetStyles( "color: #6b7280; font-size: 11px;" );
+		msg.SetStyles( "color: #6b7280; font-size: 11px; text-align: center;" );
 		_animationsTab.Layout.Add( msg );
 
-		_tabs.AddTab( _animationsTab, "Animations", "movie" );
+		// TabWidget.AddPage signature: (name, icon, page).
+		_tabs.AddPage( "Animations", "movie", _animationsTab );
 	}
 
 	private void BuildCompileResultsTab()
 	{
-		_compileResultsTab = new Widget( this );
+		_compileResultsTab = new Widget( null );
 		_compileResultsTab.Layout = Layout.Column();
 		_compileResultsTab.Layout.Margin = 12;
 
@@ -60,7 +60,7 @@ public class SuiBottomDockWidget : Widget
 		_compileResultsTab.Layout.Add( _compileResultsLabel );
 		_compileResultsTab.Layout.AddStretchCell();
 
-		_tabs.AddTab( _compileResultsTab, "Compile Results", "build" );
+		_tabs.AddPage( "Compile Results", "build", _compileResultsTab );
 	}
 
 	/// <summary>Replace the Compile Results body with a fresh report — M12 will call this.</summary>
