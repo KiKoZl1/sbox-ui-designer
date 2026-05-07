@@ -1,6 +1,8 @@
 using System;
 using Editor;
 using Sandbox;
+using Sandbox.UI;
+using SboxUiDesigner.Runtime;
 
 namespace SboxUiDesigner.EditorUi;
 
@@ -25,7 +27,7 @@ public sealed class SuiPreviewHost
 	public Scene Scene { get; }
 	public CameraComponent Camera { get; private set; }
 
-	private GameObject _placeholderModel;
+	private GameObject _uiHost;
 
 	public SuiPreviewHost()
 	{
@@ -35,7 +37,7 @@ public sealed class SuiPreviewHost
 		{
 			BuildCamera();
 			BuildLights();
-			BuildPlaceholderContent();
+			BuildUiHost();
 		}
 	}
 
@@ -64,20 +66,20 @@ public sealed class SuiPreviewHost
 	}
 
 	/// <summary>
-	/// Etapa A placeholder — a simple ModelRenderer with the engine's default
-	/// box / arrow so we have something visible to prove the pipeline works.
-	/// Etapa B replaces this with a GameObject carrying ScreenPanel + the
-	/// generated PanelComponent.
+	/// Etapa B — GameObject that carries ScreenPanel + a static PanelComponent
+	/// (SuiTestPanel). Proves runtime UI renders inside an editor-owned Scene
+	/// hosted by SceneRenderingWidget. Etapa C/D will replace SuiTestPanel
+	/// with the dynamically-compiled type from the user's .sui document.
+	///
+	/// The Camera doesn't need a 3D viewpoint for ScreenPanel rendering —
+	/// ScreenPanel is a 2D HUD overlay that the camera renders flat onto its
+	/// output. The cube placeholder is gone.
 	/// </summary>
-	private void BuildPlaceholderContent()
+	private void BuildUiHost()
 	{
-		_placeholderModel = new GameObject( true, "PreviewProbe" );
-		var renderer = _placeholderModel.GetOrAddComponent<ModelRenderer>( false );
-		renderer.Model = Model.Load( "models/dev/box.vmdl" );
-		renderer.Tint = new Color( 0.3f, 0.6f, 1f, 1f );
-		renderer.Enabled = true;
-		_placeholderModel.WorldPosition = Vector3.Zero;
-		_placeholderModel.WorldScale = new Vector3( 0.5f, 0.5f, 0.5f );
+		_uiHost = new GameObject( true, "UIHost" );
+		_uiHost.AddComponent<ScreenPanel>();
+		_uiHost.AddComponent<SuiTestPanel>();
 	}
 
 	/// <summary>

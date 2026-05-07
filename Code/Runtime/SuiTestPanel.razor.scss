@@ -1,0 +1,40 @@
+SuiTestPanel {
+	position: absolute;
+	left: 0; top: 0; right: 0; bottom: 0;
+	flex-direction: column;
+	justify-content: center;
+	align-items: center;
+	pointer-events: none;
+
+	.card {
+		flex-direction: column;
+		align-items: center;
+		gap: 12px;
+		padding: 32px 48px;
+		background-color: #1f2937;
+		border-radius: 12px;
+		border: 1px solid #374151;
+	}
+
+	.title {
+		color: #f3f4f6;
+		font-size: 28px;
+		font-weight: bold;
+		letter-spacing: 1px;
+	}
+
+	.body {
+		color: #9ca3af;
+		font-size: 14px;
+	}
+
+	.swatch {
+		width: 64px;
+		height: 16px;
+		border-radius: 4px;
+
+		&.swatch-blue { background-color: #2563eb; }
+		&.swatch-green { background-color: #4ade80; }
+		&.swatch-pink { background-color: #ec4899; }
+	}
+}
