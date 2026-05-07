@@ -92,12 +92,28 @@ public class SuiHierarchyWidget : Widget
 
 	private void AddElementRow( SuiElement element, Dictionary<string, SuiElement> byId, int depth )
 	{
-		var indentPx = 6 + depth * 12;
 		var isSelected = _selected != null && _selected.Id == element.Id;
 
-		var btn = new Button( $"{element.Name}  ·  {element.Type}", "", _scrollHost );
+		// Row = spacer (depth-based) + element button. The Button's text is
+		// center-aligned by default and CSS text-align does not always override
+		// it, so we get visual nesting by physically shifting the button right
+		// with a fixed-width spacer rather than relying on padding.
+		var row = new Widget( _scrollHost );
+		row.Layout = Layout.Row();
+		row.Layout.Margin = 0;
+		row.Layout.Spacing = 0;
+
+		if ( depth > 0 )
+		{
+			var spacer = new Widget( row );
+			spacer.FixedWidth = depth * 14;
+			row.Layout.Add( spacer );
+		}
+
+		var btn = new Button( $"{element.Name}  ·  {element.Type}", IconForType( element.Type ), row );
 		btn.ToolTip = element.Id;
-		btn.SetStyles( $"text-align: left; padding-left: {indentPx}px; {(isSelected ? "background-color: #1f5cb8;" : "")}" );
+		if ( isSelected )
+			btn.SetStyles( "background-color: #1f5cb8;" );
 
 		var captured = element;
 		btn.Clicked += () =>
@@ -106,7 +122,9 @@ public class SuiHierarchyWidget : Widget
 			ElementSelected?.Invoke( captured );
 			Refresh();
 		};
-		_listLayout.Add( btn );
+		row.Layout.Add( btn, 1 );
+
+		_listLayout.Add( row );
 
 		foreach ( var childId in element.Children )
 		{
@@ -114,4 +132,25 @@ public class SuiHierarchyWidget : Widget
 				AddElementRow( child, byId, depth + 1 );
 		}
 	}
+
+	private static string IconForType( SuiElementType type ) => type switch
+	{
+		SuiElementType.Canvas => "crop_free",
+		SuiElementType.Panel => "crop_square",
+		SuiElementType.Overlay => "layers",
+		SuiElementType.Text => "title",
+		SuiElementType.Image => "image",
+		SuiElementType.Button => "smart_button",
+		SuiElementType.HorizontalBox => "view_week",
+		SuiElementType.VerticalBox => "view_agenda",
+		SuiElementType.Grid => "grid_on",
+		SuiElementType.ScrollPanel => "swap_vert",
+		SuiElementType.ProgressBar => "linear_scale",
+		SuiElementType.InventoryGrid => "grid_view",
+		SuiElementType.InventorySlot => "check_box_outline_blank",
+		SuiElementType.ItemIcon => "category",
+		SuiElementType.Tooltip => "info",
+		SuiElementType.Hotbar => "view_carousel",
+		_ => "extension",
+	};
 }
