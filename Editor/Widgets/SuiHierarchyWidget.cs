@@ -6,21 +6,23 @@ using SboxUiDesigner.Runtime;
 namespace SboxUiDesigner.EditorUi.Widgets;
 
 /// <summary>
-/// Hierarchy dock — left side, below palette. Shows the document's element tree.
+/// Hierarchy dock — left side, below palette. Renders the document tree using
+/// the editor's native <see cref="TreeView"/>. Tree nodes paint themselves via
+/// <see cref="Paint"/> (Qt-style immediate drawing) so the icon, name, and
+/// selection highlight render correctly inside the engine's editor renderer
+/// (CSS-style SetStyles does not reach this surface).
 ///
-/// M4: simple indented list of buttons (one per element). The s&box <c>TreeView</c>
-/// has a richer API that we'll adopt in M5/M7 when document mutations and rename
-/// flow are wired through the controller.
+/// Pattern reference: Facepunch TreeView.Example (FilesystemTreeNode) in
+/// sbox-public/game/addons/tools/Code/Widgets/TreeView/TreeView.Example.cs.
 /// </summary>
 public class SuiHierarchyWidget : Widget
 {
 	private SuiDocument _document;
 	private SuiElement _selected;
 
-	private Widget _scrollHost;
-	private Layout _listLayout;
+	private TreeView _tree;
 
-	/// <summary>Raised when the user clicks an element in the list.</summary>
+	/// <summary>Raised when the user selects an element in the tree.</summary>
 	public event Action<SuiElement> ElementSelected;
 
 	public SuiHierarchyWidget( Widget parent = null ) : base( parent )
@@ -37,12 +39,12 @@ public class SuiHierarchyWidget : Widget
 		header.SetStyles( "padding: 6px; font-weight: bold; color: #e5e7eb;" );
 		Layout.Add( header );
 
-		_scrollHost = new Widget( this );
-		_scrollHost.Layout = Layout.Column();
-		_scrollHost.Layout.Margin = new Sandbox.UI.Margin( 4, 4, 4, 4 );
-		_scrollHost.Layout.Spacing = 1;
-		_listLayout = _scrollHost.Layout;
-		Layout.Add( _scrollHost, 1 );
+		_tree = new TreeView( this );
+		_tree.IndentWidth = 16;
+		_tree.ItemSpacing = 2;
+		_tree.ExpandForSelection = true;
+		_tree.ItemSelected = OnTreeItemSelected;
+		Layout.Add( _tree, 1 );
 
 		Refresh();
 	}
@@ -57,92 +59,119 @@ public class SuiHierarchyWidget : Widget
 	public void SetSelected( SuiElement element )
 	{
 		_selected = element;
-		Refresh();
+		// TreeView keeps its own selection state via IsSelected(object) which
+		// looks up by the node's Value. Our nodes set Value = element, so the
+		// view picks up the new selection automatically on the next paint.
 	}
 
 	public void Refresh()
 	{
-		_listLayout.Clear( true );
+		if ( _tree == null ) return;
 
 		if ( _document == null )
 		{
-			var msg = new Label( "(no document loaded)", _scrollHost );
-			msg.SetStyles( "color: #6b7280; font-size: 11px; padding: 8px;" );
-			_listLayout.Add( msg );
+			_tree.SetItems( Array.Empty<object>() );
 			return;
 		}
 
+		var byId = BuildIdMap( _document );
 		var root = _document.GetRoot();
 		if ( root == null )
 		{
-			var msg = new Label( "(empty document — no root)", _scrollHost );
-			msg.SetStyles( "color: #6b7280; font-size: 11px; padding: 8px;" );
-			_listLayout.Add( msg );
+			_tree.SetItems( Array.Empty<object>() );
 			return;
 		}
 
-		var byId = new Dictionary<string, SuiElement>();
-		foreach ( var el in _document.Elements )
-		{
-			if ( !string.IsNullOrEmpty( el.Id ) ) byId[el.Id] = el;
-		}
-
-		AddElementRow( root, byId, depth: 0 );
+		var rootNode = new SuiElementTreeNode( root, byId, IsSelectedFor );
+		_tree.SetItems( new[] { rootNode } );
+		ExpandRecursive( rootNode );
 	}
 
-	private void AddElementRow( SuiElement element, Dictionary<string, SuiElement> byId, int depth )
+	private bool IsSelectedFor( SuiElement element )
 	{
-		var isSelected = _selected != null && _selected.Id == element.Id;
+		return _selected != null && element != null && _selected.Id == element.Id;
+	}
 
-		// Row = N indent guides (one Widget per depth level with a left border
-		// to draw the connecting line) + a transparent button for the element.
-		// Button.PaintBackground=false strips the bordered "chip" look so rows
-		// read as a tree instead of a list of buttons; selected row gets a
-		// background fill on the row Widget itself.
-		var row = new Widget( _scrollHost );
-		row.Layout = Layout.Row();
-		row.Layout.Margin = 0;
-		row.Layout.Spacing = 0;
-		row.FixedHeight = 22;
-		row.SetStyles( isSelected
-			? "background-color: #1f5cb8; border-radius: 2px;"
-			: "" );
-
-		// One vertical guide per depth level. The line lives 7px from the left
-		// edge of each 14px-wide guide cell — so child rows render as a vertical
-		// stem with the row sitting to its right. Nested levels stack stems.
-		for ( int i = 0; i < depth; i++ )
+	private void ExpandRecursive( SuiElementTreeNode node )
+	{
+		_tree.Open( node );
+		foreach ( var child in node.Children )
 		{
-			var guide = new Widget( row );
-			guide.FixedWidth = 14;
-			guide.SetStyles( "border-left: 1px solid #4b5563; margin-left: 7px;" );
-			row.Layout.Add( guide );
+			if ( child is SuiElementTreeNode sn )
+				ExpandRecursive( sn );
 		}
+	}
 
-		var btn = new Button( $"{element.Name}  ·  {element.Type}", IconForType( element.Type ), row );
-		btn.ToolTip = element.Id;
-		btn.FixedHeight = 22;
-		// PaintBackground doesn't exist on Button in this engine snapshot;
-		// strip the chip look via SetStyles instead.
-		btn.SetStyles( isSelected
-			? "background-color: transparent; border: none; color: #ffffff;"
-			: "background-color: transparent; border: none; color: #d1d5db;" );
-
-		var captured = element;
-		btn.Clicked += () =>
+	private void OnTreeItemSelected( object obj )
+	{
+		if ( obj is SuiElementTreeNode node && node.Element != null )
 		{
-			_selected = captured;
-			ElementSelected?.Invoke( captured );
-			Refresh();
-		};
-		row.Layout.Add( btn, 1 );
+			_selected = node.Element;
+			ElementSelected?.Invoke( node.Element );
+		}
+	}
 
-		_listLayout.Add( row );
-
-		foreach ( var childId in element.Children )
+	private static Dictionary<string, SuiElement> BuildIdMap( SuiDocument doc )
+	{
+		var map = new Dictionary<string, SuiElement>();
+		foreach ( var el in doc.Elements )
 		{
-			if ( byId.TryGetValue( childId, out var child ) )
-				AddElementRow( child, byId, depth + 1 );
+			if ( !string.IsNullOrEmpty( el.Id ) ) map[el.Id] = el;
+		}
+		return map;
+	}
+}
+
+/// <summary>
+/// TreeView node that draws a single SuiElement row: icon (per type) + name +
+/// type label, with the standard editor selection highlight.
+/// </summary>
+internal sealed class SuiElementTreeNode : TreeNode
+{
+	public SuiElement Element { get; }
+	public Dictionary<string, SuiElement> ByIdMap { get; }
+
+	private readonly Func<SuiElement, bool> _isSelectedFn;
+
+	public SuiElementTreeNode( SuiElement element, Dictionary<string, SuiElement> byIdMap, Func<SuiElement, bool> isSelectedFn )
+	{
+		Element = element;
+		ByIdMap = byIdMap;
+		_isSelectedFn = isSelectedFn;
+		Value = element;
+	}
+
+	public override bool HasChildren => Element != null && Element.Children != null && Element.Children.Count > 0;
+
+	public override string Name
+	{
+		get => Element?.Name ?? "(null)";
+		set { /* rename handled by controller, not by TreeView's inline rename */ }
+	}
+
+	public override void OnPaint( VirtualWidget item )
+	{
+		PaintSelection( item );
+
+		var iconRect = item.Rect;
+		Paint.SetPen( Color.White );
+		Paint.DrawIcon( iconRect, IconForType( Element.Type ), 16, TextFlag.LeftCenter );
+
+		Paint.SetPen( Theme.Text );
+		Paint.DrawText(
+			item.Rect.Shrink( 24, 0, 0, 0 ),
+			$"{Element.Name}  ·  {Element.Type}",
+			TextFlag.LeftCenter );
+	}
+
+	protected override void BuildChildren()
+	{
+		Clear();
+		if ( Element == null || ByIdMap == null ) return;
+		foreach ( var childId in Element.Children )
+		{
+			if ( ByIdMap.TryGetValue( childId, out var child ) )
+				AddItem( new SuiElementTreeNode( child, ByIdMap, _isSelectedFn ) );
 		}
 	}
 
