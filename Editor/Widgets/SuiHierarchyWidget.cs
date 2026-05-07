@@ -357,7 +357,16 @@ public class SuiHierarchyWidget : Widget
 /// the widget's <see cref="SuiHierarchyWidget.ReparentRequested"/> event so
 /// the controller can produce a reorder/reparent command.
 ///
-/// Pattern reference: Facepunch TerrainMaterialList.OnItemDrag
+/// Two pieces are required to make drag-drop fire:
+///  1. <see cref="AcceptDrops"/> = true on the widget itself.
+///  2. Override <see cref="OnDragItem"/> to build a <see cref="Drag"/>
+///     payload and Execute() it — that's what actually starts the drag.
+///
+/// Without (2) the user can mouse-down on a row but the drag never begins,
+/// so OnItemDrag is never reached. This was the missing piece in the
+/// first cut of this widget.
+///
+/// Pattern reference: Facepunch TerrainMaterialList
 /// (sbox-public/game/addons/tools/Code/Scene/Terrain/TerrainMaterialList.cs).
 /// </summary>
 internal sealed class SuiHierarchyTreeView : TreeView
@@ -367,6 +376,20 @@ internal sealed class SuiHierarchyTreeView : TreeView
 	public SuiHierarchyTreeView( Widget parent, SuiHierarchyWidget owner ) : base( parent )
 	{
 		_owner = owner;
+		AcceptDrops = true;
+	}
+
+	protected override bool OnDragItem( VirtualWidget item )
+	{
+		if ( item?.Object is not SuiElement element ) return false;
+		// Refuse to drag root — it's the document container and reparenting it
+		// is meaningless. Also matches the SuiReparentElementCommand contract.
+		if ( string.IsNullOrEmpty( element.ParentId ) ) return false;
+
+		var drag = new Drag( this );
+		drag.Data.Object = element;
+		drag.Execute();
+		return true;
 	}
 
 	protected override DropAction OnItemDrag( ItemDragEvent e )
@@ -378,7 +401,7 @@ internal sealed class SuiHierarchyTreeView : TreeView
 		}
 
 		// Hover feedback — accept SuiElement-on-SuiElement drags so the cursor
-		// shows the move icon.
+		// shows the move icon while hovering.
 		if ( !e.IsDrop && e.Data.Object is SuiElement && e.Item?.Object is SuiElement )
 		{
 			return DropAction.Move;
