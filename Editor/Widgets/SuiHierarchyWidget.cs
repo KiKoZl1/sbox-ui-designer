@@ -94,26 +94,38 @@ public class SuiHierarchyWidget : Widget
 	{
 		var isSelected = _selected != null && _selected.Id == element.Id;
 
-		// Row = spacer (depth-based) + element button. The Button's text is
-		// center-aligned by default and CSS text-align does not always override
-		// it, so we get visual nesting by physically shifting the button right
-		// with a fixed-width spacer rather than relying on padding.
+		// Row = N indent guides (one Widget per depth level with a left border
+		// to draw the connecting line) + a transparent button for the element.
+		// Button.PaintBackground=false strips the bordered "chip" look so rows
+		// read as a tree instead of a list of buttons; selected row gets a
+		// background fill on the row Widget itself.
 		var row = new Widget( _scrollHost );
 		row.Layout = Layout.Row();
 		row.Layout.Margin = 0;
 		row.Layout.Spacing = 0;
+		row.FixedHeight = 22;
+		row.SetStyles( isSelected
+			? "background-color: #1f5cb8; border-radius: 2px;"
+			: "" );
 
-		if ( depth > 0 )
+		// One vertical guide per depth level. The line lives 7px from the left
+		// edge of each 14px-wide guide cell — so child rows render as a vertical
+		// stem with the row sitting to its right. Nested levels stack stems.
+		for ( int i = 0; i < depth; i++ )
 		{
-			var spacer = new Widget( row );
-			spacer.FixedWidth = depth * 14;
-			row.Layout.Add( spacer );
+			var guide = new Widget( row );
+			guide.FixedWidth = 14;
+			guide.SetStyles( "border-left: 1px solid #4b5563; margin-left: 7px;" );
+			row.Layout.Add( guide );
 		}
 
 		var btn = new Button( $"{element.Name}  ·  {element.Type}", IconForType( element.Type ), row );
 		btn.ToolTip = element.Id;
-		if ( isSelected )
-			btn.SetStyles( "background-color: #1f5cb8;" );
+		btn.FixedHeight = 22;
+		btn.PaintBackground = false;
+		btn.SetStyles( isSelected
+			? "color: #ffffff;"
+			: "color: #d1d5db;" );
 
 		var captured = element;
 		btn.Clicked += () =>

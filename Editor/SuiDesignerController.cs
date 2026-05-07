@@ -159,15 +159,19 @@ public sealed class SuiDesignerController
 	}
 
 	/// <summary>
-	/// Pick the parent for a newly-added element: the current selection if it
-	/// is a container, the selection's parent if it is a leaf, or the root.
+	/// Pick the parent for a click-to-add operation. M5 default is "always Root"
+	/// — auto-nesting based on the current selection caused surprising behaviour
+	/// (click Panel → click Image → Image becomes child of Panel even though
+	/// the user clicked the palette without dragging). Drag-and-drop in M6 will
+	/// reintroduce nesting via explicit drop targets.
+	///
+	/// Callers that already know the parent (e.g. a future drag handler) should
+	/// pass the parent explicitly to <see cref="AddElement(SuiElementType, SuiElement)"/>
+	/// rather than rely on this resolver.
 	/// </summary>
 	private SuiElement ResolveAddTarget()
 	{
-		if ( Selected == null ) return Document.GetRoot();
-		if ( IsContainer( Selected.Type ) ) return Selected;
-		var parent = Document.GetElement( Selected.ParentId );
-		return parent ?? Document.GetRoot();
+		return Document.GetRoot();
 	}
 
 	private static bool IsContainer( SuiElementType type ) => type switch
