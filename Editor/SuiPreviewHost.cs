@@ -60,11 +60,10 @@ public sealed class SuiPreviewHost
 		Camera.WorldRotation = Rotation.Identity;
 		Camera.Enabled = true;
 
-		// Setting Scene.Camera explicitly so WorldPanel.OnPreRender's
-		// LookAtCamera branch (which reads Scene.Camera) actually works.
-		Scene.Camera = Camera;
-
-		Log.Info( $"[Sui preview] camera built at {Camera.WorldPosition}, FOV {Camera.FieldOfView}, ZFar {Camera.ZFar}, Scene.Camera={Scene.Camera}" );
+		// Scene.Camera is read-only — engine auto-resolves to the first
+		// enabled CameraComponent in the scene. Logging it confirms our
+		// camera is the chosen one.
+		Log.Info( $"[Sui preview] camera built at {Camera.WorldPosition}, FOV {Camera.FieldOfView}, ZFar {Camera.ZFar}, Scene.Camera resolves to {Scene.Camera}" );
 	}
 
 	private void BuildLights()
