@@ -113,14 +113,16 @@ public class SuiDetailsWidget : Widget
 
 	private void BuildElementSections( SuiElement el )
 	{
-		// Identity dropped — Name is editable via F2 in the Hierarchy and shown
-		// in the window title; Id / Type / Parent are visible from the
-		// Hierarchy itself. Notes lives in its own collapsed section at the
-		// bottom for users who want free-form annotations on an element.
-		BuildDesignerSection( el );
-		BuildLayoutSection( el );
+		// Order chosen for daily-use frequency: visual styling first
+		// (most-edited), then layout, then type-specific props, then the
+		// rarely-touched Designer flags, then Notes at the bottom.
+		// Identity dropped — Name is editable via F2 in the Hierarchy and is
+		// shown in the window title; Id / Type / Parent are visible from
+		// the Hierarchy itself.
 		BuildStyleSection( el );
+		BuildLayoutSection( el );
 		BuildPropsSection( el );
+		BuildDesignerSection( el );
 		BuildNotesSection( el );
 	}
 
