@@ -226,7 +226,57 @@ public sealed class SuiDesignerController
 	public void RenameElement( SuiElement element, string newName )
 	{
 		if ( element == null || string.IsNullOrEmpty( newName ) ) return;
+		if ( element.Name == newName ) return; // no-op
 		Execute( new SuiRenameElementCommand( element.Id, newName ) );
+	}
+
+	/// <summary>
+	/// Duplicate an element together with its descendants. New ids throughout
+	/// the cloned subtree, inserted as a sibling immediately after the source.
+	/// Selects the duplicate after the operation.
+	/// </summary>
+	public SuiElement DuplicateElement( SuiElement element = null )
+	{
+		element ??= Selected;
+		if ( element == null || string.IsNullOrEmpty( element.ParentId ) ) return null; // refuse root
+
+		var cmd = new SuiDuplicateElementCommand( element.Id );
+		Execute( cmd );
+
+		// Select the new clone if Apply succeeded.
+		if ( !string.IsNullOrEmpty( cmd.ResultingElementId ) && Document != null )
+		{
+			var newElement = Document.GetElement( cmd.ResultingElementId );
+			if ( newElement != null ) SetSelected( newElement );
+		}
+		return Selected;
+	}
+
+	/// <summary>Move the element up among its siblings (or selection if null).</summary>
+	public void MoveElementUp( SuiElement element = null )
+	{
+		element ??= Selected;
+		if ( element == null || string.IsNullOrEmpty( element.ParentId ) ) return;
+		Execute( new SuiReorderElementCommand( element.Id, -1 ) );
+	}
+
+	/// <summary>Move the element down among its siblings (or selection if null).</summary>
+	public void MoveElementDown( SuiElement element = null )
+	{
+		element ??= Selected;
+		if ( element == null || string.IsNullOrEmpty( element.ParentId ) ) return;
+		Execute( new SuiReorderElementCommand( element.Id, +1 ) );
+	}
+
+	/// <summary>
+	/// Reparent an element to a new container at a specific child index.
+	/// Refuses to move root and refuses to create cycles.
+	/// </summary>
+	public void ReparentElement( SuiElement element, SuiElement newParent, int insertIndex )
+	{
+		if ( element == null || newParent == null ) return;
+		if ( string.IsNullOrEmpty( element.ParentId ) ) return; // refuse root
+		Execute( new SuiReparentElementCommand( element.Id, newParent.Id, insertIndex ) );
 	}
 
 	public void MoveElement( SuiElement element, float newX, float newY )

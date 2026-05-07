@@ -265,6 +265,28 @@ public class SuiDesignerWindow : DockWindow, IAssetEditor
 		_hierarchy.ElementSelected += el => _controller.SetSelected( el );
 		_palette.ElementRequested += type => _controller.AddElement( type );
 
+		// Hierarchy context-menu actions:
+		_hierarchy.AddChildRequested += ( parent, type ) => _controller.AddElement( type, parent );
+		_hierarchy.RenameRequested += ( el, newName ) =>
+		{
+			if ( newName == null )
+			{
+				// Menu picked Rename — start TreeView's inline rename UI;
+				// the actual commit lands via the same event with newName set.
+				_controller.SetSelected( el );
+				_hierarchy.BeginRenameSelected();
+			}
+			else
+			{
+				_controller.RenameElement( el, newName );
+			}
+		};
+		_hierarchy.DeleteRequested += el => _controller.DeleteElement( el );
+		_hierarchy.DuplicateRequested += el => _controller.DuplicateElement( el );
+		_hierarchy.MoveUpRequested += el => _controller.MoveElementUp( el );
+		_hierarchy.MoveDownRequested += el => _controller.MoveElementDown( el );
+		_hierarchy.ReparentRequested += ( child, newParent, idx ) => _controller.ReparentElement( child, newParent, idx );
+
 		DockManager.RegisterDockType( "Palette", "category", null, false );
 		DockManager.RegisterDockType( "Hierarchy", "account_tree", null, false );
 		DockManager.RegisterDockType( "Canvas", "crop_free", null, false );
@@ -331,6 +353,12 @@ public class SuiDesignerWindow : DockWindow, IAssetEditor
 
 	[Shortcut( "editor.delete", "DEL", ShortcutType.Window )]
 	private void OnShortcutDelete() => _controller.DeleteElement();
+
+	[Shortcut( "editor.rename", "F2", ShortcutType.Window )]
+	private void OnShortcutRename() => _hierarchy?.BeginRenameSelected();
+
+	[Shortcut( "editor.duplicate", "Ctrl+D", ShortcutType.Window )]
+	private void OnShortcutDuplicate() => _controller.DuplicateElement();
 
 	private void ValidateDocument()
 	{

@@ -15,6 +15,7 @@ namespace SboxUiDesigner.EditorUi.Widgets;
 ///
 /// Pattern reference: Facepunch TreeView.Example (FilesystemTreeNode) in
 /// sbox-public/game/addons/tools/Code/Widgets/TreeView/TreeView.Example.cs.
+/// Context-menu pattern: apetavern/what-lurks-below SceneNode.OnContextMenu.
 /// </summary>
 public class SuiHierarchyWidget : Widget
 {
@@ -25,6 +26,27 @@ public class SuiHierarchyWidget : Widget
 
 	/// <summary>Raised when the user selects an element in the tree.</summary>
 	public event Action<SuiElement> ElementSelected;
+
+	/// <summary>Raised when the user picks "Add Child → Type" in the context menu.
+	/// Args: (target parent element, requested child type).</summary>
+	public event Action<SuiElement, SuiElementType> AddChildRequested;
+
+	/// <summary>Raised when the user picks "Rename" in the context menu (or hits F2).</summary>
+	public event Action<SuiElement, string> RenameRequested;
+
+	/// <summary>Raised when the user picks "Delete".</summary>
+	public event Action<SuiElement> DeleteRequested;
+
+	/// <summary>Raised when the user picks "Duplicate".</summary>
+	public event Action<SuiElement> DuplicateRequested;
+
+	/// <summary>Raised when the user picks "Move Up" / "Move Down".</summary>
+	public event Action<SuiElement> MoveUpRequested;
+	public event Action<SuiElement> MoveDownRequested;
+
+	/// <summary>Raised when a drag operation reorders / reparents the element.
+	/// Args: (moved element, new parent, insert index in new parent).</summary>
+	public event Action<SuiElement, SuiElement, int> ReparentRequested;
 
 	public SuiHierarchyWidget( Widget parent = null ) : base( parent )
 	{
@@ -83,9 +105,19 @@ public class SuiHierarchyWidget : Widget
 			return;
 		}
 
-		var rootNode = new SuiElementTreeNode( root, byId, IsSelectedFor );
+		var rootNode = new SuiElementTreeNode( root, byId, this, IsSelectedFor );
 		_tree.SetItems( new[] { rootNode } );
 		ExpandRecursive( rootNode );
+	}
+
+	/// <summary>
+	/// Programmatically begin renaming the selected element via the TreeView's
+	/// inline rename UI. Called by the F2 shortcut on SuiDesignerWindow.
+	/// </summary>
+	public void BeginRenameSelected()
+	{
+		if ( _selected == null || _tree == null ) return;
+		_tree.BeginRename();
 	}
 
 	private bool IsSelectedFor( SuiElement element )
@@ -121,62 +153,110 @@ public class SuiHierarchyWidget : Widget
 		}
 		return map;
 	}
-}
 
-/// <summary>
-/// TreeView node that draws a single SuiElement row: icon (per type) + name +
-/// type label, with the standard editor selection highlight.
-/// </summary>
-internal sealed class SuiElementTreeNode : TreeNode
-{
-	public SuiElement Element { get; }
-	public Dictionary<string, SuiElement> ByIdMap { get; }
+	// ─────────────────────────────────────────────────────────────────────
+	//  Context menu invoked by SuiElementTreeNode.OnContextMenu.
+	//  Centralised here so the menu wiring lives in one place even though
+	//  individual nodes are rebuilt on every Refresh().
+	// ─────────────────────────────────────────────────────────────────────
 
-	private readonly Func<SuiElement, bool> _isSelectedFn;
-
-	public SuiElementTreeNode( SuiElement element, Dictionary<string, SuiElement> byIdMap, Func<SuiElement, bool> isSelectedFn )
+	internal bool ShowContextMenu( SuiElementTreeNode node )
 	{
-		Element = element;
-		ByIdMap = byIdMap;
-		_isSelectedFn = isSelectedFn;
-		Value = element;
-	}
+		if ( node?.Element == null ) return false;
 
-	public override bool HasChildren => Element != null && Element.Children != null && Element.Children.Count > 0;
+		var element = node.Element;
+		var isContainer = IsContainerType( element.Type );
+		var canDelete = !string.IsNullOrEmpty( element.ParentId );
 
-	public override string Name
-	{
-		get => Element?.Name ?? "(null)";
-		set { /* rename handled by controller, not by TreeView's inline rename */ }
-	}
+		// Selecting the right-clicked element first means commands like
+		// "Duplicate" / "Move Up" target what the user just clicked, even
+		// if it wasn't already the selection.
+		_selected = element;
+		ElementSelected?.Invoke( element );
 
-	public override void OnPaint( VirtualWidget item )
-	{
-		PaintSelection( item );
-
-		var iconRect = item.Rect;
-		Paint.SetPen( Color.White );
-		Paint.DrawIcon( iconRect, IconForType( Element.Type ), 16, TextFlag.LeftCenter );
-
-		Paint.SetPen( Theme.Text );
-		Paint.DrawText(
-			item.Rect.Shrink( 24, 0, 0, 0 ),
-			$"{Element.Name}  ·  {Element.Type}",
-			TextFlag.LeftCenter );
-	}
-
-	protected override void BuildChildren()
-	{
-		Clear();
-		if ( Element == null || ByIdMap == null ) return;
-		foreach ( var childId in Element.Children )
+		// Sibling-index aware: enable Move Up / Down only when there is room.
+		var siblingIdx = -1;
+		var siblingCount = 0;
+		if ( !string.IsNullOrEmpty( element.ParentId ) && _document != null )
 		{
-			if ( ByIdMap.TryGetValue( childId, out var child ) )
-				AddItem( new SuiElementTreeNode( child, ByIdMap, _isSelectedFn ) );
+			var parent = _document.GetElement( element.ParentId );
+			if ( parent != null )
+			{
+				siblingIdx = parent.Children.IndexOf( element.Id );
+				siblingCount = parent.Children.Count;
+			}
+		}
+
+		var m = new Menu( _tree );
+
+		// Add Child / Add Sibling submenu
+		var addLabel = isContainer ? "Add Child" : "Add Sibling";
+		var addTarget = isContainer ? element : (_document?.GetElement( element.ParentId ) ?? element);
+		var addMenu = m.AddMenu( addLabel, "add" );
+		AddTypeOptions( addMenu, new[]
+		{
+			SuiElementType.Panel, SuiElementType.Text, SuiElementType.Image, SuiElementType.Button,
+		}, addTarget );
+		addMenu.AddSeparator();
+		AddTypeOptions( addMenu, new[]
+		{
+			SuiElementType.HorizontalBox, SuiElementType.VerticalBox, SuiElementType.Grid, SuiElementType.Overlay,
+		}, addTarget );
+		addMenu.AddSeparator();
+		AddTypeOptions( addMenu, new[]
+		{
+			SuiElementType.ProgressBar, SuiElementType.ScrollPanel, SuiElementType.InventoryGrid,
+			SuiElementType.InventorySlot, SuiElementType.ItemIcon, SuiElementType.Tooltip, SuiElementType.Hotbar,
+		}, addTarget );
+
+		m.AddSeparator();
+
+		var rename = m.AddOption( "Rename", "edit", () => RenameRequested?.Invoke( element, null ) );
+		rename.StatusTip = "F2";
+		rename.Enabled = canDelete; // root cannot rename either
+
+		m.AddOption( "Duplicate", "content_copy", () => DuplicateRequested?.Invoke( element ) );
+
+		var moveUp = m.AddOption( "Move Up", "arrow_upward", () => MoveUpRequested?.Invoke( element ) );
+		moveUp.Enabled = siblingIdx > 0;
+
+		var moveDown = m.AddOption( "Move Down", "arrow_downward", () => MoveDownRequested?.Invoke( element ) );
+		moveDown.Enabled = siblingIdx >= 0 && siblingIdx < siblingCount - 1;
+
+		var del = m.AddOption( "Delete", "delete", () => DeleteRequested?.Invoke( element ) );
+		del.Enabled = canDelete;
+		del.StatusTip = canDelete ? "Del" : "Cannot delete root";
+
+		m.OpenAtCursor( true );
+		return true;
+	}
+
+	private void AddTypeOptions( Menu menu, IEnumerable<SuiElementType> types, SuiElement target )
+	{
+		// Plain options grouped via AddSeparator from the caller — Menu doesn't
+		// have a "section heading" widget on its own.
+		foreach ( var type in types )
+		{
+			var captured = type;
+			menu.AddOption( type.ToString(), IconForType( type ), () => AddChildRequested?.Invoke( target, captured ) );
 		}
 	}
 
-	private static string IconForType( SuiElementType type ) => type switch
+	internal static bool IsContainerType( SuiElementType type ) => type switch
+	{
+		SuiElementType.Canvas
+			or SuiElementType.Panel
+			or SuiElementType.Overlay
+			or SuiElementType.HorizontalBox
+			or SuiElementType.VerticalBox
+			or SuiElementType.Grid
+			or SuiElementType.ScrollPanel
+			or SuiElementType.InventoryGrid
+			or SuiElementType.Hotbar => true,
+		_ => false,
+	};
+
+	internal static string IconForType( SuiElementType type ) => type switch
 	{
 		SuiElementType.Canvas => "crop_free",
 		SuiElementType.Panel => "crop_square",
@@ -196,4 +276,94 @@ internal sealed class SuiElementTreeNode : TreeNode
 		SuiElementType.Hotbar => "view_carousel",
 		_ => "extension",
 	};
+
+	internal void OnRenameCommitted( SuiElement element, string newName )
+	{
+		if ( element == null || string.IsNullOrEmpty( newName ) ) return;
+		RenameRequested?.Invoke( element, newName );
+	}
+
+	internal void OnReparentCommitted( SuiElement child, SuiElement newParent, int insertIndex )
+	{
+		if ( child == null || newParent == null ) return;
+		ReparentRequested?.Invoke( child, newParent, insertIndex );
+	}
+}
+
+/// <summary>
+/// TreeView node that draws a single SuiElement row: icon (per type) + name +
+/// type label, with the standard editor selection highlight.
+///
+/// Hosts the OnContextMenu / OnRename / OnItemDrag overrides that delegate
+/// back to <see cref="SuiHierarchyWidget"/> — the widget centralises the
+/// actual menu wiring so individual node instances (which get rebuilt on
+/// every Refresh) stay light.
+/// </summary>
+internal sealed class SuiElementTreeNode : TreeNode
+{
+	public SuiElement Element { get; }
+	public Dictionary<string, SuiElement> ByIdMap { get; }
+
+	private readonly SuiHierarchyWidget _owner;
+	private readonly Func<SuiElement, bool> _isSelectedFn;
+
+	public SuiElementTreeNode(
+		SuiElement element,
+		Dictionary<string, SuiElement> byIdMap,
+		SuiHierarchyWidget owner,
+		Func<SuiElement, bool> isSelectedFn )
+	{
+		Element = element;
+		ByIdMap = byIdMap;
+		_owner = owner;
+		_isSelectedFn = isSelectedFn;
+		Value = element;
+	}
+
+	public override bool HasChildren => Element != null && Element.Children != null && Element.Children.Count > 0;
+
+	public override bool CanEdit => Element != null && !string.IsNullOrEmpty( Element.ParentId );
+
+	public override string Name
+	{
+		get => Element?.Name ?? "(null)";
+		set { /* see OnRename — TreeView writes here during inline rename */ }
+	}
+
+	public override void OnPaint( VirtualWidget item )
+	{
+		PaintSelection( item );
+
+		var iconRect = item.Rect;
+		Paint.SetPen( Color.White );
+		Paint.DrawIcon( iconRect, SuiHierarchyWidget.IconForType( Element.Type ), 16, TextFlag.LeftCenter );
+
+		Paint.SetPen( Theme.Text );
+		Paint.DrawText(
+			item.Rect.Shrink( 24, 0, 0, 0 ),
+			$"{Element.Name}  ·  {Element.Type}",
+			TextFlag.LeftCenter );
+	}
+
+	public override bool OnContextMenu()
+	{
+		return _owner != null && _owner.ShowContextMenu( this );
+	}
+
+	public override void OnRename( VirtualWidget item, string text, List<TreeNode> selection = null )
+	{
+		base.OnRename( item, text, selection );
+		_owner?.OnRenameCommitted( Element, text );
+	}
+
+	protected override void BuildChildren()
+	{
+		Clear();
+		if ( Element == null || ByIdMap == null ) return;
+		foreach ( var childId in Element.Children )
+		{
+			if ( ByIdMap.TryGetValue( childId, out var child ) )
+				AddItem( new SuiElementTreeNode( child, ByIdMap, _owner, _isSelectedFn ) );
+		}
+	}
 }
