@@ -3,10 +3,6 @@ using System.Collections.Generic;
 using Editor;
 using Sandbox;
 using SboxUiDesigner.Runtime;
-// TextFlag lives in Sandbox.UI but a blanket 'using Sandbox.UI' shadows
-// Editor.Label with Sandbox.UI.Label (the runtime panel) — use a typed alias
-// so only the symbol we actually need crosses the namespace boundary.
-using TextFlag = Sandbox.UI.TextFlag;
 
 namespace SboxUiDesigner.EditorUi.Widgets;
 
