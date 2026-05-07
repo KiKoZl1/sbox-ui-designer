@@ -25,6 +25,10 @@ public class SuiDetailsWidget : Widget
 	private SuiDesignerController _controller;
 
 	private Widget _bodyHost;
+	// All AddXRow helpers parent rows under Container() which returns
+	// _activeBody when a section is open (set by BeginSection) or _bodyHost
+	// otherwise. Reset to _bodyHost on every Refresh.
+	private Widget _activeBody;
 
 	public SuiDetailsWidget( Widget parent = null ) : base( parent )
 	{
