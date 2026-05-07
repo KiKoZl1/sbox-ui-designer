@@ -481,6 +481,7 @@ public class SuiDetailsWidget : Widget
 		var swatch = new Button( "", "palette", row );
 		swatch.FixedWidth = 32;
 		swatch.ToolTip = "Open color picker";
+		row.Layout.Add( swatch );
 
 		// Visual swatch preview — colour the button's left edge with the current value.
 		void PaintSwatch()
@@ -663,10 +664,16 @@ public class SuiDetailsWidget : Widget
 
 	private Widget MakeRow()
 	{
+		// Each row caps at a sensible width so editor controls don't stretch
+		// edge-to-edge in a wide Details dock — especially important for
+		// short numeric fields (Border Width, Z Index, etc) where a 600px
+		// LineEdit is just visual noise. The trailing AddStretchCell absorbs
+		// any slack so the row stays left-aligned.
 		var row = new Widget( Container() );
 		row.Layout = Layout.Row();
 		row.Layout.Margin = new Sandbox.UI.Margin( 0, 2, 0, 2 );
 		row.Layout.Spacing = 6;
+		row.MaximumWidth = 420;
 		return row;
 	}
 
