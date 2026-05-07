@@ -48,8 +48,12 @@ public sealed class SuiPreviewHost
 		Camera.BackgroundColor = new Color( 0.08f, 0.08f, 0.10f, 1f );
 		Camera.ZFar = 4096;
 		Camera.FieldOfView = 60;
-		Camera.WorldPosition = new Vector3( -200, 0, 80 );
-		Camera.WorldRotation = Rotation.From( 0, 0, 0 );
+		// Camera looks at origin (+X forward by s&box convention). Distance
+		// chosen so a 1920x1080 WorldPanel @ RenderScale 0.1 (so 192x108 world
+		// units) fills the viewport at FOV 60: ~108 / (2 * tan(30°)) ≈ 94 units.
+		// Pulling back to 200 leaves comfortable margin around the panel.
+		Camera.WorldPosition = new Vector3( -200, 0, 0 );
+		Camera.WorldRotation = Rotation.Identity;
 		Camera.Enabled = true;
 	}
 
@@ -66,19 +70,30 @@ public sealed class SuiPreviewHost
 	}
 
 	/// <summary>
-	/// Etapa B — GameObject that carries ScreenPanel + a static PanelComponent
-	/// (SuiTestPanel). Proves runtime UI renders inside an editor-owned Scene
-	/// hosted by SceneRenderingWidget. Etapa C/D will replace SuiTestPanel
-	/// with the dynamically-compiled type from the user's .sui document.
+	/// Etapa B — GameObject that carries WorldPanel + a static PanelComponent
+	/// (SuiTestPanel). WorldPanel is a Renderer, so it participates in the
+	/// SceneWorld render that SceneRenderingWidget shows. ScreenPanel is a
+	/// HUD overlay rendered AFTER the camera and isn't visible in the editor
+	/// SceneRenderingWidget — that's why the previous attempt showed nothing.
 	///
-	/// The Camera doesn't need a 3D viewpoint for ScreenPanel rendering —
-	/// ScreenPanel is a 2D HUD overlay that the camera renders flat onto its
-	/// output. The cube placeholder is gone.
+	/// LookAtCamera = true makes the panel billboard-face the camera, which
+	/// gives us the flat HUD-style 2D preview UMG users expect (a "screen"
+	/// floating in the editor 3D space). RenderScale 0.1 maps the document's
+	/// 1920x1080 logical pixels to 192x108 world units so the camera can see
+	/// the whole thing without having to back up 1500+ world units.
 	/// </summary>
 	private void BuildUiHost()
 	{
 		_uiHost = new GameObject( true, "UIHost" );
-		_uiHost.AddComponent<ScreenPanel>();
+		_uiHost.WorldPosition = Vector3.Zero;
+
+		var worldPanel = _uiHost.AddComponent<WorldPanel>();
+		worldPanel.LookAtCamera = true;
+		worldPanel.PanelSize = new Vector2( 1920, 1080 );
+		worldPanel.RenderScale = 0.1f;
+		worldPanel.HorizontalAlign = WorldPanel.HAlignment.Center;
+		worldPanel.VerticalAlign = WorldPanel.VAlignment.Center;
+
 		_uiHost.AddComponent<SuiTestPanel>();
 	}
 
