@@ -1,0 +1,52 @@
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vs/
+.vscode/
+.idea/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# .NET / C#
+bin/
+obj/
+[Bb]uild/
+[Dd]ebug/
+[Rr]elease/
+*.dll
+*.pdb
+*.mdb
+*.cache
+
+# Logs
+*.log
+logs/
+
+# Local environment
+.env
+.env.*
+!.env.example
+
+# Sbox UI Designer preview/cache
+**/_sui_preview/
+.sui-preview/
+.suidesigner-cache/
+.cache/sui-preview/
+Temp/SuiPreview/
+
+# Generated backups
+*.generated.backup
+sui-generated-backups/
+
+# Do not ignore source .sui files
+!*.sui
+
+# Default policy: commit final generated runtime files (downstream consumers
+# decide locally if they want to re-generate per-build instead). Uncomment if
+# regenerating per-build:
+# **/*.generated.cs
+# **/*.razor.scss.generated
