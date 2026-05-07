@@ -62,10 +62,11 @@ public class SuiHierarchyWidget : Widget
 		header.SetStyles( "padding: 6px; font-weight: bold; color: #e5e7eb;" );
 		Layout.Add( header );
 
-		_tree = new SuiHierarchyTreeView( this, this );
+		_tree = new TreeView( this );
 		_tree.IndentWidth = 16;
 		_tree.ItemSpacing = 2;
 		_tree.ExpandForSelection = true;
+		_tree.AcceptDrops = true; // required so OnDragStart on tree nodes is reached
 		_tree.ItemSelected = OnTreeItemSelected;
 		Layout.Add( _tree, 1 );
 
@@ -352,64 +353,6 @@ public class SuiHierarchyWidget : Widget
 	}
 }
 
-/// <summary>
-/// TreeView subclass that translates drag-drop events on tree items into
-/// the widget's <see cref="SuiHierarchyWidget.ReparentRequested"/> event so
-/// the controller can produce a reorder/reparent command.
-///
-/// Two pieces are required to make drag-drop fire:
-///  1. <see cref="AcceptDrops"/> = true on the widget itself.
-///  2. Override <see cref="OnDragItem"/> to build a <see cref="Drag"/>
-///     payload and Execute() it — that's what actually starts the drag.
-///
-/// Without (2) the user can mouse-down on a row but the drag never begins,
-/// so OnItemDrag is never reached. This was the missing piece in the
-/// first cut of this widget.
-///
-/// Pattern reference: Facepunch TerrainMaterialList
-/// (sbox-public/game/addons/tools/Code/Scene/Terrain/TerrainMaterialList.cs).
-/// </summary>
-internal sealed class SuiHierarchyTreeView : TreeView
-{
-	private readonly SuiHierarchyWidget _owner;
-
-	public SuiHierarchyTreeView( Widget parent, SuiHierarchyWidget owner ) : base( parent )
-	{
-		_owner = owner;
-		AcceptDrops = true;
-	}
-
-	protected override bool OnDragItem( VirtualWidget item )
-	{
-		if ( item?.Object is not SuiElement element ) return false;
-		// Refuse to drag root — it's the document container and reparenting it
-		// is meaningless. Also matches the SuiReparentElementCommand contract.
-		if ( string.IsNullOrEmpty( element.ParentId ) ) return false;
-
-		var drag = new Drag( this );
-		drag.Data.Object = element;
-		drag.Execute();
-		return true;
-	}
-
-	protected override DropAction OnItemDrag( ItemDragEvent e )
-	{
-		if ( e.IsDrop && e.Data.Object is SuiElement source && e.Item?.Object is SuiElement target )
-		{
-			_owner?.HandleDrop( source, target );
-			return DropAction.Move;
-		}
-
-		// Hover feedback — accept SuiElement-on-SuiElement drags so the cursor
-		// shows the move icon while hovering.
-		if ( !e.IsDrop && e.Data.Object is SuiElement && e.Item?.Object is SuiElement )
-		{
-			return DropAction.Move;
-		}
-
-		return base.OnItemDrag( e );
-	}
-}
 
 /// <summary>
 /// TreeView node that draws a single SuiElement row: icon (per type) + name +
@@ -475,6 +418,40 @@ internal sealed class SuiElementTreeNode : TreeNode
 	{
 		base.OnRename( item, text, selection );
 		_owner?.OnRenameCommitted( Element, text );
+	}
+
+	public override bool OnDragStart()
+	{
+		// TreeView default: TreeView.OnDragItem(item) -> node.OnDragStart().
+		// We must set up Drag.Data.Object and Execute() here for the drag to
+		// actually begin; returning true tells the TreeView the drag is live.
+		if ( Element == null ) return false;
+		if ( string.IsNullOrEmpty( Element.ParentId ) ) return false; // refuse root
+
+		var drag = new Drag( TreeView );
+		drag.Data.Object = this; // source TreeNode -- read on drop side via e.Data.Object
+		drag.Execute();
+		return true;
+	}
+
+	public override DropAction OnDragDrop( ItemDragEvent e )
+	{
+		if ( _owner == null || Element == null ) return DropAction.Ignore;
+
+		// `e.Data.Object` is whatever OnDragStart put in there — for SUI nodes
+		// that's the source SuiElementTreeNode. `this` is the target node.
+		if ( e.Data.Object is not SuiElementTreeNode sourceNode || sourceNode.Element == null )
+			return DropAction.Ignore;
+
+		if ( !e.IsDrop )
+		{
+			// Hover phase — accept so the cursor shows a "move" icon. The
+			// actual reparent only happens when IsDrop becomes true.
+			return DropAction.Move;
+		}
+
+		_owner.HandleDrop( sourceNode.Element, Element );
+		return DropAction.Move;
 	}
 
 	protected override void BuildChildren()
