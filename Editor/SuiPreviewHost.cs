@@ -144,11 +144,17 @@ public sealed class SuiPreviewHost
 	}
 
 	/// <summary>
-	/// Step the editor scene forward one frame. Called from the canvas
+	/// Step the preview scene forward one frame. Called from the canvas
 	/// widget's OnPreFrame so the scene runs while the editor is open.
+	///
+	/// Using GameTick instead of EditorTick because EditorTick appears to
+	/// skip the OnPreRender lifecycle that WorldPanel relies on (it sets
+	/// the panel's Transform / PanelBounds inside OnPreRender; without
+	/// that pass, the panel exists but never positions itself).
 	/// </summary>
 	public void Tick()
 	{
-		Scene?.EditorTick( RealTime.Now, RealTime.Delta );
+		if ( Scene == null ) return;
+		Scene.GameTick( RealTime.Delta );
 	}
 }
