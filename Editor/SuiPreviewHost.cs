@@ -3,6 +3,10 @@ using Editor;
 using Sandbox;
 using Sandbox.UI;
 using SboxUiDesigner.Runtime;
+// Both Sandbox.WorldPanel (the Renderer component we want) and
+// Sandbox.UI.WorldPanel (the runtime panel it wraps) are in scope via
+// the usings above. Alias to disambiguate to the component type only.
+using WorldPanel = Sandbox.WorldPanel;
 
 namespace SboxUiDesigner.EditorUi;
 
