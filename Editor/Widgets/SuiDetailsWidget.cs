@@ -113,23 +113,24 @@ public class SuiDetailsWidget : Widget
 
 	private void BuildElementSections( SuiElement el )
 	{
-		BuildIdentitySection( el );
+		// Identity dropped — Name is editable via F2 in the Hierarchy and shown
+		// in the window title; Id / Type / Parent are visible from the
+		// Hierarchy itself. Notes lives in its own collapsed section at the
+		// bottom for users who want free-form annotations on an element.
 		BuildDesignerSection( el );
 		BuildLayoutSection( el );
 		BuildStyleSection( el );
 		BuildPropsSection( el );
+		BuildNotesSection( el );
 	}
 
-	private void BuildIdentitySection( SuiElement el )
+	private void BuildNotesSection( SuiElement el )
 	{
-		BeginSection( "Identity" );
-		AddTextRow( "Name", el.Name, v => SetProp( el, e => e.Name, ( e, v2 ) => e.Name = v2, v, "Rename" ) );
-		AddReadonlyRow( "Id", el.Id );
-		AddReadonlyRow( "Type", el.Type.ToString() );
-		AddReadonlyRow( "Parent", el.ParentId ?? "(root)" );
+		var hasNotes = !string.IsNullOrEmpty( el.Notes );
+		BeginSection( "Notes", defaultExpanded: hasNotes );
 		AddTextAreaRow( "Notes", el.Notes ?? "",
 			v => SetProp( el, e => e.Notes, ( e, v2 ) => e.Notes = v2, v, "Set notes" ),
-			fixedHeight: 60 );
+			fixedHeight: 80 );
 	}
 
 	private void BuildDesignerSection( SuiElement el )
