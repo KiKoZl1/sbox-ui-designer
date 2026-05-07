@@ -51,7 +51,8 @@ public class SuiDesignerWindow : DockWindow, IAssetEditor
 	private SuiHierarchyWidget _hierarchy;
 	private SuiCanvasWidget _canvas;
 	private SuiDetailsWidget _details;
-	private SuiBottomDockWidget _bottom;
+	private SuiAnimationsWidget _animations;
+	private SuiCompileResultsWidget _compileResults;
 
 	private string _defaultDockState;
 
@@ -256,7 +257,8 @@ public class SuiDesignerWindow : DockWindow, IAssetEditor
 		_hierarchy = new SuiHierarchyWidget( this );
 		_canvas = new SuiCanvasWidget( this );
 		_details = new SuiDetailsWidget( this );
-		_bottom = new SuiBottomDockWidget( this );
+		_animations = new SuiAnimationsWidget( this );
+		_compileResults = new SuiCompileResultsWidget( this );
 
 		// All widget actions route through the controller so undo/redo, dirty
 		// state, and selection stay coherent across the editor.
@@ -267,15 +269,19 @@ public class SuiDesignerWindow : DockWindow, IAssetEditor
 		DockManager.RegisterDockType( "Hierarchy", "account_tree", null, false );
 		DockManager.RegisterDockType( "Canvas", "crop_free", null, false );
 		DockManager.RegisterDockType( "Details", "tune", null, false );
-		DockManager.RegisterDockType( "Bottom", "build", null, false );
+		DockManager.RegisterDockType( "Animations", "movie", null, false );
+		DockManager.RegisterDockType( "Compile Results", "build", null, false );
 
-		// Layout, left-to-right: Palette + Hierarchy stacked on Left, Canvas in center,
-		// Details on the Right, BottomDock spans below.
+		// Layout: Canvas in center, Palette+Hierarchy stacked on Left, Details
+		// on Right, Compile Results + Animations as separate docks at
+		// BottomOuter — DockManager renders them as native tabs in the same
+		// bottom region (cleaner than embedding a TabWidget inside one dock).
 		DockManager.AddDock( null, _canvas, DockArea.Left, DockManager.DockProperty.HideOnClose );
 		DockManager.AddDock( _canvas, _palette, DockArea.Left, DockManager.DockProperty.HideOnClose, 0.18f );
 		DockManager.AddDock( _palette, _hierarchy, DockArea.Bottom, DockManager.DockProperty.HideOnClose, 0.5f );
 		DockManager.AddDock( _canvas, _details, DockArea.Right, DockManager.DockProperty.HideOnClose, 0.22f );
-		DockManager.AddDock( null, _bottom, DockArea.BottomOuter, DockManager.DockProperty.HideOnClose, 0.22f );
+		DockManager.AddDock( null, _compileResults, DockArea.BottomOuter, DockManager.DockProperty.HideOnClose, 0.22f );
+		DockManager.AddDock( _compileResults, _animations, DockArea.Inside, DockManager.DockProperty.HideOnClose );
 
 		DockManager.Update();
 		_defaultDockState = DockManager.State;
