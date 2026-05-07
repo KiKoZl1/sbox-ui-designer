@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Editor;
 using Sandbox;
 using SboxUiDesigner.EditorUi;
@@ -108,7 +109,9 @@ public class SuiDetailsWidget : Widget
 		AddReadonlyRow( "Id", el.Id );
 		AddReadonlyRow( "Type", el.Type.ToString() );
 		AddReadonlyRow( "Parent", el.ParentId ?? "(root)" );
-		AddTextRow( "Notes", el.Notes ?? "", v => SetProp( el, e => e.Notes, ( e, v2 ) => e.Notes = v2, v, "Set notes" ) );
+		AddTextAreaRow( "Notes", el.Notes ?? "",
+			v => SetProp( el, e => e.Notes, ( e, v2 ) => e.Notes = v2, v, "Set notes" ),
+			fixedHeight: 60 );
 	}
 
 	private void BuildDesignerSection( SuiElement el )
@@ -207,9 +210,9 @@ public class SuiDetailsWidget : Widget
 		AddSectionHeader( "Appearance" );
 		AddTextRow( "Class Name", s.ClassName ?? "",
 			v => SetProp( el, e => e.Style.ClassName, ( e, v2 ) => e.Style.ClassName = v2, v, "Set class name" ) );
-		AddTextRow( "Background Color", s.BackgroundColor ?? "",
+		AddColorRow( "Background Color", s.BackgroundColor ?? "",
 			v => SetProp( el, e => e.Style.BackgroundColor, ( e, v2 ) => e.Style.BackgroundColor = v2, v, "Set bg color" ) );
-		AddTextRow( "Border Color", s.BorderColor ?? "",
+		AddColorRow( "Border Color", s.BorderColor ?? "",
 			v => SetProp( el, e => e.Style.BorderColor, ( e, v2 ) => e.Style.BorderColor = v2, v, "Set border color" ) );
 		AddFloatRow( "Border Width", s.BorderWidth,
 			v => SetProp( el, e => e.Style.BorderWidth, ( e, v2 ) => e.Style.BorderWidth = v2, v, "Set border width" ) );
@@ -244,7 +247,7 @@ public class SuiDetailsWidget : Widget
 					v => SetProp( el, e => e.Props.FontFamily, ( e, v2 ) => e.Props.FontFamily = v2, v, "Set font family" ) );
 				AddEnumRow<SuiFontWeight>( "Font Weight", p.FontWeight,
 					v => SetProp( el, e => e.Props.FontWeight, ( e, v2 ) => e.Props.FontWeight = v2, v, "Set font weight" ) );
-				AddTextRow( "Color", p.Color ?? "",
+				AddColorRow( "Color", p.Color ?? "",
 					v => SetProp( el, e => e.Props.Color, ( e, v2 ) => e.Props.Color = v2, v, "Set text color" ) );
 				AddEnumRow<SuiTextAlign>( "Align", p.TextAlign,
 					v => SetProp( el, e => e.Props.TextAlign, ( e, v2 ) => e.Props.TextAlign = v2, v, "Set text-align" ) );
@@ -257,9 +260,9 @@ public class SuiDetailsWidget : Widget
 			case SuiElementType.Image:
 			case SuiElementType.ItemIcon:
 				AddSectionHeader( "Image" );
-				AddTextRow( "Image Path", p.ImagePath ?? "",
+				AddImageAssetRow( "Image Path", p.ImagePath ?? "",
 					v => SetProp( el, e => e.Props.ImagePath, ( e, v2 ) => e.Props.ImagePath = v2, v, "Set image path" ) );
-				AddTextRow( "Tint", p.Tint ?? "",
+				AddColorRow( "Tint", p.Tint ?? "",
 					v => SetProp( el, e => e.Props.Tint, ( e, v2 ) => e.Props.Tint = v2, v, "Set tint" ) );
 				AddEnumRow<SuiImageFitMode>( "Fit Mode", p.FitMode,
 					v => SetProp( el, e => e.Props.FitMode, ( e, v2 ) => e.Props.FitMode = v2, v, "Set fit mode" ) );
@@ -301,7 +304,7 @@ public class SuiDetailsWidget : Widget
 					v => SetProp( el, e => e.Props.ProgressMax, ( e, v2 ) => e.Props.ProgressMax = v2, v, "Set max" ) );
 				AddFloatRow( "Preview Value", p.ProgressPreviewValue,
 					v => SetProp( el, e => e.Props.ProgressPreviewValue, ( e, v2 ) => e.Props.ProgressPreviewValue = v2, v, "Set preview value" ) );
-				AddTextRow( "Fill Color", p.ProgressFillColor ?? "",
+				AddColorRow( "Fill Color", p.ProgressFillColor ?? "",
 					v => SetProp( el, e => e.Props.ProgressFillColor, ( e, v2 ) => e.Props.ProgressFillColor = v2, v, "Set fill color" ) );
 				break;
 
@@ -309,7 +312,7 @@ public class SuiDetailsWidget : Widget
 				AddSectionHeader( "Inventory Slot" );
 				AddIntRow( "Slot Index", p.SlotIndex,
 					v => SetProp( el, e => e.Props.SlotIndex, ( e, v2 ) => e.Props.SlotIndex = v2, v, "Set slot index" ) );
-				AddTextRow( "Preview Icon", p.PreviewIconPath ?? "",
+				AddImageAssetRow( "Preview Icon", p.PreviewIconPath ?? "",
 					v => SetProp( el, e => e.Props.PreviewIconPath, ( e, v2 ) => e.Props.PreviewIconPath = v2, v, "Set preview icon" ) );
 				AddIntRow( "Preview Count", p.PreviewCount,
 					v => SetProp( el, e => e.Props.PreviewCount, ( e, v2 ) => e.Props.PreviewCount = v2, v, "Set preview count" ) );
@@ -412,6 +415,143 @@ public class SuiDetailsWidget : Widget
 		le.Text = value ?? "";
 		le.EditingFinished += () => onCommit?.Invoke( le.Text ?? "" );
 		row.Layout.Add( le, 1 );
+		_bodyHost.Layout.Add( row );
+	}
+
+	/// <summary>
+	/// Multi-line text editor — for free-form fields like Notes where the user
+	/// might want to paste paragraphs. Uses Editor.TextEdit which gives word-wrap
+	/// and a sane editable surface.
+	/// </summary>
+	private void AddTextAreaRow( string label, string value, Action<string> onCommit, int fixedHeight = 80 )
+	{
+		AddSectionHeader( label );
+		var te = new TextEdit( _bodyHost );
+		te.PlainText = value ?? "";
+		te.FixedHeight = fixedHeight;
+		te.TextChanged += () => onCommit?.Invoke( te.PlainText ?? "" );
+		_bodyHost.Layout.Add( te );
+	}
+
+	/// <summary>
+	/// Hex-color row with a clickable swatch that opens Editor.ColorPicker via
+	/// OpenColorPopup. The hex string is parsed via Color.TryParse on entry and
+	/// rendered as a 24px swatch beside the LineEdit. Empty/invalid strings
+	/// fall back to white.
+	/// </summary>
+	private void AddColorRow( string label, string value, Action<string> onCommit )
+	{
+		var row = MakeRow();
+		AddRowLabel( row, label );
+
+		var le = new LineEdit( row );
+		le.Text = value ?? "";
+		le.PlaceholderText = "#rrggbb or #rrggbbaa";
+		row.Layout.Add( le, 1 );
+
+		var swatch = new Button( "", "palette", row );
+		swatch.FixedWidth = 32;
+		swatch.ToolTip = "Open color picker";
+
+		// Visual swatch preview — colour the button's left edge with the current value.
+		void PaintSwatch()
+		{
+			if ( !string.IsNullOrEmpty( le.Text ) && Color.TryParse( le.Text, out var c ) )
+			{
+				swatch.SetStyles( $"background-color: rgba({(int)(c.r*255)},{(int)(c.g*255)},{(int)(c.b*255)},{c.a});" );
+			}
+			else
+			{
+				swatch.SetStyles( "" );
+			}
+		}
+		PaintSwatch();
+
+		// Commit when LineEdit loses focus — keep typed-text path working.
+		le.EditingFinished += () =>
+		{
+			onCommit?.Invoke( le.Text ?? "" );
+			PaintSwatch();
+		};
+
+		// Swatch click opens the popup. ValueChanged fires per-channel-tweak
+		// while the user drags; we only commit on EditingFinished to avoid
+		// flooding the command stack with one push per micro-change.
+		swatch.Clicked += () =>
+		{
+			Color startColor = Color.White;
+			if ( !string.IsNullOrEmpty( le.Text ) ) Color.TryParse( le.Text, out startColor );
+
+			var picker = ColorPicker.OpenColorPopup( startColor, c =>
+			{
+				le.Text = ColorToHex( c );
+				PaintSwatch();
+			} );
+
+			if ( picker != null )
+			{
+				picker.EditingFinished += () =>
+				{
+					onCommit?.Invoke( le.Text ?? "" );
+					PaintSwatch();
+				};
+			}
+		};
+
+		_bodyHost.Layout.Add( row );
+	}
+
+	private static string ColorToHex( Color c )
+	{
+		var r = (int)System.Math.Clamp( c.r * 255f, 0f, 255f );
+		var g = (int)System.Math.Clamp( c.g * 255f, 0f, 255f );
+		var b = (int)System.Math.Clamp( c.b * 255f, 0f, 255f );
+		var a = (int)System.Math.Clamp( c.a * 255f, 0f, 255f );
+		return a < 255
+			? $"#{r:x2}{g:x2}{b:x2}{a:x2}"
+			: $"#{r:x2}{g:x2}{b:x2}";
+	}
+
+	/// <summary>
+	/// Image asset path row with a "Browse..." button that opens
+	/// Editor.AssetPicker filtered to AssetType.ImageFile. The picked asset's
+	/// project-relative Path becomes the field value.
+	/// </summary>
+	private void AddImageAssetRow( string label, string value, Action<string> onCommit )
+	{
+		var row = MakeRow();
+		AddRowLabel( row, label );
+
+		var le = new LineEdit( row );
+		le.Text = value ?? "";
+		le.PlaceholderText = "ui/icons/example.png";
+		le.EditingFinished += () => onCommit?.Invoke( le.Text ?? "" );
+		row.Layout.Add( le, 1 );
+
+		var browseBtn = new Button( "", "folder_open", row );
+		browseBtn.FixedWidth = 32;
+		browseBtn.ToolTip = "Browse images…";
+		browseBtn.Clicked += () =>
+		{
+			var picker = AssetPicker.Create( this, AssetType.ImageFile, new()
+			{
+				EnableMultiselect = false,
+				EnableCloud = false
+			} );
+			picker.Window.StateCookie = "SuiDesigner.ImagePicker";
+			picker.Window.RestoreFromStateCookie();
+			picker.Window.Title = "Pick image";
+			picker.OnAssetPicked = assets =>
+			{
+				var asset = assets?.FirstOrDefault();
+				if ( asset == null ) return;
+				le.Text = asset.Path ?? "";
+				onCommit?.Invoke( le.Text );
+			};
+			picker.Window.Show();
+		};
+		row.Layout.Add( browseBtn );
+
 		_bodyHost.Layout.Add( row );
 	}
 
