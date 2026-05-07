@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using Editor;
+using Sandbox;
+using Sandbox.UI;
 using SboxUiDesigner.Runtime;
 
 namespace SboxUiDesigner.EditorUi.Widgets;
