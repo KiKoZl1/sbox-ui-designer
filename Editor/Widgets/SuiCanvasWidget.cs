@@ -1,21 +1,29 @@
 using Editor;
+using Sandbox;
 using SboxUiDesigner.Runtime;
 
 namespace SboxUiDesigner.EditorUi.Widgets;
 
 /// <summary>
-/// Canvas dock — center. The visual designer where elements are placed and resized.
+/// Canvas dock — center of the designer. Hosts the runtime preview via
+/// <see cref="SceneRenderingWidget"/> bound to a <see cref="SuiPreviewHost"/>'s
+/// editor-owned <see cref="Scene"/>.
 ///
-/// M4: placeholder body. The real preview host (Editor.SceneRenderingWidget hosting
-/// an editor-owned Scene with ScreenPanel + the generated PanelComponent) is built
-/// in M10/Spike 01.
-///
-/// M11: wires canvas interaction tools (selection, move, resize, zoom/pan).
+/// Spike 01 etapas:
+///  A. Editor-owned Scene with camera + lights + a placeholder model.
+///     Proves SceneRenderingWidget can render an editor-owned Scene at all.
+///  B. Replace placeholder model with a GameObject carrying ScreenPanel +
+///     a static PanelComponent.
+///  C. Generated Razor/SCSS lands in &lt;project&gt;/Code/_sui_preview/&lt;Doc&gt;/.
+///  D. Reflect + instantiate the generated PanelComponent dynamically.
+///  E. Wire SuiDesignerController.DocumentChanged → debounce → regen.
 /// </summary>
 public class SuiCanvasWidget : Widget
 {
 	private SuiDocument _document;
-	private Label _placeholder;
+
+	private SuiPreviewHost _previewHost;
+	private SceneRenderingWidget _sceneWidget;
 
 	public SuiCanvasWidget( Widget parent = null ) : base( parent )
 	{
@@ -27,21 +35,26 @@ public class SuiCanvasWidget : Widget
 		Layout.Margin = 0;
 		Layout.Spacing = 0;
 
-		_placeholder = new Label( "Visual designer canvas\n\nSpike 01 (M10) embeds Editor.SceneRenderingWidget here.\n\nThe scene-rendering widget hosts an editor-owned Scene whose root\nGameObject carries ScreenPanel + the generated PanelComponent.\nEditor selection/handle overlays render on a stacked Editor.Widget.", this );
-		_placeholder.WordWrap = true;
-		_placeholder.SetStyles( "color: #6b7280; font-size: 12px; padding: 24px; text-align: center;" );
-		Layout.Add( _placeholder, 1 );
+		_previewHost = new SuiPreviewHost();
+
+		_sceneWidget = new SceneRenderingWidget( this );
+		_sceneWidget.Scene = _previewHost.Scene;
+		_sceneWidget.Camera = _previewHost.Camera;
+		_sceneWidget.OnPreFrame += OnPreFrame;
+		_sceneWidget.SetSizeMode( SizeMode.CanGrow, SizeMode.CanGrow );
+		Layout.Add( _sceneWidget, 1 );
+	}
+
+	private void OnPreFrame()
+	{
+		_previewHost?.Tick();
 	}
 
 	public void SetDocument( SuiDocument document )
 	{
 		_document = document;
-		// M10 will replace the placeholder with the SceneRenderingWidget here.
-		// For now, just update the placeholder text so the user knows a doc was loaded.
-		if ( _placeholder != null && document != null )
-		{
-			var rootCount = document.Elements.Count;
-			_placeholder.Text = $"Document loaded: {document.Name}\n{rootCount} element{(rootCount == 1 ? "" : "s")}\n\nSpike 01 (M10) will host the runtime preview here\nvia Editor.SceneRenderingWidget.";
-		}
+		// Etapa B will pipe document into the preview host so the preview
+		// reflects the loaded .sui — for Etapa A we just keep showing the
+		// placeholder probe regardless of which document is loaded.
 	}
 }
