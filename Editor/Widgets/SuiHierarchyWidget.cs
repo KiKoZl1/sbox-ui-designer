@@ -295,14 +295,22 @@ public class SuiHierarchyWidget : Widget
 	}
 
 	/// <summary>
-	/// Resolve a target element + insert index for a drop operation. The rules:
-	/// - Dropping onto a sibling of the source: reorder within the same parent.
-	/// - Dropping onto a container that's not the source's current parent: reparent
-	///   as a new child appended to the container.
-	/// - Drop refused if it would create a cycle (source contains target) or if
-	///   target is the source itself.
+	/// UE-UMG-style drop resolution based on which edge of the target row the
+	/// pointer is over:
+	///
+	///   ┌─────────────────────────┐
+	///   │  Top    -> insert ABOVE │  (sibling of target, same parent)
+	///   ├─────────────────────────┤
+	///   │  Middle -> become CHILD │  (only if target is a container; else
+	///   │           of target     │   falls back to sibling-after)
+	///   ├─────────────────────────┤
+	///   │ Bottom  -> insert BELOW │  (sibling of target, same parent)
+	///   └─────────────────────────┘
+	///
+	/// The 5-pixel edge threshold is set by BaseItemWidget when it builds the
+	/// ItemDragEvent (LocalPosition.y &lt; 5 -> Top; &gt; Height-5 -> Bottom).
 	/// </summary>
-	internal void HandleDrop( SuiElement source, SuiElement target )
+	internal void HandleDrop( SuiElement source, SuiElement target, BaseItemWidget.ItemEdge dropEdge )
 	{
 		if ( source == null || target == null || source.Id == target.Id ) return;
 		if ( _document == null ) return;
@@ -311,30 +319,40 @@ public class SuiHierarchyWidget : Widget
 		// Refuse cycle: target cannot be a descendant of source.
 		if ( IsDescendantInDoc( target.Id, source.Id ) ) return;
 
-		// Same-parent reorder.
-		if ( target.ParentId == source.ParentId )
+		var dropOnEdge = (dropEdge & BaseItemWidget.ItemEdge.Top) != 0
+			|| (dropEdge & BaseItemWidget.ItemEdge.Bottom) != 0;
+
+		// Edge drop — sibling insertion at target's position.
+		if ( dropOnEdge )
 		{
-			var parent = _document.GetElement( source.ParentId );
-			if ( parent == null ) return;
-			var newIdx = parent.Children.IndexOf( target.Id );
-			if ( newIdx < 0 ) return;
-			ReparentRequested?.Invoke( source, parent, newIdx );
+			var parent = _document.GetElement( target.ParentId );
+			if ( parent == null ) return; // target was root; fall back to nothing
+			var idx = parent.Children.IndexOf( target.Id );
+			if ( idx < 0 ) idx = parent.Children.Count;
+			if ( (dropEdge & BaseItemWidget.ItemEdge.Bottom) != 0 ) idx += 1;
+
+			// If we're moving inside the same parent and removing source first
+			// would shift indices, the controller's command handles index
+			// stability — we just pass the visual index here.
+			ReparentRequested?.Invoke( source, parent, idx );
 			return;
 		}
 
-		// Reparent into a container — drop appends as last child.
+		// Middle drop — make source a child of target (UE-UMG style).
 		if ( IsContainerType( target.Type ) )
 		{
 			ReparentRequested?.Invoke( source, target, target.Children.Count );
 			return;
 		}
 
-		// Drop onto a non-container leaf: become its sibling instead.
-		var newParent = _document.GetElement( target.ParentId );
-		if ( newParent == null ) return;
-		var siblingIdx = newParent.Children.IndexOf( target.Id );
-		if ( siblingIdx < 0 ) siblingIdx = newParent.Children.Count;
-		ReparentRequested?.Invoke( source, newParent, siblingIdx );
+		// Middle drop on a leaf — fall back to sibling-after for the same
+		// parent so the gesture isn't lost.
+		var leafParent = _document.GetElement( target.ParentId );
+		if ( leafParent == null ) return;
+		var siblingIdx = leafParent.Children.IndexOf( target.Id );
+		if ( siblingIdx < 0 ) siblingIdx = leafParent.Children.Count;
+		else siblingIdx += 1;
+		ReparentRequested?.Invoke( source, leafParent, siblingIdx );
 	}
 
 	private bool IsDescendantInDoc( string candidateId, string ancestorId )
@@ -436,9 +454,10 @@ internal sealed class SuiElementTreeNode : TreeNode
 
 	public override DropAction OnDragDrop( BaseItemWidget.ItemDragEvent e )
 	{
-		// ItemDragEvent is nested inside Editor.BaseItemWidget — must be
-		// qualified from outside the Editor namespace. The base TreeNode
-		// declaration uses the bare name because it lives in 'namespace Editor'.
+		// ItemDragEvent / ItemEdge are nested inside Editor.BaseItemWidget —
+		// must be qualified from outside the Editor namespace. The base
+		// TreeNode declaration uses the bare name because it lives in
+		// 'namespace Editor'.
 		if ( _owner == null || Element == null ) return DropAction.Ignore;
 
 		// `e.Data.Object` is whatever OnDragStart put in there — for SUI nodes
@@ -453,7 +472,7 @@ internal sealed class SuiElementTreeNode : TreeNode
 			return DropAction.Move;
 		}
 
-		_owner.HandleDrop( sourceNode.Element, Element );
+		_owner.HandleDrop( sourceNode.Element, Element, e.DropEdge );
 		return DropAction.Move;
 	}
 
