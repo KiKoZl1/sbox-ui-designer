@@ -429,7 +429,9 @@ public class SuiDetailsWidget : Widget
 		var te = new TextEdit( _bodyHost );
 		te.PlainText = value ?? "";
 		te.FixedHeight = fixedHeight;
-		te.TextChanged += () => onCommit?.Invoke( te.PlainText ?? "" );
+		// TextEdit.TextChanged is a parameterless Action; pull the current
+		// PlainText off the widget itself when it fires.
+		te.TextChanged += ( _ ) => onCommit?.Invoke( te.PlainText ?? "" );
 		_bodyHost.Layout.Add( te );
 	}
 

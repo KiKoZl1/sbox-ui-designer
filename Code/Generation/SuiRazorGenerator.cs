@@ -101,12 +101,11 @@ public sealed class SuiRazorGenerator
 	private void EmitContainerElement( SuiElement el, string className, string indent, int depth )
 	{
 		var hasChildren = el.Children != null && el.Children.Count > 0;
-		var hasContent = false; // type-specific content like Button label
 
 		// Open tag
 		_sb.Append( indent ).Append( "<div class=\"" ).Append( className ).Append( "\"" );
 
-		// Self-closing if no children and no content
+		// Self-closing if no children and no intrinsic content (e.g. Button label).
 		if ( !hasChildren && !HasIntrinsicContent( el ) )
 		{
 			_sb.AppendLine( "></div>" );
