@@ -1,41 +1,58 @@
+using System;
+using System.Collections.Generic;
 using Editor;
+using Sandbox;
+using SboxUiDesigner.EditorUi;
 using SboxUiDesigner.Runtime;
 
 namespace SboxUiDesigner.EditorUi.Widgets;
 
 /// <summary>
-/// Details dock — right side. Shows properties of the selected element (or the
-/// document/canvas if nothing is selected).
+/// Details dock — right side. Shows properties of the selected element grouped
+/// into sections (Identity / Designer / Transform &amp; Layout / Appearance / Type props).
+/// When nothing is selected, shows document-wide settings.
 ///
-/// M4: placeholder body — just shows what would be displayed.
-/// M5/M8: full property editor wired through the controller.
+/// Property editors are hand-built (LineEdit / SuiBoolToggle / SuiEnumPicker)
+/// rather than going through ControlSheet, so each edit can be wired through
+/// the controller's command stack for undo/redo support. Every property
+/// change emits a <see cref="SuiSetPropertyCommand{T}"/>.
 /// </summary>
 public class SuiDetailsWidget : Widget
 {
 	private SuiDocument _document;
 	private SuiElement _selected;
-	private Label _bodyLabel;
+	private SuiDesignerController _controller;
+
+	private Widget _bodyHost;
 
 	public SuiDetailsWidget( Widget parent = null ) : base( parent )
 	{
 		WindowTitle = "Details";
 		Name = "SuiDetails";
-		MinimumSize = new Vector2( 260, 200 );
+		MinimumSize = new Vector2( 280, 200 );
 
 		Layout = Layout.Column();
-		Layout.Margin = 6;
-		Layout.Spacing = 4;
+		Layout.Margin = 0;
+		Layout.Spacing = 0;
 
 		var header = new Label( "Details", this );
-		header.SetStyles( "font-weight: bold; color: #e5e7eb; padding-bottom: 4px;" );
+		header.SetStyles( "padding: 6px 8px; font-weight: bold; color: #e5e7eb;" );
 		Layout.Add( header );
 
-		_bodyLabel = new Label( "(no selection)", this );
-		_bodyLabel.WordWrap = true;
-		_bodyLabel.SetStyles( "color: #9ca3af; font-size: 11px;" );
-		Layout.Add( _bodyLabel );
+		var scroll = new ScrollArea( this );
+		scroll.Canvas = new Widget( null );
+		scroll.Canvas.Layout = Layout.Column();
+		scroll.Canvas.Layout.Margin = new Sandbox.UI.Margin( 8, 4, 8, 8 );
+		scroll.Canvas.Layout.Spacing = 0;
+		_bodyHost = scroll.Canvas;
+		Layout.Add( scroll, 1 );
 
-		Layout.AddStretchCell();
+		Refresh();
+	}
+
+	public void SetController( SuiDesignerController controller )
+	{
+		_controller = controller;
 	}
 
 	public void SetDocument( SuiDocument document )
@@ -52,31 +69,443 @@ public class SuiDetailsWidget : Widget
 
 	private void Refresh()
 	{
-		if ( _selected != null )
+		if ( _bodyHost?.Layout == null ) return;
+		_bodyHost.Layout.Clear( true );
+
+		if ( _selected != null && _document != null )
 		{
-			_bodyLabel.Text =
-				$"id: {_selected.Id}\n" +
-				$"name: {_selected.Name}\n" +
-				$"type: {_selected.Type}\n" +
-				$"parent: {_selected.ParentId ?? "(root)"}\n" +
-				$"children: {_selected.Children.Count}\n" +
-				$"layout: {_selected.Layout?.Mode}\n" +
-				$"pointer: {_selected.Style?.PointerEvents}\n" +
-				"\nM4 placeholder — full property editor in M8.";
+			BuildElementSections( _selected );
 		}
 		else if ( _document != null )
 		{
-			_bodyLabel.Text =
-				$"Document: {_document.Name}\n" +
-				$"id: {_document.DocumentId}\n" +
-				$"schema: v{_document.SchemaVersion}\n" +
-				$"elements: {_document.Elements.Count}\n" +
-				$"canvas: {_document.Canvas?.BaseWidth}x{_document.Canvas?.BaseHeight}\n" +
-				"\nClick an element in the Hierarchy to edit its properties.";
+			BuildDocumentSections();
 		}
 		else
 		{
-			_bodyLabel.Text = "(no document loaded)";
+			AddNote( "(no document loaded)" );
 		}
+
+		_bodyHost.Layout.AddStretchCell();
+	}
+
+	// ─────────────────────────────────────────────────────────────────────
+	//  Element sections
+	// ─────────────────────────────────────────────────────────────────────
+
+	private void BuildElementSections( SuiElement el )
+	{
+		BuildIdentitySection( el );
+		BuildDesignerSection( el );
+		BuildLayoutSection( el );
+		BuildStyleSection( el );
+		BuildPropsSection( el );
+	}
+
+	private void BuildIdentitySection( SuiElement el )
+	{
+		AddSectionHeader( "Identity" );
+		AddTextRow( "Name", el.Name, v => SetProp( el, e => e.Name, ( e, v2 ) => e.Name = v2, v, "Rename" ) );
+		AddReadonlyRow( "Id", el.Id );
+		AddReadonlyRow( "Type", el.Type.ToString() );
+		AddReadonlyRow( "Parent", el.ParentId ?? "(root)" );
+		AddTextRow( "Notes", el.Notes ?? "", v => SetProp( el, e => e.Notes, ( e, v2 ) => e.Notes = v2, v, "Set notes" ) );
+	}
+
+	private void BuildDesignerSection( SuiElement el )
+	{
+		if ( el.Flags == null ) el.Flags = new SuiElementFlags();
+		AddSectionHeader( "Designer" );
+		AddBoolRow( "Locked", el.Flags.Locked,
+			v => SetProp( el, e => e.Flags.Locked, ( e, v2 ) => e.Flags.Locked = v2, v, "Set locked" ) );
+		AddBoolRow( "Hidden in designer", el.Flags.HiddenInDesigner,
+			v => SetProp( el, e => e.Flags.HiddenInDesigner, ( e, v2 ) => e.Flags.HiddenInDesigner = v2, v, "Set hidden" ) );
+		AddBoolRow( "Is Variable (V1.5)", el.Flags.IsVariable,
+			v => SetProp( el, e => e.Flags.IsVariable, ( e, v2 ) => e.Flags.IsVariable = v2, v, "Set is-variable" ) );
+	}
+
+	private void BuildLayoutSection( SuiElement el )
+	{
+		if ( el.Layout == null ) el.Layout = new SuiLayoutData();
+		var layout = el.Layout;
+
+		AddSectionHeader( "Transform & Layout" );
+
+		AddEnumRow<SuiLayoutMode>( "Mode", layout.Mode,
+			v => { SetProp( el, e => e.Layout.Mode, ( e, v2 ) => e.Layout.Mode = v2, v, "Change layout mode" ); Refresh(); } );
+
+		if ( layout.Mode == SuiLayoutMode.Absolute )
+		{
+			AddFloatRow( "X", layout.X,
+				v => SetProp( el, e => e.Layout.X, ( e, v2 ) => e.Layout.X = v2, v, "Set X" ) );
+			AddFloatRow( "Y", layout.Y,
+				v => SetProp( el, e => e.Layout.Y, ( e, v2 ) => e.Layout.Y = v2, v, "Set Y" ) );
+			AddFloatRow( "Width", layout.Width,
+				v => SetProp( el, e => e.Layout.Width, ( e, v2 ) => e.Layout.Width = v2, v, "Set Width" ) );
+			AddFloatRow( "Height", layout.Height,
+				v => SetProp( el, e => e.Layout.Height, ( e, v2 ) => e.Layout.Height = v2, v, "Set Height" ) );
+			AddEnumRow<SuiAnchor>( "Anchor", layout.Anchor,
+				v => SetProp( el, e => e.Layout.Anchor, ( e, v2 ) => e.Layout.Anchor = v2, v, "Set anchor" ) );
+			AddFloatRow( "Pivot X", layout.PivotX,
+				v => SetProp( el, e => e.Layout.PivotX, ( e, v2 ) => e.Layout.PivotX = v2, v, "Set pivot X" ) );
+			AddFloatRow( "Pivot Y", layout.PivotY,
+				v => SetProp( el, e => e.Layout.PivotY, ( e, v2 ) => e.Layout.PivotY = v2, v, "Set pivot Y" ) );
+			AddIntRow( "Z Index", layout.ZIndex,
+				v => SetProp( el, e => e.Layout.ZIndex, ( e, v2 ) => e.Layout.ZIndex = v2, v, "Set z-index" ) );
+		}
+		else
+		{
+			AddEnumRow<SuiFlexDirection>( "Direction", layout.FlexDirection,
+				v => SetProp( el, e => e.Layout.FlexDirection, ( e, v2 ) => e.Layout.FlexDirection = v2, v, "Set flex direction" ) );
+			AddEnumRow<SuiJustifyContent>( "Justify", layout.JustifyContent,
+				v => SetProp( el, e => e.Layout.JustifyContent, ( e, v2 ) => e.Layout.JustifyContent = v2, v, "Set justify-content" ) );
+			AddEnumRow<SuiAlignItems>( "Align Items", layout.AlignItems,
+				v => SetProp( el, e => e.Layout.AlignItems, ( e, v2 ) => e.Layout.AlignItems = v2, v, "Set align-items" ) );
+			AddEnumRow<SuiFlexWrap>( "Wrap", layout.FlexWrap,
+				v => SetProp( el, e => e.Layout.FlexWrap, ( e, v2 ) => e.Layout.FlexWrap = v2, v, "Set flex-wrap" ) );
+			AddFloatRow( "Gap", layout.Gap,
+				v => SetProp( el, e => e.Layout.Gap, ( e, v2 ) => e.Layout.Gap = v2, v, "Set gap" ) );
+		}
+
+		// Margin and padding shown as 4-float rows.
+		BuildSpacingRows( "Margin", layout.Margin, ( m, v ) => layout.Margin = v, el );
+		BuildSpacingRows( "Padding", layout.Padding, ( m, v ) => layout.Padding = v, el );
+	}
+
+	private void BuildSpacingRows( string label, SuiSpacing spacing, Action<SuiSpacing, SuiSpacing> setter, SuiElement el )
+	{
+		spacing ??= new SuiSpacing();
+		AddFloatRow( $"{label} Left", spacing.Left,
+			v => { var ns = CloneSpacing( spacing ); ns.Left = v; SetProp( el,
+				e => label == "Margin" ? e.Layout.Margin : e.Layout.Padding,
+				( e, sv ) => { if ( label == "Margin" ) e.Layout.Margin = sv; else e.Layout.Padding = sv; },
+				ns, $"Set {label.ToLower()} left" ); } );
+		AddFloatRow( $"{label} Top", spacing.Top,
+			v => { var ns = CloneSpacing( spacing ); ns.Top = v; SetProp( el,
+				e => label == "Margin" ? e.Layout.Margin : e.Layout.Padding,
+				( e, sv ) => { if ( label == "Margin" ) e.Layout.Margin = sv; else e.Layout.Padding = sv; },
+				ns, $"Set {label.ToLower()} top" ); } );
+		AddFloatRow( $"{label} Right", spacing.Right,
+			v => { var ns = CloneSpacing( spacing ); ns.Right = v; SetProp( el,
+				e => label == "Margin" ? e.Layout.Margin : e.Layout.Padding,
+				( e, sv ) => { if ( label == "Margin" ) e.Layout.Margin = sv; else e.Layout.Padding = sv; },
+				ns, $"Set {label.ToLower()} right" ); } );
+		AddFloatRow( $"{label} Bottom", spacing.Bottom,
+			v => { var ns = CloneSpacing( spacing ); ns.Bottom = v; SetProp( el,
+				e => label == "Margin" ? e.Layout.Margin : e.Layout.Padding,
+				( e, sv ) => { if ( label == "Margin" ) e.Layout.Margin = sv; else e.Layout.Padding = sv; },
+				ns, $"Set {label.ToLower()} bottom" ); } );
+	}
+
+	private static SuiSpacing CloneSpacing( SuiSpacing s )
+		=> s == null ? new SuiSpacing() : new SuiSpacing( s.Left, s.Top, s.Right, s.Bottom );
+
+	private void BuildStyleSection( SuiElement el )
+	{
+		if ( el.Style == null ) el.Style = new SuiStyleData();
+		var s = el.Style;
+
+		AddSectionHeader( "Appearance" );
+		AddTextRow( "Class Name", s.ClassName ?? "",
+			v => SetProp( el, e => e.Style.ClassName, ( e, v2 ) => e.Style.ClassName = v2, v, "Set class name" ) );
+		AddTextRow( "Background Color", s.BackgroundColor ?? "",
+			v => SetProp( el, e => e.Style.BackgroundColor, ( e, v2 ) => e.Style.BackgroundColor = v2, v, "Set bg color" ) );
+		AddTextRow( "Border Color", s.BorderColor ?? "",
+			v => SetProp( el, e => e.Style.BorderColor, ( e, v2 ) => e.Style.BorderColor = v2, v, "Set border color" ) );
+		AddFloatRow( "Border Width", s.BorderWidth,
+			v => SetProp( el, e => e.Style.BorderWidth, ( e, v2 ) => e.Style.BorderWidth = v2, v, "Set border width" ) );
+		AddFloatRow( "Border Radius", s.BorderRadius,
+			v => SetProp( el, e => e.Style.BorderRadius, ( e, v2 ) => e.Style.BorderRadius = v2, v, "Set border radius" ) );
+		AddFloatRow( "Opacity", s.Opacity,
+			v => SetProp( el, e => e.Style.Opacity, ( e, v2 ) => e.Style.Opacity = v2, ClampOpacity( v ), "Set opacity" ) );
+		AddEnumRow<SuiVisibility>( "Visibility", s.Visibility,
+			v => SetProp( el, e => e.Style.Visibility, ( e, v2 ) => e.Style.Visibility = v2, v, "Set visibility" ) );
+		AddEnumRow<SuiPointerEvents>( "Pointer Events", s.PointerEvents,
+			v => SetProp( el, e => e.Style.PointerEvents, ( e, v2 ) => e.Style.PointerEvents = v2, v, "Set pointer events" ) );
+		AddEnumRow<SuiOverflow>( "Overflow", s.Overflow,
+			v => SetProp( el, e => e.Style.Overflow, ( e, v2 ) => e.Style.Overflow = v2, v, "Set overflow" ) );
+	}
+
+	private static float ClampOpacity( float v ) => v < 0f ? 0f : ( v > 1f ? 1f : v );
+
+	private void BuildPropsSection( SuiElement el )
+	{
+		if ( el.Props == null ) el.Props = new SuiElementProps();
+		var p = el.Props;
+
+		switch ( el.Type )
+		{
+			case SuiElementType.Text:
+				AddSectionHeader( "Text" );
+				AddTextRow( "Text", p.Text,
+					v => SetProp( el, e => e.Props.Text, ( e, v2 ) => e.Props.Text = v2, v, "Set text" ) );
+				AddFloatRow( "Font Size", p.FontSize,
+					v => SetProp( el, e => e.Props.FontSize, ( e, v2 ) => e.Props.FontSize = v2, v, "Set font size" ) );
+				AddTextRow( "Font Family", p.FontFamily ?? "",
+					v => SetProp( el, e => e.Props.FontFamily, ( e, v2 ) => e.Props.FontFamily = v2, v, "Set font family" ) );
+				AddEnumRow<SuiFontWeight>( "Font Weight", p.FontWeight,
+					v => SetProp( el, e => e.Props.FontWeight, ( e, v2 ) => e.Props.FontWeight = v2, v, "Set font weight" ) );
+				AddTextRow( "Color", p.Color ?? "",
+					v => SetProp( el, e => e.Props.Color, ( e, v2 ) => e.Props.Color = v2, v, "Set text color" ) );
+				AddEnumRow<SuiTextAlign>( "Align", p.TextAlign,
+					v => SetProp( el, e => e.Props.TextAlign, ( e, v2 ) => e.Props.TextAlign = v2, v, "Set text-align" ) );
+				AddFloatRow( "Letter Spacing", p.LetterSpacing,
+					v => SetProp( el, e => e.Props.LetterSpacing, ( e, v2 ) => e.Props.LetterSpacing = v2, v, "Set letter spacing" ) );
+				AddEnumRow<SuiTextOverflow>( "Text Overflow", p.TextOverflow,
+					v => SetProp( el, e => e.Props.TextOverflow, ( e, v2 ) => e.Props.TextOverflow = v2, v, "Set text overflow" ) );
+				break;
+
+			case SuiElementType.Image:
+			case SuiElementType.ItemIcon:
+				AddSectionHeader( "Image" );
+				AddTextRow( "Image Path", p.ImagePath ?? "",
+					v => SetProp( el, e => e.Props.ImagePath, ( e, v2 ) => e.Props.ImagePath = v2, v, "Set image path" ) );
+				AddTextRow( "Tint", p.Tint ?? "",
+					v => SetProp( el, e => e.Props.Tint, ( e, v2 ) => e.Props.Tint = v2, v, "Set tint" ) );
+				AddEnumRow<SuiImageFitMode>( "Fit Mode", p.FitMode,
+					v => SetProp( el, e => e.Props.FitMode, ( e, v2 ) => e.Props.FitMode = v2, v, "Set fit mode" ) );
+				AddEnumRow<SuiBackgroundPosition>( "Background Position", p.BackgroundPosition,
+					v => SetProp( el, e => e.Props.BackgroundPosition, ( e, v2 ) => e.Props.BackgroundPosition = v2, v, "Set bg position" ) );
+				break;
+
+			case SuiElementType.Button:
+				AddSectionHeader( "Button" );
+				AddTextRow( "Button Text", p.ButtonText ?? "",
+					v => SetProp( el, e => e.Props.ButtonText, ( e, v2 ) => e.Props.ButtonText = v2, v, "Set button text" ) );
+				break;
+
+			case SuiElementType.Grid:
+			case SuiElementType.InventoryGrid:
+			case SuiElementType.Hotbar:
+				AddSectionHeader( "Grid" );
+				AddIntRow( "Columns", p.Columns,
+					v => SetProp( el, e => e.Props.Columns, ( e, v2 ) => e.Props.Columns = v2, v, "Set columns" ) );
+				AddIntRow( "Rows", p.Rows,
+					v => SetProp( el, e => e.Props.Rows, ( e, v2 ) => e.Props.Rows = v2, v, "Set rows" ) );
+				AddFloatRow( "Cell Width", p.CellWidth,
+					v => SetProp( el, e => e.Props.CellWidth, ( e, v2 ) => e.Props.CellWidth = v2, v, "Set cell width" ) );
+				AddFloatRow( "Cell Height", p.CellHeight,
+					v => SetProp( el, e => e.Props.CellHeight, ( e, v2 ) => e.Props.CellHeight = v2, v, "Set cell height" ) );
+				AddFloatRow( "Gap", p.GridGap,
+					v => SetProp( el, e => e.Props.GridGap, ( e, v2 ) => e.Props.GridGap = v2, v, "Set grid gap" ) );
+				AddBoolRow( "Auto Fill", p.AutoFill,
+					v => SetProp( el, e => e.Props.AutoFill, ( e, v2 ) => e.Props.AutoFill = v2, v, "Set auto-fill" ) );
+				AddEnumRow<SuiGridGenerationStrategy>( "Strategy", p.GridStrategy,
+					v => SetProp( el, e => e.Props.GridStrategy, ( e, v2 ) => e.Props.GridStrategy = v2, v, "Set grid strategy" ) );
+				break;
+
+			case SuiElementType.ProgressBar:
+				AddSectionHeader( "Progress Bar" );
+				AddFloatRow( "Min", p.ProgressMin,
+					v => SetProp( el, e => e.Props.ProgressMin, ( e, v2 ) => e.Props.ProgressMin = v2, v, "Set min" ) );
+				AddFloatRow( "Max", p.ProgressMax,
+					v => SetProp( el, e => e.Props.ProgressMax, ( e, v2 ) => e.Props.ProgressMax = v2, v, "Set max" ) );
+				AddFloatRow( "Preview Value", p.ProgressPreviewValue,
+					v => SetProp( el, e => e.Props.ProgressPreviewValue, ( e, v2 ) => e.Props.ProgressPreviewValue = v2, v, "Set preview value" ) );
+				AddTextRow( "Fill Color", p.ProgressFillColor ?? "",
+					v => SetProp( el, e => e.Props.ProgressFillColor, ( e, v2 ) => e.Props.ProgressFillColor = v2, v, "Set fill color" ) );
+				break;
+
+			case SuiElementType.InventorySlot:
+				AddSectionHeader( "Inventory Slot" );
+				AddIntRow( "Slot Index", p.SlotIndex,
+					v => SetProp( el, e => e.Props.SlotIndex, ( e, v2 ) => e.Props.SlotIndex = v2, v, "Set slot index" ) );
+				AddTextRow( "Preview Icon", p.PreviewIconPath ?? "",
+					v => SetProp( el, e => e.Props.PreviewIconPath, ( e, v2 ) => e.Props.PreviewIconPath = v2, v, "Set preview icon" ) );
+				AddIntRow( "Preview Count", p.PreviewCount,
+					v => SetProp( el, e => e.Props.PreviewCount, ( e, v2 ) => e.Props.PreviewCount = v2, v, "Set preview count" ) );
+				break;
+		}
+	}
+
+	// ─────────────────────────────────────────────────────────────────────
+	//  Document settings (no element selected)
+	// ─────────────────────────────────────────────────────────────────────
+
+	private void BuildDocumentSections()
+	{
+		AddSectionHeader( "Document" );
+		AddReadonlyRow( "Name", _document.Name ?? "" );
+		AddReadonlyRow( "Id", _document.DocumentId ?? "" );
+		AddReadonlyRow( "Schema", $"v{_document.SchemaVersion}" );
+		AddReadonlyRow( "Elements", _document.Elements.Count.ToString() );
+
+		if ( _document.Canvas != null )
+		{
+			AddSectionHeader( "Canvas" );
+			AddIntRow( "Base Width", _document.Canvas.BaseWidth,
+				v => { _document.Canvas.BaseWidth = v; } );
+			AddIntRow( "Base Height", _document.Canvas.BaseHeight,
+				v => { _document.Canvas.BaseHeight = v; } );
+			AddEnumRow<SuiScaleMode>( "Scale Mode", _document.Canvas.ScaleMode,
+				v => { _document.Canvas.ScaleMode = v; } );
+		}
+
+		if ( _document.Output != null )
+		{
+			AddSectionHeader( "Output" );
+			AddReadonlyRow( "Configured", _document.Output.Configured.ToString() );
+			AddReadonlyRow( "Folder", _document.Output.RootFolder ?? "(not set)" );
+			AddTextRow( "Namespace", _document.Output.Namespace ?? "",
+				v => _document.Output.Namespace = v );
+			AddTextRow( "Class Name", _document.Output.ClassName ?? "",
+				v => _document.Output.ClassName = v );
+		}
+
+		AddNote( "Edits to canvas/output settings on this panel are not undoable in M5 — they are simple writes. Element edits ARE undoable." );
+	}
+
+	// ─────────────────────────────────────────────────────────────────────
+	//  Generic SetProperty helper — funnels every change through the
+	//  controller's command stack so undo/redo works consistently.
+	// ─────────────────────────────────────────────────────────────────────
+
+	private void SetProp<T>(
+		SuiElement element,
+		Func<SuiElement, T> getter,
+		Action<SuiElement, T> setter,
+		T newValue,
+		string description )
+	{
+		if ( _controller == null )
+		{
+			// Fall back to direct write so the panel still works in tests.
+			setter( element, newValue );
+			return;
+		}
+		_controller.SetProperty( element, getter, setter, newValue, description );
+	}
+
+	// ─────────────────────────────────────────────────────────────────────
+	//  Row builders
+	// ─────────────────────────────────────────────────────────────────────
+
+	private void AddSectionHeader( string text )
+	{
+		var lbl = new Label( text.ToUpperInvariant(), _bodyHost );
+		lbl.SetStyles( "color: #9ca3af; font-size: 10px; font-weight: bold; padding-top: 10px; padding-bottom: 4px; letter-spacing: 1px;" );
+		_bodyHost.Layout.Add( lbl );
+	}
+
+	private void AddNote( string text )
+	{
+		var lbl = new Label( text, _bodyHost );
+		lbl.WordWrap = true;
+		lbl.SetStyles( "color: #6b7280; font-size: 10px; padding-top: 8px;" );
+		_bodyHost.Layout.Add( lbl );
+	}
+
+	private void AddReadonlyRow( string label, string value )
+	{
+		var row = MakeRow();
+		AddRowLabel( row, label );
+		var v = new Label( value, row );
+		v.SetStyles( "color: #d1d5db; font-size: 11px;" );
+		row.Layout.Add( v, 1 );
+		_bodyHost.Layout.Add( row );
+	}
+
+	private void AddTextRow( string label, string value, Action<string> onCommit )
+	{
+		var row = MakeRow();
+		AddRowLabel( row, label );
+		var le = new LineEdit( row );
+		le.Text = value ?? "";
+		le.EditingFinished += () => onCommit?.Invoke( le.Text ?? "" );
+		row.Layout.Add( le, 1 );
+		_bodyHost.Layout.Add( row );
+	}
+
+	private void AddFloatRow( string label, float value, Action<float> onCommit )
+	{
+		var row = MakeRow();
+		AddRowLabel( row, label );
+		var le = new LineEdit( row );
+		le.Text = value.ToString( System.Globalization.CultureInfo.InvariantCulture );
+		le.EditingFinished += () =>
+		{
+			if ( float.TryParse( le.Text, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var f ) )
+				onCommit?.Invoke( f );
+			else
+				le.Text = value.ToString( System.Globalization.CultureInfo.InvariantCulture );
+		};
+		row.Layout.Add( le, 1 );
+		_bodyHost.Layout.Add( row );
+	}
+
+	private void AddIntRow( string label, int value, Action<int> onCommit )
+	{
+		var row = MakeRow();
+		AddRowLabel( row, label );
+		var le = new LineEdit( row );
+		le.Text = value.ToString( System.Globalization.CultureInfo.InvariantCulture );
+		le.EditingFinished += () =>
+		{
+			if ( int.TryParse( le.Text, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out var i ) )
+				onCommit?.Invoke( i );
+			else
+				le.Text = value.ToString( System.Globalization.CultureInfo.InvariantCulture );
+		};
+		row.Layout.Add( le, 1 );
+		_bodyHost.Layout.Add( row );
+	}
+
+	private void AddBoolRow( string label, bool value, Action<bool> onCommit )
+	{
+		var row = MakeRow();
+		AddRowLabel( row, label );
+		var btn = new Button( value ? "On" : "Off", value ? "check_box" : "check_box_outline_blank", row );
+		var captured = value;
+		btn.Clicked += () =>
+		{
+			captured = !captured;
+			btn.Text = captured ? "On" : "Off";
+			btn.Icon = captured ? "check_box" : "check_box_outline_blank";
+			onCommit?.Invoke( captured );
+		};
+		row.Layout.Add( btn, 1 );
+		_bodyHost.Layout.Add( row );
+	}
+
+	private void AddEnumRow<T>( string label, T value, Action<T> onCommit ) where T : struct, Enum
+	{
+		var row = MakeRow();
+		AddRowLabel( row, label );
+		var btn = new Button( value.ToString(), "arrow_drop_down", row );
+		btn.Clicked += () =>
+		{
+			var menu = new Menu( btn );
+			foreach ( var name in Enum.GetNames( typeof( T ) ) )
+			{
+				var captured = name;
+				menu.AddOption( name, "", () =>
+				{
+					if ( Enum.TryParse<T>( captured, out var parsed ) )
+					{
+						btn.Text = captured;
+						onCommit?.Invoke( parsed );
+					}
+				} );
+			}
+			menu.OpenAtCursor( true );
+		};
+		row.Layout.Add( btn, 1 );
+		_bodyHost.Layout.Add( row );
+	}
+
+	private Widget MakeRow()
+	{
+		var row = new Widget( _bodyHost );
+		row.Layout = Layout.Row();
+		row.Layout.Margin = new Sandbox.UI.Margin( 0, 2, 0, 2 );
+		row.Layout.Spacing = 6;
+		return row;
+	}
+
+	private void AddRowLabel( Widget row, string text )
+	{
+		var lbl = new Label( text, row );
+		lbl.FixedWidth = 110;
+		lbl.SetStyles( "color: #9ca3af; font-size: 11px;" );
+		row.Layout.Add( lbl );
 	}
 }

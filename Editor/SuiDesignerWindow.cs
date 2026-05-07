@@ -260,6 +260,10 @@ public class SuiDesignerWindow : DockWindow, IAssetEditor
 		_animations = new SuiAnimationsWidget( this );
 		_compileResults = new SuiCompileResultsWidget( this );
 
+		// Details panel needs the controller reference so each property edit
+		// can be wrapped in a SuiSetPropertyCommand for undo/redo.
+		_details.SetController( _controller );
+
 		// All widget actions route through the controller so undo/redo, dirty
 		// state, and selection stay coherent across the editor.
 		_hierarchy.ElementSelected += el => _controller.SetSelected( el );
