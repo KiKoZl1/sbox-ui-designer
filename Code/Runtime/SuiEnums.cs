@@ -158,6 +158,43 @@ public enum SuiTextOverflow
 	Clip,
 }
 
+/// <summary>
+/// How a Text element resolves its width and height.
+///
+/// - <see cref="Auto"/> (default) — W/H derived from text content. Single line,
+///   no wrap. Text rect == text size, so vertical alignment is moot.
+/// - <see cref="Fixed"/> — user-specified W/H. Supports <see cref="SuiTextAlign"/> +
+///   <see cref="SuiVerticalAlign"/> for positioning the text inside the box.
+/// - <see cref="AutoHeightWrap"/> — user specifies max-width; height grows with
+///   wrapped lines. Horizontal align supported, vertical not.
+/// </summary>
+public enum SuiTextSizeMode
+{
+	Auto,
+	Fixed,
+	AutoHeightWrap,
+}
+
+public enum SuiVerticalAlign
+{
+	Top,
+	Center,
+	Bottom,
+}
+
+/// <summary>
+/// Fill direction for ProgressBar — which edge the bar starts from.
+/// LeftToRight is the most common (HP bars in HUDs). RightToLeft for RTL UIs
+/// or specific designs. BottomToTop / TopToBottom for vertical progress.
+/// </summary>
+public enum SuiProgressDirection
+{
+	LeftToRight,
+	RightToLeft,
+	BottomToTop,
+	TopToBottom,
+}
+
 public enum SuiImageFitMode
 {
 	Contain,

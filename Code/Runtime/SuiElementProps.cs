@@ -28,6 +28,12 @@ public sealed class SuiElementProps
 	public float LetterSpacing { get; set; } = 0f;
 	public SuiTextOverflow TextOverflow { get; set; } = SuiTextOverflow.Clip;
 
+	/// <summary>How the Text element sizes itself (Auto / Fixed / AutoHeightWrap).</summary>
+	public SuiTextSizeMode TextSizeMode { get; set; } = SuiTextSizeMode.Auto;
+
+	/// <summary>Only used when <see cref="TextSizeMode"/> is <see cref="SuiTextSizeMode.Fixed"/>.</summary>
+	public SuiVerticalAlign VerticalAlign { get; set; } = SuiVerticalAlign.Top;
+
 	// ---------- Image ----------
 
 	public string ImagePath { get; set; }
@@ -58,6 +64,15 @@ public sealed class SuiElementProps
 	public float ProgressMax { get; set; } = 100f;
 	public float ProgressPreviewValue { get; set; } = 50f;
 	public string ProgressFillColor { get; set; } = "#4ade80";
+	public SuiProgressDirection ProgressDirection { get; set; } = SuiProgressDirection.LeftToRight;
+
+	// ---------- Text wrap (Auto Wrap) ----------
+
+	/// <summary>When true, Text wraps automatically. Same effect as TextSizeMode.AutoHeightWrap.</summary>
+	public bool AutoWrapText { get; set; } = false;
+
+	/// <summary>Pixel width to wrap at when AutoWrapText is true. 0 = use the element's Width.</summary>
+	public float WrapTextAt { get; set; } = 0f;
 
 	// ---------- Inventory slot / item ----------
 
@@ -76,6 +91,8 @@ public sealed class SuiElementProps
 		LineHeight = LineHeight,
 		LetterSpacing = LetterSpacing,
 		TextOverflow = TextOverflow,
+		TextSizeMode = TextSizeMode,
+		VerticalAlign = VerticalAlign,
 		ImagePath = ImagePath,
 		Tint = Tint,
 		FitMode = FitMode,
@@ -92,6 +109,9 @@ public sealed class SuiElementProps
 		ProgressMax = ProgressMax,
 		ProgressPreviewValue = ProgressPreviewValue,
 		ProgressFillColor = ProgressFillColor,
+		ProgressDirection = ProgressDirection,
+		AutoWrapText = AutoWrapText,
+		WrapTextAt = WrapTextAt,
 		SlotIndex = SlotIndex,
 		PreviewIconPath = PreviewIconPath,
 		PreviewCount = PreviewCount,

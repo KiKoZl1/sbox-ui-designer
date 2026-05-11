@@ -51,6 +51,10 @@ public sealed class SuiRazorGenerator
 
 		// Standard preamble. @inherits PanelComponent makes this the root of
 		// a runtime UI tree (used inside ScreenPanel or WorldPanel).
+		// @namespace places the generated type under ctx.Namespace so the
+		// preview/runtime can find it deterministically via TypeLibrary.
+		if ( !string.IsNullOrEmpty( ctx.Namespace ) )
+			_sb.AppendLine( $"@namespace {ctx.Namespace}" );
 		_sb.AppendLine( "@using Sandbox;" );
 		_sb.AppendLine( "@using Sandbox.UI;" );
 		_sb.AppendLine( "@inherits PanelComponent" );
@@ -75,19 +79,39 @@ public sealed class SuiRazorGenerator
 	private void EmitElement( SuiElement el, int depth )
 	{
 		if ( el == null ) return;
-		var indent = new string( '\t', depth );
+		var indent = new string( ' ', depth * 2 );
+		// Two classes per element:
+		//  - User class (from Style.ClassName) — shared across siblings, exposed
+		//    for hand-written rules in <name>.User.scss.
+		//  - Unique element class (sui-<id>) — used by the SCSS generator so
+		//    per-element generated rules NEVER collide with siblings sharing
+		//    the same user class (which would otherwise cascade-overwrite, e.g.
+		//    six slots all ending up with the last slot's background-image).
 		var className = SuiNameSanitizer.ToCssClass( el.Style?.ClassName ?? el.Type.ToString() );
+		var uniqueClass = ElementUniqueClass( el );
+		var combinedClass = className == uniqueClass ? className : $"{className} {uniqueClass}";
 
 		switch ( el.Type )
 		{
 			case SuiElementType.Text:
-				EmitTextElement( el, className, indent );
+				EmitTextElement( el, combinedClass, indent );
 				break;
 
 			default:
-				EmitContainerElement( el, className, indent, depth );
+				EmitContainerElement( el, combinedClass, indent, depth );
 				break;
 		}
+	}
+
+	/// <summary>
+	/// Stable per-element CSS class — derived from the element Id, prefixed
+	/// with <c>sui-</c> so it never collides with user-defined classes.
+	/// </summary>
+	internal static string ElementUniqueClass( SuiElement el )
+	{
+		var raw = el?.Id ?? "";
+		var safe = SuiNameSanitizer.ToCssClass( raw );
+		return string.IsNullOrEmpty( safe ) ? "sui-el" : $"sui-{safe}";
 	}
 
 	private void EmitTextElement( SuiElement el, string className, string indent )
@@ -136,7 +160,7 @@ public sealed class SuiRazorGenerator
 
 	private void EmitIntrinsicContent( SuiElement el, int depth )
 	{
-		var indent = new string( '\t', depth );
+		var indent = new string( ' ', depth * 2 );
 
 		switch ( el.Type )
 		{

@@ -31,6 +31,26 @@ public sealed class SuiElement
 	/// <summary>Optional designer-only notes attached to the element.</summary>
 	public string Notes { get; set; }
 
+	/// <summary>Tooltip shown when the user hovers the element at runtime.</summary>
+	public string TooltipText { get; set; }
+
+	/// <summary>True if the element should be reachable from generated C# as a [Property] field.</summary>
+	public bool IsVisible { get; set; } = true;
+
+	/// <summary>
+	/// Optional widget class override — when set, the generator emits a custom
+	/// PanelComponent type instead of the default per-Type behavior. V2 will
+	/// surface this as a dropdown of registered classes; V1 is free-text.
+	/// </summary>
+	public string ClassOverride { get; set; }
+
+	/// <summary>
+	/// Optional reusable style reference — name of a shared style block
+	/// applied to this element. V2 will surface this as a dropdown of styles
+	/// defined in the document; V1 is free-text.
+	/// </summary>
+	public string StyleRef { get; set; }
+
 	public SuiElement Clone() => new()
 	{
 		Id = Id,
@@ -43,6 +63,10 @@ public sealed class SuiElement
 		Style = Style?.Clone() ?? new(),
 		Props = Props?.Clone() ?? new(),
 		Notes = Notes,
+		TooltipText = TooltipText,
+		IsVisible = IsVisible,
+		ClassOverride = ClassOverride,
+		StyleRef = StyleRef,
 	};
 
 	/// <summary>
@@ -62,10 +86,18 @@ public sealed class SuiElement
 			_ => SuiPointerEvents.None,
 		};
 
-		// Boxes use Flex layout by default, everything else starts Absolute.
+		// Boxes + grids use Flex layout by default, everything else starts Absolute.
+		// Grids (Grid, InventoryGrid) need flex+wrap or children stack at (0,0)
+		// — the canvas solver doesn't have a dedicated grid-pass, but flex-row+wrap
+		// produces the correct visual since the SCSS generator already maps Grid
+		// to wrapped-flex (PRD doc 08 strategy A).
 		Layout.Mode = Type switch
 		{
-			SuiElementType.HorizontalBox or SuiElementType.VerticalBox or SuiElementType.Hotbar
+			SuiElementType.HorizontalBox
+				or SuiElementType.VerticalBox
+				or SuiElementType.Hotbar
+				or SuiElementType.Grid
+				or SuiElementType.InventoryGrid
 				=> SuiLayoutMode.Flex,
 			_ => SuiLayoutMode.Absolute,
 		};
@@ -74,15 +106,41 @@ public sealed class SuiElement
 		Layout.FlexDirection = Type switch
 		{
 			SuiElementType.VerticalBox => SuiFlexDirection.Column,
-			SuiElementType.HorizontalBox or SuiElementType.Hotbar => SuiFlexDirection.Row,
+			SuiElementType.HorizontalBox
+				or SuiElementType.Hotbar
+				or SuiElementType.Grid
+				or SuiElementType.InventoryGrid
+				=> SuiFlexDirection.Row,
 			_ => Layout.FlexDirection,
 		};
 
-		// Hotbar implies a wrapped row of fixed-size slots.
+		// Grid + InventoryGrid wrap on overflow so multi-row layouts work.
+		// Hotbar is a single row of fixed slots → no wrap.
+		Layout.FlexWrap = Type switch
+		{
+			SuiElementType.Grid or SuiElementType.InventoryGrid => SuiFlexWrap.Wrap,
+			SuiElementType.Hotbar => SuiFlexWrap.NoWrap,
+			_ => Layout.FlexWrap,
+		};
+
+		// Hotbar implies a single row.
 		if ( Type == SuiElementType.Hotbar )
 		{
-			Layout.FlexWrap = SuiFlexWrap.NoWrap;
 			Props.Rows = 1;
+		}
+
+		// Default placeholder content so newly-created text elements are
+		// immediately visible on the canvas (and the user has something to
+		// type over). Only applied when the field is empty so existing
+		// elements keep their content on Clone() / re-defaulting.
+		switch ( Type )
+		{
+			case SuiElementType.Text:
+				if ( string.IsNullOrEmpty( Props.Text ) ) Props.Text = "Text";
+				break;
+			case SuiElementType.Button:
+				if ( string.IsNullOrEmpty( Props.ButtonText ) ) Props.ButtonText = "Button";
+				break;
 		}
 	}
 }

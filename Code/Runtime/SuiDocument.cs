@@ -41,6 +41,9 @@ public sealed class SuiDocument
 	public List<SuiEventBinding> Events { get; set; } = new();
 	public List<SuiAnimationData> Animations { get; set; } = new();
 
+	/// <summary>Property bindings (target.Property → Source.Path) displayed in the Bindings tab.</summary>
+	public List<SuiPropertyBinding> Bindings { get; set; } = new();
+
 	// ---------- Output & manifest ----------
 
 	public SuiOutputSettings Output { get; set; } = new();

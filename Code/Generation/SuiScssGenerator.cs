@@ -65,6 +65,18 @@ public sealed class SuiScssGenerator
 		}
 		_sb.AppendLine( "}" );
 
+		// User-owned sidecar — emitted ONLY in Final mode (compile-to-output).
+		// SuiCompileWriter creates <typeName>.User.scss once and never overwrites,
+		// so the @import always resolves at runtime. In Preview mode the cache
+		// writer doesn't emit a sidecar; importing a missing file silently breaks
+		// SCSS compilation and the panel ends up unstyled, so we skip the import.
+		if ( ctx.Mode == SuiGenerationMode.Final )
+		{
+			_sb.AppendLine();
+			_sb.AppendLine( $"// User-protected styles for {typeName} — safe to edit." );
+			_sb.AppendLine( $"@import \"{typeName}.User.scss\";" );
+		}
+
 		foreach ( var e in _errors ) result.Errors.Add( e );
 		foreach ( var w in _warnings ) result.Warnings.Add( w );
 
@@ -75,16 +87,21 @@ public sealed class SuiScssGenerator
 	//  Per-element emission
 	// ─────────────────────────────────────────────────────────────────────
 
-	private void EmitElement( SuiElement el, int depth, bool isRoot )
+	private void EmitElement( SuiElement el, int depth, bool isRoot, SuiLayoutMode parentMode = SuiLayoutMode.Absolute )
 	{
 		if ( el == null ) return;
-		var indent = new string( '\t', depth );
-		var className = SuiNameSanitizer.ToCssClass( el.Style?.ClassName ?? el.Type.ToString() );
+		var indent = new string( ' ', depth * 2 );
+		// Use the per-element UNIQUE class (sui-<id>) as the selector, not
+		// the user-provided ClassName which is intentionally shared across
+		// siblings. Without this, multiple slots all called ".slot" would
+		// cascade-overwrite each other and only the last rule would win.
+		var selectorClass = SuiRazorGenerator.ElementUniqueClass( el );
 
-		_sb.Append( indent ).Append( '.' ).Append( className ).AppendLine( " {" );
+		_sb.Append( indent ).Append( '.' ).Append( selectorClass ).AppendLine( " {" );
 
-		// Layout block
-		EmitLayout( el, depth + 1, isRoot );
+		// Layout block — parent's mode controls whether THIS element is positioned
+		// (parent=Absolute) or flowed (parent=Flex).
+		EmitLayout( el, depth + 1, isRoot, parentMode );
 
 		// Style block
 		EmitStyle( el, depth + 1 );
@@ -92,13 +109,24 @@ public sealed class SuiScssGenerator
 		// Type-specific props that turn into CSS
 		EmitTypeProps( el, depth + 1 );
 
-		// Recurse into children
+		// Recurse into children — pass THIS element's mode so children know
+		// whether their parent flows them or positions them.
+		// Grid/InventoryGrid/Hotbar are flex containers via EmitTypeProps even
+		// when Layout.Mode == Absolute, so their children must be treated as
+		// flex items (no position:absolute) or they all stack at (0,0).
+		var childParentMode = el.Layout?.Mode ?? SuiLayoutMode.Absolute;
+		if ( el.Type == SuiElementType.Grid
+			|| el.Type == SuiElementType.InventoryGrid
+			|| el.Type == SuiElementType.Hotbar )
+		{
+			childParentMode = SuiLayoutMode.Flex;
+		}
 		foreach ( var childId in el.Children )
 		{
 			if ( _byId.TryGetValue( childId, out var child ) )
 			{
 				_sb.AppendLine();
-				EmitElement( child, depth + 1, isRoot: false );
+				EmitElement( child, depth + 1, isRoot: false, parentMode: childParentMode );
 			}
 		}
 
@@ -109,27 +137,92 @@ public sealed class SuiScssGenerator
 	//  Layout (Absolute / Flex + spacing)
 	// ─────────────────────────────────────────────────────────────────────
 
-	private void EmitLayout( SuiElement el, int depth, bool isRoot )
+	private void EmitLayout( SuiElement el, int depth, bool isRoot, SuiLayoutMode parentMode )
 	{
 		var l = el.Layout;
 		if ( l == null ) return;
 
 		var hasOverlayChildren = el.Type == SuiElementType.Overlay;
 
-		if ( l.Mode == SuiLayoutMode.Absolute )
+		// Decide whether THIS element is "positioned" (position:absolute + anchor)
+		// or "flowed" (a flex item under its parent). Root always positions itself.
+		// Otherwise: parent.Mode == Absolute  → position absolute via anchor.
+		//            parent.Mode == Flex      → flex item, no position, no x/y.
+		var positionedByParent = isRoot || parentMode == SuiLayoutMode.Absolute;
+
+		if ( positionedByParent )
 		{
-			Emit( depth, "position", isRoot ? "absolute" : "absolute" );
-			// Anchor → left/top/right/bottom (designer abstraction)
-			EmitAnchorRules( depth, l );
+			Emit( depth, "position", "absolute" );
+
+			if ( isRoot )
+			{
+				// Root always fills the panel — it represents the document's
+				// 1920x1080 drawable area. Stretch via right:0;bottom:0 instead
+				// of explicit width/height because the runtime world panel's
+				// own internal Scale interacts unpredictably with explicit px
+				// widths on root.
+				Emit( depth, "left", "0" );
+				Emit( depth, "top", "0" );
+				Emit( depth, "right", "0" );
+				Emit( depth, "bottom", "0" );
+			}
+			else
+			{
+				EmitAnchorRules( depth, l );
+
+				// For Stretch anchors, Layout.Width / Layout.Height are MARGINS
+				// (right/bottom), not the element's box size — EmitAnchorRules
+				// already wrote them as `right: …` / `bottom: …`. Emitting them
+				// here as `width/height` again would shrink the element to that
+				// margin value (e.g. width: 8px) and defeat the stretch.
+				var isStretchAnchor =
+					l.Anchor == SuiAnchor.Stretch ||
+					l.Anchor == SuiAnchor.StretchHorizontal ||
+					l.Anchor == SuiAnchor.StretchVertical;
+				if ( !isStretchAnchor )
+				{
+					if ( l.Width > 0f ) Emit( depth, "width", $"{Px(l.Width)}" );
+					if ( l.Height > 0f ) Emit( depth, "height", $"{Px(l.Height)}" );
+				}
+				else
+				{
+					// StretchHorizontal: Height (cross axis) is still a real size.
+					// StretchVertical: Width (cross axis) is still a real size.
+					// Stretch: both axes are margins, neither emitted.
+					if ( l.Anchor == SuiAnchor.StretchHorizontal && l.Height > 0f )
+						Emit( depth, "height", $"{Px( l.Height )}" );
+					if ( l.Anchor == SuiAnchor.StretchVertical && l.Width > 0f )
+						Emit( depth, "width", $"{Px( l.Width )}" );
+				}
+				if ( l.MinWidth.HasValue ) Emit( depth, "min-width", $"{Px( l.MinWidth.Value )}" );
+				if ( l.MinHeight.HasValue ) Emit( depth, "min-height", $"{Px( l.MinHeight.Value )}" );
+				if ( l.MaxWidth.HasValue ) Emit( depth, "max-width", $"{Px( l.MaxWidth.Value )}" );
+				if ( l.MaxHeight.HasValue ) Emit( depth, "max-height", $"{Px( l.MaxHeight.Value )}" );
+				if ( l.ZIndex != 0 ) Emit( depth, "z-index", l.ZIndex.ToString( CultureInfo.InvariantCulture ) );
+			}
+		}
+		else
+		{
+			// Flex item — let the parent's flex layout place us. Emit
+			// position: relative so any absolute-positioned descendants
+			// (e.g. an Image child with Stretch anchor) anchor to THIS
+			// element's box, not to a distant positioned ancestor like the
+			// root card. Without this, all such descendants overlap at the
+			// nearest positioned ancestor (visible as one icon stretching
+			// across the whole card with the others hidden behind it).
+			Emit( depth, "position", "relative" );
 			if ( l.Width > 0f ) Emit( depth, "width", $"{Px(l.Width)}" );
 			if ( l.Height > 0f ) Emit( depth, "height", $"{Px(l.Height)}" );
 			if ( l.MinWidth.HasValue ) Emit( depth, "min-width", $"{Px( l.MinWidth.Value )}" );
 			if ( l.MinHeight.HasValue ) Emit( depth, "min-height", $"{Px( l.MinHeight.Value )}" );
 			if ( l.MaxWidth.HasValue ) Emit( depth, "max-width", $"{Px( l.MaxWidth.Value )}" );
 			if ( l.MaxHeight.HasValue ) Emit( depth, "max-height", $"{Px( l.MaxHeight.Value )}" );
-			if ( l.ZIndex != 0 ) Emit( depth, "z-index", l.ZIndex.ToString( CultureInfo.InvariantCulture ) );
 		}
-		else // Flex
+
+		// If THIS element is a Flex container, emit display:flex + its props
+		// regardless of how it's positioned by its parent (a flex item can itself
+		// be a flex container — that's how rows-inside-columns work).
+		if ( l.Mode == SuiLayoutMode.Flex )
 		{
 			Emit( depth, "display", "flex" );
 			Emit( depth, "flex-direction", FlexDirection( l.FlexDirection ) );
@@ -145,7 +238,7 @@ public sealed class SuiScssGenerator
 
 		// Overlay containers are flexed but each child uses absolute — emit
 		// position: relative so children with position: absolute anchor here.
-		if ( hasOverlayChildren && l.Mode != SuiLayoutMode.Absolute )
+		if ( hasOverlayChildren && l.Mode != SuiLayoutMode.Absolute && positionedByParent == false )
 			Emit( depth, "position", "relative" );
 
 		// Margin / padding
@@ -181,34 +274,39 @@ public sealed class SuiScssGenerator
 				Emit( depth, "bottom", Px( l.Y ) );
 				break;
 
+			// Center-based anchors: position the anchor reference at the center
+			// of the relevant axis, then apply X/Y as additional pixel offset
+			// (chained translate). Without the second translate the element
+			// stays glued to the centerline regardless of X/Y, which breaks
+			// drag-to-move + selection chrome (hit-test honors X/Y).
 			case SuiAnchor.TopCenter:
 				Emit( depth, "left", "50%" );
 				Emit( depth, "top", Px( l.Y ) );
-				Emit( depth, "transform", "translateX(-50%)" );
+				Emit( depth, "transform", $"translateX(-50%) translateX({Px( l.X )})" );
 				break;
 
 			case SuiAnchor.BottomCenter:
 				Emit( depth, "left", "50%" );
 				Emit( depth, "bottom", Px( l.Y ) );
-				Emit( depth, "transform", "translateX(-50%)" );
+				Emit( depth, "transform", $"translateX(-50%) translateX({Px( l.X )})" );
 				break;
 
 			case SuiAnchor.MiddleLeft:
 				Emit( depth, "left", Px( l.X ) );
 				Emit( depth, "top", "50%" );
-				Emit( depth, "transform", "translateY(-50%)" );
+				Emit( depth, "transform", $"translateY(-50%) translateY({Px( l.Y )})" );
 				break;
 
 			case SuiAnchor.MiddleRight:
 				Emit( depth, "right", Px( l.X ) );
 				Emit( depth, "top", "50%" );
-				Emit( depth, "transform", "translateY(-50%)" );
+				Emit( depth, "transform", $"translateY(-50%) translateY({Px( l.Y )})" );
 				break;
 
 			case SuiAnchor.MiddleCenter:
 				Emit( depth, "left", "50%" );
 				Emit( depth, "top", "50%" );
-				Emit( depth, "transform", "translate(-50%, -50%)" );
+				Emit( depth, "transform", $"translate(-50%, -50%) translate({Px( l.X )}, {Px( l.Y )})" );
 				break;
 
 			case SuiAnchor.Stretch:
@@ -256,11 +354,17 @@ public sealed class SuiScssGenerator
 		if ( s == null ) return;
 
 		if ( !string.IsNullOrEmpty( s.BackgroundColor ) ) Emit( depth, "background-color", s.BackgroundColor );
-		if ( !string.IsNullOrEmpty( s.BorderColor ) ) Emit( depth, "border-color", s.BorderColor );
-		if ( s.BorderWidth > 0f )
+
+		// Border: emit BOTH width and color, or NEITHER. Emitting width alone
+		// makes s&box's CSS parser fall back to a white border (canvas paint
+		// skips the stroke entirely when color is empty), causing a Preview vs
+		// Canvas divergence the user can't fix from the inspector.
+		var hasBorderColor = !string.IsNullOrEmpty( s.BorderColor );
+		var hasBorderWidth = s.BorderWidth > 0f;
+		if ( hasBorderColor && hasBorderWidth )
 		{
+			Emit( depth, "border-color", s.BorderColor );
 			Emit( depth, "border-width", Px( s.BorderWidth ) );
-			Emit( depth, "border-style", "solid" );
 		}
 		if ( s.BorderRadius > 0f ) Emit( depth, "border-radius", Px( s.BorderRadius ) );
 
@@ -313,33 +417,129 @@ public sealed class SuiScssGenerator
 				if ( p.LetterSpacing != 0f ) Emit( depth, "letter-spacing", Px( p.LetterSpacing ) );
 				if ( p.TextOverflow != SuiTextOverflow.Clip )
 					Emit( depth, "text-overflow", p.TextOverflow == SuiTextOverflow.Ellipsis ? "ellipsis" : "clip" );
+
+				// TextSizeMode-specific rules — controls wrap/sizing/vertical alignment.
+				switch ( p.TextSizeMode )
+				{
+					case SuiTextSizeMode.Auto:
+						// Single-line, content-sized. Override any width/height the
+						// shared layout pass might have emitted by re-emitting auto.
+						Emit( depth, "white-space", "nowrap" );
+						Emit( depth, "width", "auto" );
+						Emit( depth, "height", "auto" );
+						break;
+					case SuiTextSizeMode.AutoHeightWrap:
+						// Width fixed, height grows with wrap. Don't emit explicit height.
+						Emit( depth, "white-space", "normal" );
+						Emit( depth, "height", "auto" );
+						break;
+					case SuiTextSizeMode.Fixed:
+						// User width/height are emitted normally by the layout pass.
+						// Vertical align via flex on the Text element.
+						Emit( depth, "display", "flex" );
+						Emit( depth, "flex-direction", "column" );
+						Emit( depth, "justify-content", VerticalAlignToJustify( p.VerticalAlign ) );
+						break;
+				}
 				break;
 
 			case SuiElementType.Image:
 			case SuiElementType.ItemIcon:
-				if ( !string.IsNullOrEmpty( p.ImagePath ) )
+			case SuiElementType.InventorySlot:
+			{
+				// Source path: Image uses ImagePath; ItemIcon and InventorySlot
+				// store their icon in PreviewIconPath (the same field that the
+				// canvas's PaintItemIcon reads). Without this fallback, the
+				// runtime SCSS emits no background-image for ItemIcon and the
+				// slot/icon shows empty in Play even though the canvas paints
+				// it correctly — pure SCSS/canvas divergence.
+				var imagePath = !string.IsNullOrEmpty( p.ImagePath ) ? p.ImagePath : p.PreviewIconPath;
+				if ( !string.IsNullOrEmpty( imagePath ) )
 				{
-					Emit( depth, "background-image", $"url(\"{p.ImagePath}\")" );
+					Emit( depth, "background-image", $"url(\"{imagePath}\")" );
 					Emit( depth, "background-size", FitMode( p.FitMode ) );
 					Emit( depth, "background-position", BgPosition( p.BackgroundPosition ) );
+					// CSS default for background-repeat is "repeat", which makes
+					// Contain/Cover/None tile when the fitted image is smaller
+					// than the container. Force no-repeat so what the canvas
+					// paints matches what the runtime shows.
+					Emit( depth, "background-repeat", "no-repeat" );
 					if ( !string.IsNullOrEmpty( p.Tint ) && p.Tint != "#ffffff" && p.Tint != "#FFFFFF" )
 						Emit( depth, "background-image-tint", p.Tint );
 				}
+				break;
+			}
+
+			case SuiElementType.Button:
+				// Button = <div class="btn"><label class="label">text</label></div>.
+				// Center the label inside the div via flex and emit text styles on
+				// both the outer (for hover/state hooks) and the inner .label
+				// (so the text actually inherits the user-configured font + color
+				// without relying on the runtime's CSS-inheritance behavior, which
+				// has been spotty for font-size on nested labels).
+				Emit( depth, "display", "flex" );
+				Emit( depth, "flex-direction", "row" );
+				Emit( depth, "justify-content", "center" );
+				Emit( depth, "align-items", "center" );
+
+				// Emit per-button text styles on the inner .label using a nested
+				// rule. We close it before continuing other emissions.
+				var indentLabel = new string( ' ', depth * 2 );
+				_sb.Append( indentLabel ).AppendLine( ".label {" );
+				if ( p.FontSize > 0f ) Emit( depth + 1, "font-size", Px( p.FontSize ) );
+				if ( !string.IsNullOrEmpty( p.FontFamily ) ) Emit( depth + 1, "font-family", p.FontFamily );
+				if ( p.FontWeight != SuiFontWeight.Normal ) Emit( depth + 1, "font-weight", FontWeight( p.FontWeight ) );
+				if ( !string.IsNullOrEmpty( p.Color ) ) Emit( depth + 1, "color", p.Color );
+				if ( p.TextAlign != SuiTextAlign.Left ) Emit( depth + 1, "text-align", TextAlign( p.TextAlign ) );
+				_sb.Append( indentLabel ).AppendLine( "}" );
 				break;
 
 			case SuiElementType.Grid:
 			case SuiElementType.InventoryGrid:
 			case SuiElementType.Hotbar:
 				// Wrapped-flex strategy (PRD doc 08 strategy A).
-				if ( p.Columns > 0 && p.Rows > 0 && p.CellWidth > 0f && p.CellHeight > 0f )
+				if ( p.Columns <= 0 || p.Rows <= 0 || p.CellWidth <= 0f || p.CellHeight <= 0f )
+					break;
+
+				// If Layout.Mode == Flex, EmitLayout already wrote display/flex/gap
+				// from the user's settings. Re-emitting here causes duplicate
+				// declarations (later wins): cell-derived `gap: 4px` overrode the
+				// user's `gap: 8px`, and cell-derived `width: 64px` overrode the
+				// user's `width: 800px`, collapsing the Hotbar to one cell wide.
+				var gridLayout = el.Layout;
+				var alreadyFlex = gridLayout != null && gridLayout.Mode == SuiLayoutMode.Flex;
+				if ( !alreadyFlex )
 				{
 					Emit( depth, "display", "flex" );
 					Emit( depth, "flex-direction", "row" );
 					Emit( depth, "flex-wrap", el.Type == SuiElementType.Hotbar ? "nowrap" : "wrap" );
 					Emit( depth, "gap", Px( p.GridGap ) );
-					var w = p.Columns * p.CellWidth + (p.Columns - 1) * p.GridGap;
-					var h = p.Rows * p.CellHeight + (p.Rows - 1) * p.GridGap;
+				}
+
+				// Only auto-size from cells when the user hasn't pinned a size.
+				// Pinned size (Layout.Width/Height > 0) is the user's intent;
+				// derived size is just a sensible default for new grids.
+				// IMPORTANT: when the grid has a border (border-width > 0) AND
+				// the runtime uses border-box sizing (s&box's default), the
+				// border eats into the content area. A grid sized exactly
+				// `Cols × CellW + (Cols-1) × Gap` will wrap one fewer column
+				// than intended because the last item overflows by `borderW × 2`.
+				// Compensate by adding the border allowance up front.
+				// Padding emission is handled separately via EmitSpacing so a
+				// user-configured padding does NOT need to be added here.
+				var hasExplicitW = gridLayout != null && gridLayout.Width > 0f;
+				var hasExplicitH = gridLayout != null && gridLayout.Height > 0f;
+				var borderSlack = 2f * ((el.Style?.BorderWidth ?? 0f) > 0f ? el.Style.BorderWidth : 0f);
+				var paddingSlackX = (el.Layout?.Padding?.Left ?? 0f) + (el.Layout?.Padding?.Right ?? 0f);
+				var paddingSlackY = (el.Layout?.Padding?.Top ?? 0f) + (el.Layout?.Padding?.Bottom ?? 0f);
+				if ( !hasExplicitW )
+				{
+					var w = p.Columns * p.CellWidth + (p.Columns - 1) * p.GridGap + borderSlack + paddingSlackX;
 					Emit( depth, "width", Px( w ) );
+				}
+				if ( !hasExplicitH )
+				{
+					var h = p.Rows * p.CellHeight + (p.Rows - 1) * p.GridGap + borderSlack + paddingSlackY;
 					Emit( depth, "height", Px( h ) );
 				}
 				break;
@@ -363,12 +563,13 @@ public sealed class SuiScssGenerator
 			_errors.Add( $"scss emit blocked: {err}" );
 			return;
 		}
-		var indent = new string( '\t', depth );
+		var indent = new string( ' ', depth * 2 );
 		_sb.Append( indent ).Append( property ).Append( ": " ).Append( value ).AppendLine( ";" );
 	}
 
 	private static string Px( float v ) => v == 0f ? "0" : v.ToString( "0.##", CultureInfo.InvariantCulture ) + "px";
 	private static string Float( float v ) => v.ToString( "0.###", CultureInfo.InvariantCulture );
+
 
 	// ─────────────────────────────────────────────────────────────────────
 	//  Enum → CSS keyword
@@ -430,6 +631,13 @@ public sealed class SuiScssGenerator
 		SuiFontWeight.Bold => "700",
 		SuiFontWeight.ExtraBold => "800",
 		_ => "400",
+	};
+
+	private static string VerticalAlignToJustify( SuiVerticalAlign v ) => v switch
+	{
+		SuiVerticalAlign.Center => "center",
+		SuiVerticalAlign.Bottom => "flex-end",
+		_ => "flex-start",
 	};
 
 	private static string FitMode( SuiImageFitMode m ) => m switch

@@ -7,182 +7,159 @@ using SboxUiDesigner.Runtime;
 namespace SboxUiDesigner.EditorUi.Widgets;
 
 /// <summary>
-/// Hierarchy dock — left side, below palette. Renders the document tree using
-/// the editor's native <see cref="TreeView"/>. Tree nodes paint themselves via
-/// <see cref="Paint"/> (Qt-style immediate drawing) so the icon, name, and
-/// selection highlight render correctly inside the engine's editor renderer
-/// (CSS-style SetStyles does not reach this surface).
+/// Hierarchy panel — left side, below palette. Renders the document tree with
+/// 100% custom paint: tree-lines connecting parents to children, type icon,
+/// element name, and right-side eye (designer visibility) + lock (no-edit)
+/// buttons.
 ///
-/// Pattern reference: Facepunch TreeView.Example (FilesystemTreeNode) in
-/// sbox-public/game/addons/tools/Code/Widgets/TreeView/TreeView.Example.cs.
-/// Context-menu pattern: apetavern/what-lurks-below SceneNode.OnContextMenu.
+/// Eye / lock are designer-only:
+/// - Eye toggles whether the element is rendered in the canvas. Code
+///   generation and runtime preview ignore this flag entirely.
+/// - Lock prevents the element from being clicked in the canvas and from
+///   having its properties edited in Details. Code/runtime ignore it too.
 /// </summary>
 public class SuiHierarchyWidget : Widget
 {
 	private SuiDocument _document;
 	private SuiElement _selected;
+	private HashSet<string> _selectedIds = new();
 
-	private TreeView _tree;
+	private LineEdit _search;
+	private string _filter = "";
 
-	/// <summary>Raised when the user selects an element in the tree.</summary>
+	private SuiTreeView _tree;
+
 	public event Action<SuiElement> ElementSelected;
-
-	/// <summary>Raised when the user picks "Add Child → Type" in the context menu.
-	/// Args: (target parent element, requested child type).</summary>
 	public event Action<SuiElement, SuiElementType> AddChildRequested;
-
-	/// <summary>Raised when the user picks "Rename" in the context menu (or hits F2).</summary>
 	public event Action<SuiElement, string> RenameRequested;
-
-	/// <summary>Raised when the user picks "Delete".</summary>
 	public event Action<SuiElement> DeleteRequested;
-
-	/// <summary>Raised when the user picks "Duplicate".</summary>
 	public event Action<SuiElement> DuplicateRequested;
-
-	/// <summary>Raised when the user picks "Move Up" / "Move Down".</summary>
 	public event Action<SuiElement> MoveUpRequested;
 	public event Action<SuiElement> MoveDownRequested;
-
-	/// <summary>Raised when a drag operation reorders / reparents the element.
-	/// Args: (moved element, new parent, insert index in new parent).</summary>
 	public event Action<SuiElement, SuiElement, int> ReparentRequested;
+	public event Action FlagsChanged;
 
 	public SuiHierarchyWidget( Widget parent = null ) : base( parent )
 	{
 		WindowTitle = "Hierarchy";
 		Name = "SuiHierarchy";
 		MinimumSize = new Vector2( 200, 200 );
+		SetStyles( "background-color: transparent; border: none;" );
 
 		Layout = Layout.Column();
-		Layout.Margin = 0;
+		Layout.Margin = new Sandbox.UI.Margin( 8, 8, 8, 8 );
 		Layout.Spacing = 0;
 
-		var header = new Label( "Hierarchy", this );
-		header.SetStyles( "padding: 6px; font-weight: bold; color: #e5e7eb;" );
-		Layout.Add( header );
+		// Search input — same look as Palette.
+		_search = new LineEdit( this );
+		_search.PlaceholderText = "Search Hierarchy";
+		_search.FixedHeight = 28;
+		_search.SetStyles(
+			"background-color: rgb(20,20,19);" +
+			"border: 1px solid rgba(255,255,255,0.06);" +
+			"border-radius: 3px;" +
+			"color: rgb(220,224,230);" +
+			"padding: 0 8px;" +
+			"font-size: 11px;" );
+		_search.TextEdited += s =>
+		{
+			_filter = (s ?? "").Trim().ToLowerInvariant();
+			_tree?.SetFilter( _filter );
+		};
+		Layout.Add( _search );
 
-		_tree = new TreeView( this );
-		_tree.IndentWidth = 16;
-		_tree.ItemSpacing = 2;
-		_tree.ExpandForSelection = true;
-		_tree.AcceptDrops = true; // required so OnDragStart on tree nodes is reached
-		_tree.ItemSelected = OnTreeItemSelected;
-		Layout.Add( _tree, 1 );
+		// 8px gap between search and tree.
+		var spc = new Widget( this ) { FixedHeight = 8 };
+		spc.SetStyles( "background-color: transparent; border: none;" );
+		Layout.Add( spc );
+
+		// ScrollArea + plain Widget canvas — same shape as the Palette which
+		// scrolls correctly. SuiTreeView is no longer a Widget itself; it's a
+		// state holder that adds rows directly to this canvas.
+		var scroll = new ScrollArea( this );
+		SuiScrollStyle.ApplyTo( scroll );
+		_scrollContent = new Widget( scroll );
+		_scrollContent.SetStyles( "background-color: transparent; border: none;" );
+		_scrollContent.Layout = Layout.Column();
+		_scrollContent.Layout.Margin = 0;
+		_scrollContent.Layout.Spacing = 0;
+		scroll.Canvas = _scrollContent;
+		Layout.Add( scroll, 1 );
+
+		_tree = new SuiTreeView( _scrollContent );
+		_tree.OnElementSelected = el =>
+		{
+			_selected = el;
+			ElementSelected?.Invoke( el );
+		};
+		_tree.OnElementContextMenu = el => ShowContextMenuFor( el );
+		_tree.OnElementToggleVisibility = el =>
+		{
+			if ( el?.Flags == null ) return;
+			el.Flags.HiddenInDesigner = !el.Flags.HiddenInDesigner;
+			_tree.RebuildIfNeeded();
+			FlagsChanged?.Invoke();
+		};
+		_tree.OnElementToggleLock = el =>
+		{
+			if ( el?.Flags == null ) return;
+			el.Flags.Locked = !el.Flags.Locked;
+			_tree.RebuildIfNeeded();
+			FlagsChanged?.Invoke();
+		};
+		_tree.OnElementReparent = ( src, dst, idx ) => ReparentRequested?.Invoke( src, dst, idx );
 
 		Refresh();
 	}
+
+	private Widget _scrollContent;
 
 	public void SetDocument( SuiDocument document )
 	{
 		_document = document;
 		_selected = null;
-		Refresh();
+		_tree?.SetDocument( document );
 	}
 
 	public void SetSelected( SuiElement element )
 	{
 		_selected = element;
-		// TreeView keeps its own selection state via IsSelected(object) which
-		// looks up by the node's Value. Our nodes set Value = element, so the
-		// view picks up the new selection automatically on the next paint.
+		_tree?.SetSelectedSet( _selectedIds );
 	}
 
-	public void Refresh()
+	public void SetSelectedSet( IReadOnlyCollection<SuiElement> elements )
 	{
-		if ( _tree == null ) return;
-
-		if ( _document == null )
+		_selectedIds = new HashSet<string>();
+		if ( elements != null )
 		{
-			_tree.SetItems( Array.Empty<object>() );
-			return;
+			foreach ( var e in elements )
+			{
+				if ( e?.Id != null ) _selectedIds.Add( e.Id );
+			}
 		}
-
-		var byId = BuildIdMap( _document );
-		var root = _document.GetRoot();
-		if ( root == null )
-		{
-			_tree.SetItems( Array.Empty<object>() );
-			return;
-		}
-
-		var rootNode = new SuiElementTreeNode( root, byId, this, IsSelectedFor );
-		_tree.SetItems( new[] { rootNode } );
-		ExpandRecursive( rootNode );
+		_tree?.SetSelectedSet( _selectedIds );
 	}
 
-	/// <summary>
-	/// Programmatically begin renaming the selected element via the TreeView's
-	/// inline rename UI. Called by the F2 shortcut on SuiDesignerWindow.
-	/// </summary>
+	public void Refresh() => _tree?.RebuildIfNeeded();
+
 	public void BeginRenameSelected()
 	{
-		if ( _selected == null || _tree == null ) return;
-		_tree.BeginRename();
+		// V2: inline rename via custom text editor would go here. For now this
+		// is a no-op (rename still works via context menu → Rename).
 	}
 
-	private bool IsSelectedFor( SuiElement element )
+	private void ShowContextMenuFor( SuiElement element )
 	{
-		return _selected != null && element != null && _selected.Id == element.Id;
-	}
-
-	private void ExpandRecursive( SuiElementTreeNode node )
-	{
-		_tree.Open( node );
-		foreach ( var child in node.Children )
-		{
-			if ( child is SuiElementTreeNode sn )
-				ExpandRecursive( sn );
-		}
-	}
-
-	private void OnTreeItemSelected( object obj )
-	{
-		// BaseItemWidget.ItemSelected passes the TreeNode's Value, not the node
-		// itself — and our nodes set Value = element. So obj is the SuiElement.
-		// (Earlier the type-test against SuiElementTreeNode silently swallowed
-		// every click because the actual payload was a SuiElement.)
-		if ( obj is SuiElement element )
-		{
-			_selected = element;
-			ElementSelected?.Invoke( element );
-		}
-	}
-
-	private static Dictionary<string, SuiElement> BuildIdMap( SuiDocument doc )
-	{
-		var map = new Dictionary<string, SuiElement>();
-		foreach ( var el in doc.Elements )
-		{
-			if ( !string.IsNullOrEmpty( el.Id ) ) map[el.Id] = el;
-		}
-		return map;
-	}
-
-	// ─────────────────────────────────────────────────────────────────────
-	//  Context menu invoked by SuiElementTreeNode.OnContextMenu.
-	//  Centralised here so the menu wiring lives in one place even though
-	//  individual nodes are rebuilt on every Refresh().
-	// ─────────────────────────────────────────────────────────────────────
-
-	internal bool ShowContextMenu( SuiElementTreeNode node )
-	{
-		if ( node?.Element == null ) return false;
-
-		var element = node.Element;
-		var isContainer = IsContainerType( element.Type );
-		var canDelete = !string.IsNullOrEmpty( element.ParentId );
-
-		// Selecting the right-clicked element first means commands like
-		// "Duplicate" / "Move Up" target what the user just clicked, even
-		// if it wasn't already the selection.
+		if ( element == null || _document == null ) return;
 		_selected = element;
 		ElementSelected?.Invoke( element );
 
-		// Sibling-index aware: enable Move Up / Down only when there is room.
+		var isContainer = IsContainerType( element.Type );
+		var canDelete = !string.IsNullOrEmpty( element.ParentId );
+
 		var siblingIdx = -1;
 		var siblingCount = 0;
-		if ( !string.IsNullOrEmpty( element.ParentId ) && _document != null )
+		if ( !string.IsNullOrEmpty( element.ParentId ) )
 		{
 			var parent = _document.GetElement( element.ParentId );
 			if ( parent != null )
@@ -192,54 +169,57 @@ public class SuiHierarchyWidget : Widget
 			}
 		}
 
-		var m = new Menu( _tree );
+		var m = new Menu( this );
 
-		// Add Child / Add Sibling submenu
 		var addLabel = isContainer ? "Add Child" : "Add Sibling";
-		var addTarget = isContainer ? element : (_document?.GetElement( element.ParentId ) ?? element);
+		var addTarget = isContainer ? element : (_document.GetElement( element.ParentId ) ?? element);
 		var addMenu = m.AddMenu( addLabel, "add" );
-		AddTypeOptions( addMenu, new[]
-		{
-			SuiElementType.Panel, SuiElementType.Text, SuiElementType.Image, SuiElementType.Button,
-		}, addTarget );
+		AddTypeOptions( addMenu, new[] { SuiElementType.Panel, SuiElementType.Text, SuiElementType.Image, SuiElementType.Button }, addTarget );
 		addMenu.AddSeparator();
-		AddTypeOptions( addMenu, new[]
-		{
-			SuiElementType.HorizontalBox, SuiElementType.VerticalBox, SuiElementType.Grid, SuiElementType.Overlay,
-		}, addTarget );
+		AddTypeOptions( addMenu, new[] { SuiElementType.HorizontalBox, SuiElementType.VerticalBox, SuiElementType.Grid, SuiElementType.Overlay }, addTarget );
 		addMenu.AddSeparator();
-		AddTypeOptions( addMenu, new[]
-		{
-			SuiElementType.ProgressBar, SuiElementType.ScrollPanel, SuiElementType.InventoryGrid,
-			SuiElementType.InventorySlot, SuiElementType.ItemIcon, SuiElementType.Tooltip, SuiElementType.Hotbar,
-		}, addTarget );
+		AddTypeOptions( addMenu, new[] { SuiElementType.ProgressBar, SuiElementType.ScrollPanel, SuiElementType.InventoryGrid, SuiElementType.InventorySlot, SuiElementType.ItemIcon, SuiElementType.Tooltip, SuiElementType.Hotbar }, addTarget );
 
 		m.AddSeparator();
+		if ( element.Flags != null )
+		{
+			var visLabel = element.Flags.HiddenInDesigner ? "Show in designer" : "Hide in designer";
+			var visIcon = element.Flags.HiddenInDesigner ? "visibility" : "visibility_off";
+			m.AddOption( visLabel, visIcon, () =>
+			{
+				element.Flags.HiddenInDesigner = !element.Flags.HiddenInDesigner;
+				_tree.RebuildIfNeeded();
+				FlagsChanged?.Invoke();
+			} );
+
+			var lockLabel = element.Flags.Locked ? "Unlock" : "Lock";
+			var lockIcon = element.Flags.Locked ? "lock_open" : "lock";
+			m.AddOption( lockLabel, lockIcon, () =>
+			{
+				element.Flags.Locked = !element.Flags.Locked;
+				_tree.RebuildIfNeeded();
+				FlagsChanged?.Invoke();
+			} );
+			m.AddSeparator();
+		}
 
 		var rename = m.AddOption( "Rename", "edit", () => RenameRequested?.Invoke( element, null ) );
-		rename.StatusTip = "F2";
-		rename.Enabled = canDelete; // root cannot rename either
-
+		rename.Enabled = canDelete;
 		m.AddOption( "Duplicate", "content_copy", () => DuplicateRequested?.Invoke( element ) );
 
 		var moveUp = m.AddOption( "Move Up", "arrow_upward", () => MoveUpRequested?.Invoke( element ) );
 		moveUp.Enabled = siblingIdx > 0;
-
 		var moveDown = m.AddOption( "Move Down", "arrow_downward", () => MoveDownRequested?.Invoke( element ) );
 		moveDown.Enabled = siblingIdx >= 0 && siblingIdx < siblingCount - 1;
 
 		var del = m.AddOption( "Delete", "delete", () => DeleteRequested?.Invoke( element ) );
 		del.Enabled = canDelete;
-		del.StatusTip = canDelete ? "Del" : "Cannot delete root";
 
 		m.OpenAtCursor( true );
-		return true;
 	}
 
 	private void AddTypeOptions( Menu menu, IEnumerable<SuiElementType> types, SuiElement target )
 	{
-		// Plain options grouped via AddSeparator from the caller — Menu doesn't
-		// have a "section heading" widget on its own.
 		foreach ( var type in types )
 		{
 			var captured = type;
@@ -281,209 +261,425 @@ public class SuiHierarchyWidget : Widget
 		SuiElementType.Hotbar => "view_carousel",
 		_ => "extension",
 	};
+}
 
-	internal void OnRenameCommitted( SuiElement element, string newName )
+/// <summary>
+/// Tree state + row builder. Not a Widget — it adds <see cref="SuiTreeRow"/>
+/// instances directly into an external container (the ScrollArea's canvas).
+/// This is the same shape Palette uses, which scrolls correctly because the
+/// canvas's intrinsic size is derived from the child rows.
+/// </summary>
+public sealed class SuiTreeView
+{
+	private readonly Widget _container;
+	private SuiDocument _document;
+	private string _filter = "";
+	// COLLAPSED ids — anything not in this set is expanded by default.
+	private readonly HashSet<string> _collapsed = new();
+	private HashSet<string> _selectedIds = new();
+	private readonly List<SuiTreeRow> _rows = new();
+
+	public Action<SuiElement> OnElementSelected;
+	public Action<SuiElement> OnElementContextMenu;
+	public Action<SuiElement> OnElementToggleVisibility;
+	public Action<SuiElement> OnElementToggleLock;
+	public Action<SuiElement, SuiElement, int> OnElementReparent;
+
+	public SuiTreeView( Widget container )
 	{
-		if ( element == null || string.IsNullOrEmpty( newName ) ) return;
-		RenameRequested?.Invoke( element, newName );
+		_container = container;
 	}
 
-	internal void OnReparentCommitted( SuiElement child, SuiElement newParent, int insertIndex )
+	public void SetDocument( SuiDocument doc )
 	{
-		if ( child == null || newParent == null ) return;
-		ReparentRequested?.Invoke( child, newParent, insertIndex );
+		_document = doc;
+		_collapsed.Clear();
+		Rebuild();
 	}
 
-	/// <summary>
-	/// UE-UMG-style drop resolution based on which edge of the target row the
-	/// pointer is over:
-	///
-	///   ┌─────────────────────────┐
-	///   │  Top    -> insert ABOVE │  (sibling of target, same parent)
-	///   ├─────────────────────────┤
-	///   │  Middle -> become CHILD │  (only if target is a container; else
-	///   │           of target     │   falls back to sibling-after)
-	///   ├─────────────────────────┤
-	///   │ Bottom  -> insert BELOW │  (sibling of target, same parent)
-	///   └─────────────────────────┘
-	///
-	/// The 5-pixel edge threshold is set by BaseItemWidget when it builds the
-	/// ItemDragEvent (LocalPosition.y &lt; 5 -> Top; &gt; Height-5 -> Bottom).
-	/// </summary>
-	internal void HandleDrop( SuiElement source, SuiElement target, BaseItemWidget.ItemEdge dropEdge )
+	public void SetFilter( string f )
+	{
+		_filter = f ?? "";
+		Rebuild();
+	}
+
+	public void SetSelectedSet( HashSet<string> ids )
+	{
+		_selectedIds = ids ?? new();
+		foreach ( var row in _rows )
+		{
+			row.IsSelected = _selectedIds.Contains( row.Element.Id );
+			row.Update();
+		}
+	}
+
+	public bool IsExpanded( string id ) => !_collapsed.Contains( id );
+
+	public void ToggleExpanded( string id )
+	{
+		if ( _collapsed.Contains( id ) ) _collapsed.Remove( id );
+		else _collapsed.Add( id );
+		Rebuild();
+	}
+
+	public void RebuildIfNeeded() => Rebuild();
+
+	private void Rebuild()
+	{
+		if ( _container == null || !_container.IsValid() ) return;
+		_container.Layout.Clear( true );
+		_rows.Clear();
+
+		if ( _document == null ) return;
+		var root = _document.GetRoot();
+		if ( root == null ) return;
+
+		var byId = new Dictionary<string, SuiElement>();
+		foreach ( var e in _document.Elements )
+		{
+			if ( !string.IsNullOrEmpty( e.Id ) ) byId[e.Id] = e;
+		}
+
+		// Search filter: show matches + their ancestors.
+		HashSet<string> visibleIds = null;
+		if ( !string.IsNullOrEmpty( _filter ) )
+		{
+			visibleIds = new HashSet<string>();
+			foreach ( var el in _document.Elements )
+			{
+				if ( el?.Name == null ) continue;
+				if ( !el.Name.ToLowerInvariant().Contains( _filter ) ) continue;
+				var current = el;
+				while ( current != null )
+				{
+					visibleIds.Add( current.Id );
+					if ( string.IsNullOrEmpty( current.ParentId ) ) break;
+					byId.TryGetValue( current.ParentId, out current );
+				}
+			}
+		}
+
+		Walk( root, byId, depth: 0, ancestorIsLast: Array.Empty<bool>(), visibleIds );
+
+		// Stretch cell at the bottom keeps the rows packed at the top when
+		// the canvas is taller than the row stack (e.g. after collapsing a
+		// branch). Without it Qt distributes the slack across rows.
+		_container.Layout.AddStretchCell();
+
+		_container.Update();
+	}
+
+	private void Walk( SuiElement el, Dictionary<string, SuiElement> byId, int depth, bool[] ancestorIsLast, HashSet<string> visibleIds )
+	{
+		if ( el == null ) return;
+		if ( visibleIds != null && !visibleIds.Contains( el.Id ) ) return;
+
+		bool hasChildren = el.Children != null && el.Children.Count > 0;
+		bool expanded = !_collapsed.Contains( el.Id );
+
+		var row = new SuiTreeRow( this, el, depth, ancestorIsLast, hasChildren, expanded );
+		row.Parent = _container;
+		row.IsSelected = _selectedIds.Contains( el.Id );
+		_rows.Add( row );
+		_container.Layout.Add( row );
+
+		if ( hasChildren && expanded )
+		{
+			for ( int i = 0; i < el.Children.Count; i++ )
+			{
+				var childId = el.Children[i];
+				if ( !byId.TryGetValue( childId, out var child ) ) continue;
+
+				bool isLastChild = (i == el.Children.Count - 1);
+				var childAncestors = new bool[ancestorIsLast.Length + 1];
+				Array.Copy( ancestorIsLast, childAncestors, ancestorIsLast.Length );
+				childAncestors[ancestorIsLast.Length] = isLastChild;
+
+				Walk( child, byId, depth + 1, childAncestors, visibleIds );
+			}
+		}
+	}
+
+	internal void OnRowClicked( SuiTreeRow row )
+	{
+		OnElementSelected?.Invoke( row.Element );
+	}
+
+	internal void OnRowContextMenu( SuiTreeRow row )
+	{
+		OnElementContextMenu?.Invoke( row.Element );
+	}
+
+	internal void OnRowToggleVisibility( SuiTreeRow row )
+	{
+		OnElementToggleVisibility?.Invoke( row.Element );
+	}
+
+	internal void OnRowToggleLock( SuiTreeRow row )
+	{
+		OnElementToggleLock?.Invoke( row.Element );
+	}
+
+	internal void OnRowToggleExpanded( SuiTreeRow row )
+	{
+		ToggleExpanded( row.Element.Id );
+	}
+
+	internal void OnRowDrop( SuiElement source, SuiElement target, float relativeY, float rowHeight )
 	{
 		if ( source == null || target == null || source.Id == target.Id ) return;
 		if ( _document == null ) return;
-		if ( string.IsNullOrEmpty( source.ParentId ) ) return; // refuse moving root
+		if ( string.IsNullOrEmpty( source.ParentId ) ) return;
 
-		// Refuse cycle: target cannot be a descendant of source.
-		if ( IsDescendantInDoc( target.Id, source.Id ) ) return;
+		// Refuse cycle: target must not be a descendant of source.
+		var safety = 1024;
+		var cur = target;
+		while ( cur != null && --safety > 0 )
+		{
+			if ( cur.Id == source.Id ) return;
+			if ( string.IsNullOrEmpty( cur.ParentId ) ) break;
+			cur = _document.GetElement( cur.ParentId );
+		}
 
-		var dropOnEdge = (dropEdge & BaseItemWidget.ItemEdge.Top) != 0
-			|| (dropEdge & BaseItemWidget.ItemEdge.Bottom) != 0;
+		// Drop edge — top 5px = sibling-above, bottom 5px = sibling-below,
+		// middle = child-of-target (if container) or sibling-after-target.
+		const float edgeThreshold = 5f;
+		bool topEdge = relativeY < edgeThreshold;
+		bool bottomEdge = relativeY > rowHeight - edgeThreshold;
 
-		// Edge drop — sibling insertion at target's position.
-		if ( dropOnEdge )
+		if ( topEdge || bottomEdge )
 		{
 			var parent = _document.GetElement( target.ParentId );
-			if ( parent == null ) return; // target was root; fall back to nothing
+			if ( parent == null ) return;
 			var idx = parent.Children.IndexOf( target.Id );
 			if ( idx < 0 ) idx = parent.Children.Count;
-			if ( (dropEdge & BaseItemWidget.ItemEdge.Bottom) != 0 ) idx += 1;
-
-			// If we're moving inside the same parent and removing source first
-			// would shift indices, the controller's command handles index
-			// stability — we just pass the visual index here.
-			ReparentRequested?.Invoke( source, parent, idx );
+			if ( bottomEdge ) idx += 1;
+			OnElementReparent?.Invoke( source, parent, idx );
 			return;
 		}
 
-		// Middle drop — make source a child of target (UE-UMG style).
-		if ( IsContainerType( target.Type ) )
+		// Middle drop — child of target if container, else sibling-after.
+		if ( SuiHierarchyWidget.IsContainerType( target.Type ) )
 		{
-			ReparentRequested?.Invoke( source, target, target.Children.Count );
+			OnElementReparent?.Invoke( source, target, target.Children.Count );
 			return;
 		}
 
-		// Middle drop on a leaf — fall back to sibling-after for the same
-		// parent so the gesture isn't lost.
 		var leafParent = _document.GetElement( target.ParentId );
 		if ( leafParent == null ) return;
 		var siblingIdx = leafParent.Children.IndexOf( target.Id );
-		if ( siblingIdx < 0 ) siblingIdx = leafParent.Children.Count;
-		else siblingIdx += 1;
-		ReparentRequested?.Invoke( source, leafParent, siblingIdx );
-	}
-
-	private bool IsDescendantInDoc( string candidateId, string ancestorId )
-	{
-		if ( _document == null ) return false;
-		var safety = 1024;
-		var currentId = candidateId;
-		while ( !string.IsNullOrEmpty( currentId ) && --safety > 0 )
-		{
-			if ( currentId == ancestorId ) return true;
-			var current = _document.GetElement( currentId );
-			if ( current == null ) return false;
-			currentId = current.ParentId;
-		}
-		return false;
+		siblingIdx = siblingIdx < 0 ? leafParent.Children.Count : siblingIdx + 1;
+		OnElementReparent?.Invoke( source, leafParent, siblingIdx );
 	}
 }
 
-
 /// <summary>
-/// TreeView node that draws a single SuiElement row: icon (per type) + name +
-/// type label, with the standard editor selection highlight.
-///
-/// Hosts the OnContextMenu / OnRename / OnItemDrag overrides that delegate
-/// back to <see cref="SuiHierarchyWidget"/> — the widget centralises the
-/// actual menu wiring so individual node instances (which get rebuilt on
-/// every Refresh) stay light.
+/// Single row in the tree — paint-only widget rendering tree-lines + chevron
+/// + type icon + element name + right-side eye / lock toggle icons.
 /// </summary>
-internal sealed class SuiElementTreeNode : TreeNode
+public sealed class SuiTreeRow : Widget
 {
+	private const int IndentPx = 18;
+	private const int RowHeight = 24;
+
 	public SuiElement Element { get; }
-	public Dictionary<string, SuiElement> ByIdMap { get; }
+	public int Depth { get; }
+	public bool[] AncestorIsLast { get; }
+	public bool HasChildren { get; }
+	public bool IsExpandedNow { get; set; }
+	public bool IsSelected { get; set; }
 
-	private readonly SuiHierarchyWidget _owner;
-	private readonly Func<SuiElement, bool> _isSelectedFn;
+	private readonly SuiTreeView _tree;
+	private bool _hover;
+	private Rect _chevronRect;
+	private Rect _eyeRect;
+	private Rect _lockRect;
 
-	public SuiElementTreeNode(
-		SuiElement element,
-		Dictionary<string, SuiElement> byIdMap,
-		SuiHierarchyWidget owner,
-		Func<SuiElement, bool> isSelectedFn )
+	public SuiTreeRow( SuiTreeView tree, SuiElement el, int depth, bool[] ancestorIsLast, bool hasChildren, bool isExpanded )
+		: base( null )
 	{
-		Element = element;
-		ByIdMap = byIdMap;
-		_owner = owner;
-		_isSelectedFn = isSelectedFn;
-		Value = element;
+		_tree = tree;
+		Element = el;
+		Depth = depth;
+		AncestorIsLast = ancestorIsLast;
+		HasChildren = hasChildren;
+		IsExpandedNow = isExpanded;
+		FixedHeight = RowHeight;
+		Cursor = CursorShape.Finger;
+		IsDraggable = !string.IsNullOrEmpty( el.ParentId );
+		AcceptDrops = true;
+		SetStyles( "background-color: transparent; border: none;" );
 	}
 
-	public override bool HasChildren => Element != null && Element.Children != null && Element.Children.Count > 0;
-
-	public override bool CanEdit => Element != null && !string.IsNullOrEmpty( Element.ParentId );
-
-	public override string Name
+	protected override void OnPaint()
 	{
-		get => Element?.Name ?? "(null)";
-		set { /* see OnRename — TreeView writes here during inline rename */ }
-	}
+		var rect = LocalRect;
 
-	public override void OnPaint( VirtualWidget item )
-	{
-		PaintSelection( item );
-
-		var iconRect = item.Rect;
-		Paint.SetPen( Color.White );
-		Paint.DrawIcon( iconRect, SuiHierarchyWidget.IconForType( Element.Type ), 16, TextFlag.LeftCenter );
-
-		Paint.SetPen( Theme.Text );
-		Paint.DrawText(
-			item.Rect.Shrink( 24, 0, 0, 0 ),
-			$"{Element.Name}  ·  {Element.Type}",
-			TextFlag.LeftCenter );
-	}
-
-	public override bool OnContextMenu()
-	{
-		return _owner != null && _owner.ShowContextMenu( this );
-	}
-
-	public override void OnRename( VirtualWidget item, string text, List<TreeNode> selection = null )
-	{
-		base.OnRename( item, text, selection );
-		_owner?.OnRenameCommitted( Element, text );
-	}
-
-	public override bool OnDragStart()
-	{
-		// TreeView default: TreeView.OnDragItem(item) -> node.OnDragStart().
-		// We must set up Drag.Data.Object and Execute() here for the drag to
-		// actually begin; returning true tells the TreeView the drag is live.
-		if ( Element == null ) return false;
-		if ( string.IsNullOrEmpty( Element.ParentId ) ) return false; // refuse root
-
-		var drag = new Drag( TreeView );
-		drag.Data.Object = this; // source TreeNode -- read on drop side via e.Data.Object
-		drag.Execute();
-		return true;
-	}
-
-	public override DropAction OnDragDrop( BaseItemWidget.ItemDragEvent e )
-	{
-		// ItemDragEvent / ItemEdge are nested inside Editor.BaseItemWidget —
-		// must be qualified from outside the Editor namespace. The base
-		// TreeNode declaration uses the bare name because it lives in
-		// 'namespace Editor'.
-		if ( _owner == null || Element == null ) return DropAction.Ignore;
-
-		// `e.Data.Object` is whatever OnDragStart put in there — for SUI nodes
-		// that's the source SuiElementTreeNode. `this` is the target node.
-		if ( e.Data.Object is not SuiElementTreeNode sourceNode || sourceNode.Element == null )
-			return DropAction.Ignore;
-
-		if ( !e.IsDrop )
+		// Selection / hover background.
+		if ( IsSelected )
 		{
-			// Hover phase — accept so the cursor shows a "move" icon. The
-			// actual reparent only happens when IsDrop becomes true.
-			return DropAction.Move;
+			Paint.SetBrushAndPen( new Color( 15 / 255f, 63 / 255f, 121 / 255f, 0.55f ) );
+			Paint.DrawRect( rect );
+		}
+		else if ( _hover )
+		{
+			Paint.SetBrushAndPen( Color.White.WithAlpha( 0.04f ) );
+			Paint.DrawRect( rect );
 		}
 
-		_owner.HandleDrop( sourceNode.Element, Element, e.DropEdge );
-		return DropAction.Move;
+		Paint.SetDefaultFont( 11 );
+
+		// Tree lines for ancestors that still have continuations below.
+		var lineColor = Color.White.WithAlpha( 0.10f );
+		Paint.SetPen( lineColor, 1f );
+		for ( int d = 0; d < AncestorIsLast.Length - 1; d++ )
+		{
+			if ( !AncestorIsLast[d] )
+			{
+				float lx = (d + 1) * IndentPx - IndentPx / 2f + 2;
+				Paint.DrawLine( new Vector2( lx, 0 ), new Vector2( lx, Height ) );
+			}
+		}
+
+		// Own L-shape connector (only if not root depth).
+		if ( Depth > 0 )
+		{
+			float xVert = Depth * IndentPx - IndentPx / 2f + 2;
+			float yMid = Height / 2f;
+			bool selfIsLast = AncestorIsLast.Length > 0 && AncestorIsLast[AncestorIsLast.Length - 1];
+			// Vertical from top to mid (or full height if not last).
+			Paint.DrawLine( new Vector2( xVert, 0 ), new Vector2( xVert, selfIsLast ? yMid : Height ) );
+			// Horizontal from xVert to chevron/icon area.
+			Paint.DrawLine( new Vector2( xVert, yMid ), new Vector2( xVert + IndentPx / 2f - 1, yMid ) );
+		}
+
+		float x = Depth * IndentPx + 2;
+
+		// Chevron — only painted when has children.
+		if ( HasChildren )
+		{
+			_chevronRect = new Rect( x, (Height - 14) / 2f, 14, 14 );
+			var chevColor = new Color( 165 / 255f, 172 / 255f, 182 / 255f );
+			Paint.SetPen( chevColor, 1.5f );
+			float cx = x + 7;
+			float cy = Height / 2f;
+			if ( IsExpandedNow )
+			{
+				// ▾ down
+				Paint.DrawLine( new Vector2( cx - 3, cy - 1 ), new Vector2( cx, cy + 2 ) );
+				Paint.DrawLine( new Vector2( cx, cy + 2 ), new Vector2( cx + 3, cy - 1 ) );
+			}
+			else
+			{
+				// ▸ right
+				Paint.DrawLine( new Vector2( cx - 1, cy - 3 ), new Vector2( cx + 2, cy ) );
+				Paint.DrawLine( new Vector2( cx + 2, cy ), new Vector2( cx - 1, cy + 3 ) );
+			}
+		}
+		else
+		{
+			_chevronRect = new Rect( 0, 0, 0, 0 );
+		}
+		x += 16;
+
+		// Type icon.
+		var textColor = IsSelected ? Color.White : new Color( 220 / 255f, 224 / 255f, 230 / 255f );
+		Paint.SetPen( textColor );
+		Paint.DrawIcon( new Rect( x, (Height - 14) / 2f, 14, 14 ), SuiHierarchyWidget.IconForType( Element.Type ), 14 );
+		x += 20;
+
+		// Eye + Lock — right-aligned with 12px padding from the right edge so
+		// they don't collide with the panel border / scrollbar.
+		var hidden = Element.Flags?.HiddenInDesigner == true;
+		var locked = Element.Flags?.Locked == true;
+
+		const int rightPad = 12;
+		_lockRect = new Rect( Width - rightPad - 14, (Height - 14) / 2f, 14, 14 );
+		_eyeRect = new Rect( _lockRect.Left - 6 - 14, (Height - 14) / 2f, 14, 14 );
+
+		// Eye: bright white when visible, dim grey when hidden + thin diagonal line.
+		var eyeColor = hidden
+			? new Color( 130 / 255f, 134 / 255f, 140 / 255f )
+			: new Color( 235 / 255f, 238 / 255f, 242 / 255f );
+		Paint.SetPen( eyeColor );
+		Paint.DrawIcon( _eyeRect, "visibility", 14 );
+		if ( hidden )
+		{
+			// Soft diagonal slash across the eye to indicate "off".
+			Paint.SetPen( eyeColor, 1.2f );
+			Paint.DrawLine(
+				new Vector2( _eyeRect.Left + 2, _eyeRect.Bottom - 3 ),
+				new Vector2( _eyeRect.Right - 2, _eyeRect.Top + 3 ) );
+		}
+
+		// Lock: amber when locked, dim grey otherwise.
+		var lockColor = locked
+			? new Color( 235 / 255f, 178 / 255f, 96 / 255f )
+			: new Color( 130 / 255f, 134 / 255f, 140 / 255f );
+		Paint.SetPen( lockColor );
+		Paint.DrawIcon( _lockRect, locked ? "lock" : "lock_open", 14 );
+
+		// Name label — leaves room for the right icons.
+		Paint.SetPen( textColor );
+		var labelRect = new Rect( x, 0, _eyeRect.Left - x - 4, Height );
+		Paint.DrawText( labelRect, Element.Name ?? "(unnamed)", TextFlag.LeftCenter );
 	}
 
-	protected override void BuildChildren()
+	protected override void OnMouseEnter() { _hover = true; Update(); }
+	protected override void OnMouseLeave() { _hover = false; Update(); }
+
+	protected override void OnMousePress( MouseEvent e )
 	{
-		Clear();
-		if ( Element == null || ByIdMap == null ) return;
-		foreach ( var childId in Element.Children )
+		// Each callback may rebuild the tree (Refresh) which destroys this
+		// row mid-handler. We early-return immediately after dispatch so no
+		// further code touches the now-zombie `this`. Qt's mouse pipeline
+		// tolerates that, but anything we'd call after (Update, field access)
+		// would crash with "QWidget was null".
+		if ( e.LeftMouseButton )
 		{
-			if ( ByIdMap.TryGetValue( childId, out var child ) )
-				AddItem( new SuiElementTreeNode( child, ByIdMap, _owner, _isSelectedFn ) );
+			if ( HasChildren && _chevronRect.IsInside( e.LocalPosition ) )
+			{
+				_tree.OnRowToggleExpanded( this );
+				return;
+			}
+			if ( _eyeRect.IsInside( e.LocalPosition ) )
+			{
+				_tree.OnRowToggleVisibility( this );
+				return;
+			}
+			if ( _lockRect.IsInside( e.LocalPosition ) )
+			{
+				_tree.OnRowToggleLock( this );
+				return;
+			}
+			_tree.OnRowClicked( this );
+			return;
+		}
+		if ( e.RightMouseButton )
+		{
+			_tree.OnRowContextMenu( this );
+			return;
+		}
+	}
+
+	protected override void OnDragStart()
+	{
+		if ( !IsDraggable ) return;
+		var drag = new Drag( this );
+		drag.Data.Object = Element;
+		drag.Execute();
+	}
+
+	public override void OnDragHover( DragEvent ev )
+	{
+		ev.Action = DropAction.Copy;
+	}
+
+	public override void OnDragDrop( DragEvent ev )
+	{
+		if ( ev.Data.Object is SuiElement source )
+		{
+			_tree.OnRowDrop( source, Element, ev.LocalPosition.y, Height );
 		}
 	}
 }

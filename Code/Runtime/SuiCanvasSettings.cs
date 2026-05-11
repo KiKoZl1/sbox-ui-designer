@@ -21,6 +21,16 @@ public sealed class SuiCanvasSettings
 	/// <summary>Design-only canvas background (NOT generated to runtime SCSS).</summary>
 	public SuiBackgroundPreview BackgroundPreview { get; set; } = new();
 
+	/// <summary>
+	/// Preview/test target resolution width. Distinct from <see cref="BaseWidth"/> —
+	/// BaseWidth drives the design-time logical pixel space (always 1920 by convention),
+	/// while PreviewWidth/Height let the user simulate different viewport sizes
+	/// (1280×720, 2560×1440, ultrawide) in the canvas without rebuilding the doc.
+	/// 0 / unset means "match BaseWidth/Height".
+	/// </summary>
+	public int PreviewWidth { get; set; } = 0;
+	public int PreviewHeight { get; set; } = 0;
+
 	public SuiCanvasSettings Clone() => new()
 	{
 		BaseWidth = BaseWidth,
@@ -28,5 +38,7 @@ public sealed class SuiCanvasSettings
 		ScaleMode = ScaleMode,
 		SafeArea = SafeArea?.Clone() ?? new(),
 		BackgroundPreview = BackgroundPreview?.Clone() ?? new(),
+		PreviewWidth = PreviewWidth,
+		PreviewHeight = PreviewHeight,
 	};
 }

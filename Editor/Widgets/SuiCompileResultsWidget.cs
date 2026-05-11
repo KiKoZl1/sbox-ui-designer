@@ -7,20 +7,18 @@ using SboxUiDesigner.Generation;
 namespace SboxUiDesigner.EditorUi.Widgets;
 
 /// <summary>
-/// Compile Results dock — shows the output of the most recent generation pass:
-/// file list, errors, warnings, and a preview of each file's contents.
+/// Compile Results dock — surfaces the output of the most recent compile pass.
 ///
-/// In M9 the generator runs but does NOT write to disk — this widget is the
-/// only surface for the user to inspect output. M12 will add the actual
-/// filesystem writer + manifest tracking and this widget will gain a "Write
-/// to disk" / conflict resolution UI.
+/// Two render paths:
+/// - <see cref="DisplayResult"/> — generation only (no disk write). Used by
+///   M9-era compile preview.
+/// - <see cref="DisplayCompileResult"/> — generation + writer report
+///   (M12, full disk pipeline). Renders categorised sections.
 /// </summary>
 public class SuiCompileResultsWidget : Widget
 {
 	private Label _summary;
-	private TextEdit _preview;
-	private TabWidget _fileTabs;
-	private SuiGenerationResult _lastResult;
+	private TextEdit _detail;
 
 	public SuiCompileResultsWidget( Widget parent = null ) : base( parent )
 	{
@@ -36,35 +34,22 @@ public class SuiCompileResultsWidget : Widget
 		_summary.SetStyles( "color: #9ca3af; font-size: 11px;" );
 		Layout.Add( _summary );
 
-		_fileTabs = new TabWidget( this );
-		Layout.Add( _fileTabs, 1 );
-
-		// One single 'Output' tab pre-built; on each compile we replace its
-		// contents. (TabWidget supports multiple tabs but for M9 keep it
-		// simple and switch the rendered file via a dropdown above the
-		// preview if needed — for now a single tab + summary is enough.)
-		var initial = new Widget( null );
-		initial.Layout = Layout.Column();
-		initial.Layout.Margin = 6;
-
-		_preview = new TextEdit( initial );
-		_preview.PlainText = "// Run Compile to see generated output here.\n// M9 generates content; M12 writes to disk.";
-		_preview.ReadOnly = true;
-		initial.Layout.Add( _preview, 1 );
-
-		_fileTabs.AddPage( "Output", "description", initial );
+		_detail = new TextEdit( this );
+		_detail.PlainText = "// Run Compile to see the full report here.";
+		_detail.ReadOnly = true;
+		Layout.Add( _detail, 1 );
 	}
 
 	/// <summary>
-	/// Render the most recent generation result — file list summary in the
-	/// header and the first file's content in the preview pane.
+	/// Generation-only display (no disk write). Used when the user clicks
+	/// Compile but no output folder is configured.
 	/// </summary>
 	public void DisplayResult( SuiGenerationResult result )
 	{
-		_lastResult = result;
 		if ( result == null )
 		{
 			_summary.Text = "(no result)";
+			_detail.PlainText = "";
 			return;
 		}
 
@@ -73,35 +58,92 @@ public class SuiCompileResultsWidget : Widget
 		sb.Append( result.Files.Count ).Append( " file" ).Append( result.Files.Count == 1 ? "" : "s" );
 		if ( result.Errors.Count > 0 ) sb.Append( ", " ).Append( result.Errors.Count ).Append( " error" ).Append( result.Errors.Count == 1 ? "" : "s" );
 		if ( result.Warnings.Count > 0 ) sb.Append( ", " ).Append( result.Warnings.Count ).Append( " warning" ).Append( result.Warnings.Count == 1 ? "" : "s" );
-		sb.AppendLine();
-
-		foreach ( var f in result.Files )
-		{
-			sb.Append( "  • " ).Append( f.Path ).Append( " (sha256 " ).Append( f.Sha256.Substring( 0, 12 ) ).AppendLine( "...)" );
-		}
-
-		if ( result.Errors.Count > 0 )
-		{
-			sb.AppendLine();
-			sb.AppendLine( "Errors:" );
-			foreach ( var e in result.Errors ) sb.Append( "  • " ).AppendLine( e );
-		}
-
-		if ( result.Warnings.Count > 0 )
-		{
-			sb.AppendLine();
-			sb.AppendLine( "Warnings:" );
-			foreach ( var w in result.Warnings ) sb.Append( "  • " ).AppendLine( w );
-		}
-
 		_summary.Text = sb.ToString();
 
-		// Preview the first file's content. A future iteration can let the
-		// user pick which file via a dropdown; for M9 just show the razor.
-		var first = result.Files.Count > 0 ? result.Files[0] : null;
-		if ( first != null && _preview != null )
+		var detail = new StringBuilder();
+		AppendList( detail, "Generated (in-memory only)", result.Files, f => f.Path );
+		AppendList( detail, "Errors", result.Errors, s => s );
+		AppendList( detail, "Warnings", result.Warnings, s => s );
+		if ( result.Files.Count > 0 )
 		{
-			_preview.PlainText = first.Content ?? "";
+			detail.AppendLine();
+			detail.AppendLine( "── First file content ──" );
+			detail.AppendLine( result.Files[0].Content ?? "" );
 		}
+		_detail.PlainText = detail.ToString();
+	}
+
+	/// <summary>
+	/// Full M12 compile result: includes write classification (Generated /
+	/// Skipped / Preserved / Conflicts / Obsolete) and backup folder.
+	/// </summary>
+	public void DisplayCompileResult( SuiGenerationResult generation, SuiCompileResult compile )
+	{
+		if ( compile == null ) { DisplayResult( generation ); return; }
+
+		var headline = compile.Ok ? "✓ Compile OK" : "✗ Compile failed";
+		var sb = new StringBuilder();
+		sb.Append( headline );
+		sb.Append( $" — Generated {compile.Generated.Count}, Skipped {compile.Skipped.Count}, Preserved {compile.Preserved.Count}" );
+		if ( compile.UserOwned.Count > 0 ) sb.Append( $", User {compile.UserOwned.Count}" );
+		if ( compile.Conflicts.Count > 0 ) sb.Append( $", ⚠ Conflicts {compile.Conflicts.Count}" );
+		if ( compile.Obsolete.Count > 0 ) sb.Append( $", Obsolete {compile.Obsolete.Count}" );
+		if ( compile.Errors.Count > 0 ) sb.Append( $", ✗ Errors {compile.Errors.Count}" );
+		if ( compile.Warnings.Count > 0 ) sb.Append( $", Warnings {compile.Warnings.Count}" );
+		_summary.Text = sb.ToString();
+
+		var d = new StringBuilder();
+		d.AppendLine( $"Output folder: {compile.OutputFolder ?? "(unset)"}" );
+		if ( compile.BackupFolder != null )
+			d.AppendLine( $"Backup folder: {compile.BackupFolder}" );
+		d.AppendLine();
+
+		AppendCompileSection( d, "Generated", compile.Generated );
+		AppendCompileSection( d, "Preserved (overwritten — prior content backed up)", compile.Preserved, includeBackup: true );
+		AppendCompileSection( d, "User-Owned (.User.scss — created if missing, never overwritten)", compile.UserOwned );
+		AppendCompileSection( d, "Skipped (unchanged)", compile.Skipped );
+		AppendCompileSection( d, "⚠ Conflicts (NOT touched — resolve manually)", compile.Conflicts, includeReason: true );
+		AppendCompileSection( d, "Obsolete (in old manifest, not in this generation — review)", compile.Obsolete );
+
+		AppendList( d, "Errors", compile.Errors, s => s );
+		AppendList( d, "Warnings", compile.Warnings, s => s );
+
+		_detail.PlainText = d.ToString();
+	}
+
+	// ─────────────────────────────────────────────────────────────────────
+	//  helpers
+	// ─────────────────────────────────────────────────────────────────────
+
+	private static void AppendCompileSection(
+		StringBuilder sb, string title,
+		List<SuiCompileFileEntry> entries,
+		bool includeBackup = false, bool includeReason = false )
+	{
+		if ( entries == null || entries.Count == 0 ) return;
+		sb.Append( "── " ).Append( title ).Append( " (" ).Append( entries.Count ).AppendLine( ") ──" );
+		foreach ( var e in entries )
+		{
+			sb.Append( "  • " ).Append( e.RelativePath );
+			if ( !string.IsNullOrEmpty( e.Sha256 ) )
+				sb.Append( "  [" ).Append( e.Sha256.Substring( 0, System.Math.Min( 12, e.Sha256.Length ) ) ).Append( "…]" );
+			sb.AppendLine();
+			if ( includeBackup && !string.IsNullOrEmpty( e.BackupPath ) )
+				sb.Append( "      backup: " ).AppendLine( e.BackupPath );
+			if ( includeReason && !string.IsNullOrEmpty( e.ConflictReason ) )
+				sb.Append( "      reason: " ).AppendLine( e.ConflictReason );
+		}
+		sb.AppendLine();
+	}
+
+	private static void AppendList<T>(
+		StringBuilder sb, string title,
+		List<T> items, System.Func<T, string> selector )
+	{
+		if ( items == null || items.Count == 0 ) return;
+		sb.Append( "── " ).Append( title ).Append( " (" ).Append( items.Count ).AppendLine( ") ──" );
+		foreach ( var i in items )
+			sb.Append( "  • " ).AppendLine( selector( i ) );
+		sb.AppendLine();
 	}
 }

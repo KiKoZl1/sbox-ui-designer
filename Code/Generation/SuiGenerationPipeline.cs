@@ -44,6 +44,17 @@ public static class SuiGenerationPipeline
 			: !string.IsNullOrEmpty( doc.Output?.Namespace ) ? doc.Output.Namespace
 			: "Game.UI";
 
+		// Preview mode emits into a sentinel sub-namespace so the preview cache
+		// type never collides with the final compile output. Without this, a
+		// document that has been compiled to disk (final mode → namespace X)
+		// AND has a live preview cache (Code/_sui_preview/.../*.razor → also
+		// namespace X) yields TWO `partial class <Name>` declarations and
+		// the engine errors out with CS0111 (duplicate render-tree members).
+		if ( ctx.Mode == SuiGenerationMode.Preview && !ctx.Namespace.EndsWith( ".SuiPreview" ) )
+		{
+			ctx.Namespace = ctx.Namespace + ".SuiPreview";
+		}
+
 		var folder = (ctx.OutputFolder ?? "").Trim( '/', '\\', ' ' );
 		string Combine( string filename ) => string.IsNullOrEmpty( folder ) ? filename : folder + "/" + filename;
 

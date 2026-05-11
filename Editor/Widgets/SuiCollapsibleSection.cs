@@ -43,18 +43,21 @@ public class SuiCollapsibleSection : Widget
 		Layout.Margin = new Sandbox.UI.Margin( 0, 4, 0, 0 );
 		Layout.Spacing = 0;
 
+		// M14 visual: lighter section header — chevron + title with a thin
+		// underline accent. No filled background, less padding, smaller text.
 		_header = new Button( title.ToUpperInvariant(), "expand_more", this );
 		_header.SetStyles(
-			"text-align: left; font-weight: bold; font-size: 10px; " +
-			"color: #d1d5db; padding: 6px 8px; border: none; " +
-			"background-color: rgba(255,255,255,0.04); letter-spacing: 1px;" );
+			"text-align: left; font-weight: 600; font-size: 10px; " +
+			"color: #94a3b8; padding: 5px 4px 4px 4px; border: none; " +
+			"background-color: transparent; letter-spacing: 1.2px; " +
+			"border-bottom: 1px solid rgba(255,255,255,0.06);" );
 		_header.Clicked += () => SetExpanded( !_expanded );
 		Layout.Add( _header );
 
 		_body = new Widget( this );
 		_body.Layout = Layout.Column();
-		_body.Layout.Margin = new Sandbox.UI.Margin( 4, 4, 4, 6 );
-		_body.Layout.Spacing = 2;
+		_body.Layout.Margin = new Sandbox.UI.Margin( 2, 4, 2, 4 );
+		_body.Layout.Spacing = 1;
 		Layout.Add( _body );
 
 		SetExpanded( defaultExpanded );

@@ -33,7 +33,7 @@ public static class SuiAllowedPropertyList
 		"background-color",
 		"background-image", "background-size", "background-position", "background-repeat",
 		"background-image-tint",
-		"border", "border-color", "border-width", "border-style", "border-radius",
+		"border", "border-color", "border-width", "border-radius",
 		"box-shadow", "text-shadow",
 		"opacity",
 
