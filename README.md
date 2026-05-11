@@ -2,7 +2,9 @@
 
 Visual UI Designer for [s&box](https://sbox.game). Author UI layouts in a UMG-like editor and generate native `.razor` and `.razor.scss` files. The `.sui` document is the source of truth; generated files are disposable; user-owned files are protected.
 
-**Status:** M0–M12 done, M13 polish in progress. See [`STATUS.md`](STATUS.md) and [`ISSUES.md`](ISSUES.md) for current state.
+📚 **Full documentation:** [kikozl1.github.io/sbox-ui-designer](https://kikozl1.github.io/sbox-ui-designer/) — install, tutorials, architecture, reference.
+
+**Status:** V1.0 release. See [`STATUS.md`](STATUS.md) and [`ISSUES.md`](ISSUES.md) for current state.
 
 ---
 
