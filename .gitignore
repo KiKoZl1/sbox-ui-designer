@@ -50,3 +50,14 @@ sui-generated-backups/
 # regenerating per-build:
 # **/*.generated.cs
 # **/*.razor.scss.generated
+
+# Internal planning / design docs — kept local, not published.
+# These exist on the maintainer's machine but are not committed.
+docs/prd/
+docs/M1_PROJECT_INSPECTION.md
+AUTONOMOUS_PLAN_*.md
+AUTONOMOUS_RUN_*.md
+MILESTONE_M*_REDESIGN.md
+M[0-9]*-M[0-9]*_REPORT.md
+OVERNIGHT_REPORT.md
+SAVEPOINT_*.md
