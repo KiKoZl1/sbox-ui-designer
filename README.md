@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="branding/hero.png" alt="SUI Designer — Visual UI Editor for s&box" width="100%" />
+</p>
+
 # Sbox UI Designer
 
 Visual UI Designer for [s&box](https://sbox.game). Author UI layouts in a UMG-like editor and generate native `.razor` and `.razor.scss` files. The `.sui` document is the source of truth; generated files are disposable; user-owned files are protected.

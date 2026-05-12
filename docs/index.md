@@ -6,6 +6,10 @@ description: "SUI Designer — visual UI editor for s&box"
 permalink: /
 ---
 
+<p align="center">
+  <img src="{{ '/assets/hero.png' | relative_url }}" alt="SUI Designer — Visual UI Editor for s&box" style="max-width: 100%; height: auto; border-radius: 8px;" />
+</p>
+
 # SUI Designer
 {: .fs-9 }
 
