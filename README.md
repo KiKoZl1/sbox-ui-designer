@@ -24,7 +24,7 @@ Visual UI Designer for [s&box](https://sbox.game). Author UI layouts in a UMG-li
 
 ## Concepts
 
-- **`.sui` is the source of truth.** All edits go here. The schema is documented in [`docs/prd/05_sui_asset_and_schema.md`](docs/prd/05_sui_asset_and_schema.md).
+- **`.sui` is the source of truth.** All edits go here. The schema is documented at [docs/reference/sui-json-schema.md](https://kikozl1.github.io/sbox-ui-designer/reference/sui-json-schema/).
 - **`.razor` / `.razor.scss` are generated.** Each generated file carries a `SUI:GENERATED` header so the compile pipeline can detect manual edits and refuse to overwrite them.
 - **Manifest tracks ownership.** `<output>/.sui-manifest/<DocumentId>.json` records which files this document owns + their hashes at last write. Recompile-with-changes triggers a backup before overwrite, recompile-without-changes is a no-op (Skipped).
 - **Backups are outside `Code/`.** Backups land in `<projectRoot>/.sui-backups/<DocName>/<UTC-timestamp>/...` so the engine never compiles them as duplicate `partial class` declarations.
@@ -152,11 +152,10 @@ Editor/                        (s&box editor code root)
   Commands/                    Undo/redo command stack
   Widgets/                     Palette, Hierarchy, Details, CompileResults
 samples/ui/                    sample .sui files (also installable via Tools menu)
-docs/prd/                      technical PRDs (15 numbered documents)
+docs/                          published docs site (Jekyll, GitHub Pages)
 sbox_ui_designer.sbproj        library manifest
 STATUS.md                      current implementation state
 ISSUES.md                      known unresolved issues
-MILESTONE_M14_REDESIGN.md      planned UI/UX redesign milestone
 ```
 
 ---
