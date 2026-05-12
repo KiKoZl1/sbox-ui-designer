@@ -1,0 +1,124 @@
+name: Bug report
+description: Something is broken or behaving unexpectedly
+title: "[Bug]: "
+labels: ["bug", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for filing a bug! Please fill in as much as you can — the more
+        info we have, the faster we can fix it.
+
+        Before submitting:
+        - Have you searched [existing issues](https://github.com/KiKoZl1/sbox-ui-designer/issues)?
+        - Have you checked [Known Issues](https://kikozl1.github.io/sbox-ui-designer/reference/known-issues/)?
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: A clear description of what you saw versus what you expected.
+      placeholder: |
+        I dragged a Text element onto the canvas and...
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Numbered list of steps. Minimal repro is best.
+      placeholder: |
+        1. Create a new .sui document
+        2. Drop a Text element
+        3. Set Anchor to MiddleCenter
+        4. ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      placeholder: The text should appear centered.
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      placeholder: The text appears in the top-left.
+    validations:
+      required: true
+
+  - type: textarea
+    id: sui-file
+    attributes:
+      label: .sui file (if applicable)
+      description: |
+        Paste the contents of a minimal `.sui` that triggers the bug, or attach
+        the file. The smaller the better.
+      render: json
+
+  - type: textarea
+    id: console
+    attributes:
+      label: Engine console output
+      description: Any `[Sui...]` or error lines from the engine console.
+      render: shell
+
+  - type: input
+    id: sbox-version
+    attributes:
+      label: s&box editor version
+      placeholder: e.g. 1.0.1+50a05caa8fe89592
+    validations:
+      required: true
+
+  - type: input
+    id: sui-version
+    attributes:
+      label: SUI Designer version
+      placeholder: e.g. V1.0 (or commit SHA if from main)
+    validations:
+      required: true
+
+  - type: dropdown
+    id: where
+    attributes:
+      label: Where does the bug appear?
+      multiple: true
+      options:
+        - Canvas (design-time)
+        - Test in Play
+        - Compile output
+        - Editor UI (window, widgets)
+        - Other (describe in steps)
+    validations:
+      required: true
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options:
+        - Windows 10
+        - Windows 11
+        - Linux
+        - macOS
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: Screenshots / video
+      description: Drag images directly into this box.
+
+  - type: textarea
+    id: extra
+    attributes:
+      label: Anything else?
+      description: Workarounds you tried, related issues, hunches about the cause.

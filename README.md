@@ -161,6 +161,12 @@ MILESTONE_M14_REDESIGN.md      planned UI/UX redesign milestone
 
 ---
 
+## Contributing
+
+Bug reports, feature requests, and PRs welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for the guide. For questions, design talk, or to show off what you built — [Discussions](https://github.com/KiKoZl1/sbox-ui-designer/discussions) is the right place.
+
+Security issues: please follow [SECURITY.md](SECURITY.md) — don't open a public issue.
+
 ## License
 
-TBD (open source vs. paid distribution still being decided).
+[MIT](LICENSE). Use it however you want, including in commercial games — just keep the copyright notice. No warranty.

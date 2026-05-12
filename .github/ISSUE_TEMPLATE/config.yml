@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 💬 Questions, ideas, showcase
+    url: https://github.com/KiKoZl1/sbox-ui-designer/discussions
+    about: Use Discussions for questions, design talk, and sharing what you built.
+  - name: 📚 Documentation
+    url: https://kikozl1.github.io/sbox-ui-designer/
+    about: Full guides, reference, tutorials.
+  - name: 🔒 Security issue
+    url: https://github.com/KiKoZl1/sbox-ui-designer/blob/main/SECURITY.md
+    about: Don't open a public issue for security bugs — see SECURITY.md.
