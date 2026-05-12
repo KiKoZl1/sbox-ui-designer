@@ -41,4 +41,4 @@
 - [ ] I haven't committed generated files (`_sui_preview/`, `.sui-backups/`, `.sui-manifest/`)
 - [ ] I haven't committed secrets or local-only assets
 - [ ] Documentation updated if observable behavior changed (`docs/` folder)
-- [ ] `STATUS.md` / `ISSUES.md` updated if this resolves a tracked issue
+- [ ] `ISSUES.md` updated if this resolves a tracked issue

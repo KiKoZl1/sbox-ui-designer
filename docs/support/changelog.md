@@ -7,7 +7,7 @@ nav_order: 3
 
 # Changelog
 
-Release history. The authoritative version is in [STATUS.md](https://github.com/KiKoZl1/sbox-ui-designer/blob/main/STATUS.md) in the source repo.
+Release history. The authoritative version is in [CHANGELOG.md](https://github.com/KiKoZl1/sbox-ui-designer/blob/main/CHANGELOG.md) in the source repo.
 
 ---
 
@@ -86,5 +86,5 @@ This is a community project. Cadence depends on time available, user feedback, a
 
 ## See also
 
-- [STATUS.md](https://github.com/KiKoZl1/sbox-ui-designer/blob/main/STATUS.md) — current development status
+- [CHANGELOG.md](https://github.com/KiKoZl1/sbox-ui-designer/blob/main/CHANGELOG.md) — root release log
 - [ISSUES.md](https://github.com/KiKoZl1/sbox-ui-designer/blob/main/ISSUES.md) — open and historical issues
