@@ -618,7 +618,7 @@ public sealed class SuiTreeRow : Widget
 		//   rightPad (12) + lock (14) + gap (6) + eye (14) + small gap (4)
 		var leftPad = Depth * IndentPx + 2 + 16 + 20;
 		var rightPad = 12 + 14 + 6 + 14 + 4;
-		Layout.Margin = new Margin( leftPad, 2, rightPad, 2 );
+		Layout.Margin = new Sandbox.UI.Margin( leftPad, 2, rightPad, 2 );
 
 		_editor = new LineEdit( this );
 		_editor.Text = Element.Name ?? "";
