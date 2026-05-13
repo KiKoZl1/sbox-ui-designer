@@ -133,6 +133,67 @@ So changing anchor doesn't make the element jump — it just changes the referen
 | Top stripe / header bar | StretchHorizontal |
 | Side rail / sidebar | StretchVertical |
 
+## What happens when the parent resizes
+
+This is one of the most common points of confusion, especially for users coming from UMG. The short version:
+
+**Single-point anchors (TopLeft, MiddleCenter, BottomRight, etc.) — child stays the same size, repositions to the new anchor point.**
+
+**Stretch anchors (Stretch, StretchHorizontal, StretchVertical) — child resizes with the parent, maintaining its margins.**
+
+### Worked example
+
+Parent panel sized 400×300, with a child Button at:
+- Width: 100, Height: 40
+- Anchor: MiddleCenter
+- X: 0, Y: 0
+
+The Button renders at the parent's center, 100×40.
+
+Now you resize the parent to 800×600.
+
+**What happens:** the Button is now at the new center (which moved), but **still 100×40**. It does NOT grow to fill more space proportionally.
+
+```
+Before resize (parent 400×300):           After resize (parent 800×600):
+┌──────────────────────┐                  ┌──────────────────────────────────────┐
+│                      │                  │                                      │
+│      ┌──────┐        │                  │                                      │
+│      │ BTN  │ 100×40 │                  │                                      │
+│      └──────┘        │                  │              ┌──────┐                │
+│                      │                  │              │ BTN  │ still 100×40   │
+└──────────────────────┘                  │              └──────┘                │
+                                          │                                      │
+                                          │                                      │
+                                          └──────────────────────────────────────┘
+```
+
+This matches UMG default behavior exactly.
+
+### How to make the child grow with the parent
+
+| Want | Anchor | Behavior |
+|---|---|---|
+| Child fills parent minus margins | **Stretch** with X/Y/W/H = desired margins | Width and height both scale |
+| Child stretches horizontally, fixed height | **StretchHorizontal** | Width scales, height stays |
+| Child stretches vertically, fixed width | **StretchVertical** | Height scales, width stays |
+| Multiple children share space along an axis | **Flex** layout on the parent (HorizontalBox / VerticalBox / Grid) | Children distribute per `justify-content` + per-child `flex-grow` if set |
+
+### Why we don't have a "scale everything proportionally" mode
+
+This is a feature gap on purpose. UMG has the `ScaleBox` widget for this case, and we don't ship an equivalent in V1.0. **It's on the V1.5+ roadmap as a candidate `ScaleBox`-equivalent element type or a `AutoScaleChildren` flag on Panel.**
+
+If you need proportional scaling today, the workaround is:
+- Use a **Flex container** (HorizontalBox / VerticalBox / Grid) — children scale within the flex layout
+- Use **Stretch anchor with margins** for absolutely-positioned items
+- Use the **canvas scale mode** (`ScreenHeight1080` on the root document) for whole-UI scaling based on resolution
+
+### Why this design
+
+Anchor systems describe *where* an element lives relative to its parent. Sizing is a separate axis from positioning. Conflating them — "the anchor also scales me" — is what causes the most common UMG layout bugs: UI elements that grow into other elements on resolution change because their anchor "owned" their size unexpectedly.
+
+By keeping size and anchor orthogonal, the designer explicitly opts into stretching (via Stretch anchors or Flex layout) when they want it. When they don't, the element stays the size they designed it.
+
 ## See also
 
 - [Layout modes]({% link concepts/layout-modes.md %}) — Absolute vs Flex

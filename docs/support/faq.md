@@ -89,6 +89,16 @@ V1 only supports static content. V1.5 introduces:
 
 Until V1.5, you wire things up by hand in a `.partial.cs` file — see the [Death modal tutorial]({% link tutorials/death-modal.md %}) for the pattern.
 
+## Why doesn't my element scale when I resize its parent?
+
+This is a frequent question, especially from UMG users.
+
+**Short answer:** elements with single-point anchors (TopLeft, MiddleCenter, BottomRight, etc.) **stay the same size** when the parent resizes — they just reposition to the new anchor point. To make a child grow with its parent, use a **Stretch anchor** (`Stretch`, `StretchHorizontal`, or `StretchVertical`) or put the child inside a **Flex container** (HorizontalBox / VerticalBox / Grid).
+
+This matches UMG default behavior. UMG's `ScaleBox` widget (which proportionally scales children) doesn't have an equivalent in SUI V1 — that's planned for V1.5+ as either a new element type or a Panel flag.
+
+See [Anchors and Pivot → What happens when the parent resizes]({% link concepts/anchors-and-pivot.md %}#what-happens-when-the-parent-resizes) for the full explanation with worked examples.
+
 ## Can I edit the generated `.razor` directly?
 
 You CAN, but the next Compile will overwrite it (after backing up your version). Better:

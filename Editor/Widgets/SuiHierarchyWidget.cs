@@ -108,6 +108,7 @@ public class SuiHierarchyWidget : Widget
 			FlagsChanged?.Invoke();
 		};
 		_tree.OnElementReparent = ( src, dst, idx ) => ReparentRequested?.Invoke( src, dst, idx );
+		_tree.OnElementRenamed = ( el, newName ) => RenameRequested?.Invoke( el, newName );
 
 		Refresh();
 	}
@@ -142,10 +143,17 @@ public class SuiHierarchyWidget : Widget
 
 	public void Refresh() => _tree?.RebuildIfNeeded();
 
+	/// <summary>
+	/// Begin an inline rename on the currently selected element. Triggered by
+	/// F2 keyboard shortcut and the right-click → Rename / Edit menu → Rename
+	/// flows. Implementation lives in <see cref="SuiTreeView.BeginRenameRow"/>:
+	/// transforms the row's painted label into a focused LineEdit; commit on
+	/// Enter / blur fires <see cref="RenameRequested"/> with the new name.
+	/// </summary>
 	public void BeginRenameSelected()
 	{
-		// V2: inline rename via custom text editor would go here. For now this
-		// is a no-op (rename still works via context menu → Rename).
+		if ( _selected == null ) return;
+		_tree?.BeginRenameRow( _selected );
 	}
 
 	private void ShowContextMenuFor( SuiElement element )
@@ -284,6 +292,40 @@ public sealed class SuiTreeView
 	public Action<SuiElement> OnElementToggleVisibility;
 	public Action<SuiElement> OnElementToggleLock;
 	public Action<SuiElement, SuiElement, int> OnElementReparent;
+	public Action<SuiElement, string> OnElementRenamed;
+
+	/// <summary>
+	/// True while any row in the tree is currently in inline-rename mode.
+	/// Used to suppress destructive rebuilds while editing.
+	/// </summary>
+	public bool IsAnyRowEditing
+	{
+		get
+		{
+			foreach ( var r in _rows )
+				if ( r != null && r.IsValid() && r.IsEditing ) return true;
+			return false;
+		}
+	}
+
+	/// <summary>
+	/// Begin inline rename on the row matching <paramref name="el"/>. The row's
+	/// painted label is replaced by a focused LineEdit. Commits via Enter or
+	/// blur; cancels via Escape (handled inside the row). The committed value
+	/// flows through <see cref="OnElementRenamed"/>.
+	/// </summary>
+	public void BeginRenameRow( SuiElement el )
+	{
+		if ( el == null ) return;
+		foreach ( var r in _rows )
+		{
+			if ( r?.Element?.Id == el.Id )
+			{
+				r.BeginEdit( newName => OnElementRenamed?.Invoke( el, newName ) );
+				return;
+			}
+		}
+	}
 
 	public SuiTreeView( Widget container )
 	{
@@ -324,9 +366,39 @@ public sealed class SuiTreeView
 
 	public void RebuildIfNeeded() => Rebuild();
 
+	private bool _isRebuilding;
+
 	private void Rebuild()
 	{
 		if ( _container == null || !_container.IsValid() ) return;
+
+		// Re-entrancy guard. If a row's inline-rename commit fires
+		// OnElementRenamed → controller mutates the document → DocumentChanged
+		// → Refresh → Rebuild — and we're already mid-Rebuild — bail.
+		if ( _isRebuilding ) return;
+
+		// Force-commit any in-flight inline rename before tearing down rows.
+		// If an external refresh (DocumentChanged from a non-rename action) hits
+		// while the user is mid-edit, capture the current text as their intent.
+		foreach ( var r in _rows )
+		{
+			if ( r != null && r.IsValid() && r.IsEditing )
+				r.CommitEdit();
+		}
+
+		_isRebuilding = true;
+		try
+		{
+			RebuildInternal();
+		}
+		finally
+		{
+			_isRebuilding = false;
+		}
+	}
+
+	private void RebuildInternal()
+	{
 		_container.Layout.Clear( true );
 		_rows.Clear();
 
@@ -495,6 +567,14 @@ public sealed class SuiTreeRow : Widget
 	private Rect _eyeRect;
 	private Rect _lockRect;
 
+	// Inline rename state. When _editor is non-null the row's painted label
+	// is suppressed and the LineEdit overlays the label region via Layout.
+	private LineEdit _editor;
+	private Action<string> _onEditCommit;
+	private bool _isEditing;
+
+	public bool IsEditing => _isEditing;
+
 	public SuiTreeRow( SuiTreeView tree, SuiElement el, int depth, bool[] ancestorIsLast, bool hasChildren, bool isExpanded )
 		: base( null )
 	{
@@ -509,6 +589,95 @@ public sealed class SuiTreeRow : Widget
 		IsDraggable = !string.IsNullOrEmpty( el.ParentId );
 		AcceptDrops = true;
 		SetStyles( "background-color: transparent; border: none;" );
+
+		// Layout exists from the start but is unused until BeginEdit. When the
+		// row is in normal (paint-only) mode, the empty Layout doesn't affect
+		// OnPaint output. When editing, the Layout positions a LineEdit at the
+		// label region via per-edit Margin (configured in BeginEdit below).
+		Layout = Layout.Row();
+		Layout.Margin = 0;
+	}
+
+	/// <summary>
+	/// Replace the painted label with a focused LineEdit. Commit on Enter or
+	/// blur fires <paramref name="onCommit"/> with the trimmed text (only if
+	/// non-empty and different from the current Element.Name). Cancel by
+	/// committing an unchanged value (or via external rebuild).
+	/// </summary>
+	public void BeginEdit( Action<string> onCommit )
+	{
+		if ( _isEditing ) return;
+		_onEditCommit = onCommit;
+		_isEditing = true;
+
+		// Compute the label region's left offset to mirror what OnPaint paints:
+		//   indent (Depth * IndentPx + 2)
+		//   + chevron column (16)
+		//   + type icon column (20)
+		// And the right offset to leave room for eye + lock icons:
+		//   rightPad (12) + lock (14) + gap (6) + eye (14) + small gap (4)
+		var leftPad = Depth * IndentPx + 2 + 16 + 20;
+		var rightPad = 12 + 14 + 6 + 14 + 4;
+		Layout.Margin = new Margin( leftPad, 2, rightPad, 2 );
+
+		_editor = new LineEdit( this );
+		_editor.Text = Element.Name ?? "";
+		_editor.FixedHeight = RowHeight - 4;
+		_editor.SetStyles( "background-color: rgba(255,255,255,0.10); color: rgb(235,238,242); border: 1px solid rgba(59,130,246,0.85); border-radius: 2px; padding: 0 4px; font-size: 11px;" );
+		_editor.EditingFinished += OnEditorEditingFinished;
+		Layout.Add( _editor, 1 );
+
+		_editor.Focus();
+		_editor.SelectAll();
+		Update();
+	}
+
+	private void OnEditorEditingFinished()
+	{
+		CommitEdit();
+	}
+
+	/// <summary>
+	/// Commit the current editor text and tear down inline edit state. Safe
+	/// to call when not editing (no-op). Invoked by Enter / blur / external
+	/// rebuild — see <see cref="SuiTreeView.Rebuild"/>.
+	/// </summary>
+	public void CommitEdit()
+	{
+		if ( !_isEditing ) return;
+		var newName = _editor?.Text?.Trim() ?? "";
+		var cb = _onEditCommit;
+		DestroyEditor();
+		if ( cb != null && !string.IsNullOrEmpty( newName ) && newName != Element.Name )
+		{
+			cb( newName );
+		}
+		Update();
+	}
+
+	/// <summary>
+	/// Abandon the inline edit without firing the commit callback. Used when
+	/// external rebuilds need to wipe state. (User-facing cancel via Escape
+	/// is not yet implemented in V1.0.1; Ctrl+Z undoes a committed rename.)
+	/// </summary>
+	public void CancelEdit()
+	{
+		if ( !_isEditing ) return;
+		DestroyEditor();
+		Update();
+	}
+
+	private void DestroyEditor()
+	{
+		if ( _editor != null && _editor.IsValid() )
+		{
+			_editor.EditingFinished -= OnEditorEditingFinished;
+		}
+		Layout.Clear( true );
+		Layout.Margin = 0;
+		_editor = null;
+		_onEditCommit = null;
+		_isEditing = false;
 	}
 
 	protected override void OnPaint()
@@ -619,10 +788,14 @@ public sealed class SuiTreeRow : Widget
 		Paint.SetPen( lockColor );
 		Paint.DrawIcon( _lockRect, locked ? "lock" : "lock_open", 14 );
 
-		// Name label — leaves room for the right icons.
-		Paint.SetPen( textColor );
-		var labelRect = new Rect( x, 0, _eyeRect.Left - x - 4, Height );
-		Paint.DrawText( labelRect, Element.Name ?? "(unnamed)", TextFlag.LeftCenter );
+		// Name label — leaves room for the right icons. Suppressed while the
+		// inline-rename LineEdit overlay is active; the editor paints itself.
+		if ( !_isEditing )
+		{
+			Paint.SetPen( textColor );
+			var labelRect = new Rect( x, 0, _eyeRect.Left - x - 4, Height );
+			Paint.DrawText( labelRect, Element.Name ?? "(unnamed)", TextFlag.LeftCenter );
+		}
 	}
 
 	protected override void OnMouseEnter() { _hover = true; Update(); }
@@ -630,6 +803,12 @@ public sealed class SuiTreeRow : Widget
 
 	protected override void OnMousePress( MouseEvent e )
 	{
+		// When the inline-rename LineEdit is active, let it handle clicks
+		// within itself. Outside-clicks blur the editor → EditingFinished
+		// fires → row commits. Either way, the row's normal click behavior
+		// (select / toggle chevron / toggle eye-lock / drag) is suppressed.
+		if ( _isEditing ) return;
+
 		// Each callback may rebuild the tree (Refresh) which destroys this
 		// row mid-handler. We early-return immediately after dispatch so no
 		// further code touches the now-zombie `this`. Qt's mouse pipeline
@@ -665,6 +844,7 @@ public sealed class SuiTreeRow : Widget
 	protected override void OnDragStart()
 	{
 		if ( !IsDraggable ) return;
+		if ( _isEditing ) return;  // suppress drag-to-reparent while inline rename is active
 		var drag = new Drag( this );
 		drag.Data.Object = Element;
 		drag.Execute();
