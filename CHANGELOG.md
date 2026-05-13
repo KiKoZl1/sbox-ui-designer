@@ -11,6 +11,24 @@ The fuller, prose version with rationale lives in the docs site:
 
 Nothing yet.
 
+## [1.0.1] — 2026-05-13
+
+Patch release: fixes the F2 / right-click → Rename flow in the Hierarchy widget, and clarifies anchor resize behavior in the docs.
+
+### Fixed
+
+- **Hierarchy inline rename now works.** `BeginRenameSelected` was previously a V2 stub that no-op'd — meaning F2, right-click → Rename, and Edit menu → Rename all silently did nothing despite an incorrect comment claiming they routed through the context menu. The Details panel Name field was the only way to rename an element. Implemented inline LineEdit overlay (UMG/Unity-style): F2 / Rename now opens a focused editor over the row's label; Enter or click-outside commits via the existing command stack; Ctrl+Z reverts.
+
+### Changed
+
+- **Docs — anchor resize behavior clarified.** Added a "What happens when the parent resizes" section to `docs/concepts/anchors-and-pivot.md` explaining that single-point anchors (TopLeft, MiddleCenter, etc.) keep child size fixed when the parent resizes, while Stretch anchors and Flex containers scale children. Includes an ASCII worked example and a 4-row "what you want → which anchor" table. Matches UMG default behavior; UMG's ScaleBox-equivalent is on the V1.5+ roadmap.
+- **Docs — FAQ entry for resize confusion.** Added "Why doesn't my element scale when I resize its parent?" to `docs/support/faq.md` pointing at the new concepts section.
+
+### Notes
+
+- All V1.0 samples and the V1.0 generated `.razor` outputs are unaffected by this release. Drop-in upgrade.
+- Inline rename's Escape-to-cancel is not yet implemented; use Ctrl+Z to revert a committed rename. Escape support requires raw key capture and lands in a polish pass.
+
 ## [1.0.0] — 2026-05-11
 
 First public release.
@@ -43,5 +61,6 @@ First public release.
 - **ISSUE-002** — Text vertical alignment divergence between canvas and runtime → introduced `SuiTextSizeMode { Auto, Fixed, AutoHeightWrap }`.
 - **ISSUE-003** — Editor color picker instability (5 related symptoms) → resolved alongside ISSUE-001.
 
-[Unreleased]: https://github.com/KiKoZl1/sbox-ui-designer/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/KiKoZl1/sbox-ui-designer/compare/v1.0.1...HEAD
+[1.0.1]: https://github.com/KiKoZl1/sbox-ui-designer/releases/tag/v1.0.1
 [1.0.0]: https://github.com/KiKoZl1/sbox-ui-designer/releases/tag/v1.0.0
