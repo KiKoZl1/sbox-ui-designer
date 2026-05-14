@@ -38,6 +38,9 @@ logs/
 .cache/sui-preview/
 Temp/SuiPreview/
 
+# V1.5 — Asset Registry + Find Usages caches (PRD 22 § 3.8)
+.sui-cache/
+
 # Generated backups
 *.generated.backup
 sui-generated-backups/

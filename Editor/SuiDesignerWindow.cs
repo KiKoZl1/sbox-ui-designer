@@ -140,9 +140,14 @@ public class SuiDesignerWindow : DockWindow, IAssetEditor
 			_resource.Document = doc;
 		}
 
-		// Apply schema migrations (idempotent) — converts pre-2026-05-08 Text
-		// elements with explicit W/H to Fixed mode so Auto doesn't shrink them.
+		// Apply schema migrations (idempotent) — V1→V2 schema bump (Variables,
+		// Output.Mode) plus the legacy Text-element size-mode fix.
 		SuiDocumentMigration.Apply( doc );
+
+		// Bootstrap the Asset Registry (PRD 22 § 3.6) — idempotent; the first
+		// SUI Designer open for a project cold-builds it, later opens reuse the
+		// cached <projectRoot>/.sui-cache/asset-registry.json.
+		SuiAssetRegistryService.Instance.EnsureInitialized();
 
 		_controller.SetDocument( doc );
 		// Controller raises DocumentChanged + SelectionChanged synchronously,
@@ -325,6 +330,11 @@ public class SuiDesignerWindow : DockWindow, IAssetEditor
 		Log.Info( $"[Sui] saved {_asset.Path}" );
 		_controller.MarkSaved();
 		RefreshTitle();
+
+		// Keep the Asset Registry current — refresh this document's entry and
+		// drain any out-of-editor file changes the watcher has queued (PRD 22 § 3.3).
+		SuiAssetRegistryService.Instance.RefreshFile( _asset.AbsolutePath );
+		SuiAssetRegistryService.Instance.PumpPendingChanges();
 	}
 
 	protected override bool OnClose()
@@ -418,6 +428,7 @@ public class SuiDesignerWindow : DockWindow, IAssetEditor
 		tools.AddOption( "Clean Preview Cache", "delete_sweep", CleanPreviewCache );
 		tools.AddOption( "Clean All SUI Caches (preview + backups)", "broom", CleanLegacyBackups );
 		tools.AddSeparator();
+		tools.AddOption( "Rebuild SUI Asset Registry", "inventory_2", RebuildAssetRegistry );
 		tools.AddOption( "Install Sample Documents", "library_books", InstallSamples );
 
 		var help = MenuBar.AddMenu( "Help" );
@@ -1372,5 +1383,23 @@ public class SuiDesignerWindow : DockWindow, IAssetEditor
 		{
 			foreach ( var e in report.Errors ) Log.Error( $"[Sui] {e}" );
 		}
+	}
+
+	/// <summary>
+	/// Tools → Rebuild SUI Asset Registry. Forces a full cold rebuild of the
+	/// GUID→path index from disk and re-persists <c>.sui-cache/asset-registry.json</c>
+	/// (PRD 22 § 3.3.1). Useful after bulk file moves or version-control checkouts.
+	/// </summary>
+	private void RebuildAssetRegistry()
+	{
+		var svc = SuiAssetRegistryService.Instance;
+		svc.EnsureInitialized();
+		svc.Rebuild();
+
+		var reg = svc.Registry;
+		if ( reg.HasConflicts )
+			Log.Warning( $"[Sui] Asset Registry rebuilt with {reg.Conflicts.Count} duplicate-GUID conflict(s) — resolve before compiling." );
+		else
+			Log.Info( $"[Sui] Asset Registry rebuilt — {reg.Entries.Count} document(s) indexed." );
 	}
 }

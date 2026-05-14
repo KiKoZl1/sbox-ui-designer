@@ -36,6 +36,15 @@ public sealed class SuiDocument
 
 	public List<SuiElement> Elements { get; set; } = new();
 
+	// ---------- V1.5 ----------
+
+	/// <summary>
+	/// Typed UI-local state declared on this document (PRD 18 § 3). The generator
+	/// emits one <c>[Property]</c> per Variable; UI element properties bind to these.
+	/// Empty on V1 documents (added by the V1 → V2 migration).
+	/// </summary>
+	public List<SuiVariable> Variables { get; set; } = new();
+
 	// ---------- Reserved (V1.5+) ----------
 
 	public List<SuiEventBinding> Events { get; set; } = new();
@@ -143,6 +152,7 @@ public sealed class SuiDocument
 			Manifest = Manifest?.Clone() ?? new(),
 		};
 		foreach ( var el in Elements ) clone.Elements.Add( el.Clone() );
+		foreach ( var v in Variables ) clone.Variables.Add( v.Clone() );
 		foreach ( var ev in Events ) clone.Events.Add( ev.Clone() );
 		foreach ( var an in Animations ) clone.Animations.Add( an.Clone() );
 		return clone;

@@ -5,8 +5,11 @@ namespace SboxUiDesigner.Runtime;
 /// </summary>
 public static class SuiSchemaVersion
 {
-	/// <summary>Current schema version emitted by this generator.</summary>
-	public const int Current = 1;
+	/// <summary>
+	/// Current schema version emitted by this generator.
+	/// V2 (V1.5) adds Variables, Output.Mode, AcceptedProps, PreviewData — see PRD 17 § 6.
+	/// </summary>
+	public const int Current = 2;
 
 	/// <summary>Earliest schema version this codebase can load (for migration).</summary>
 	public const int MinimumSupported = 1;

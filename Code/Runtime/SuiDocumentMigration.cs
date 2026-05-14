@@ -11,12 +11,40 @@ public static class SuiDocumentMigration
 {
 	public static void Apply( SuiDocument doc )
 	{
-		if ( doc?.Elements == null ) return;
+		if ( doc == null ) return;
+
+		// Version-gated migration chain. Each step is additive + idempotent +
+		// lossless (PRD 17 § 7A.2). Runs on load, before validation.
+		if ( doc.SchemaVersion < 2 )
+			MigrateV1ToV2( doc );
+
+		if ( doc.Elements == null ) return;
 
 		foreach ( var el in doc.Elements )
 		{
 			MigrateTextSizeMode( el );
 		}
+	}
+
+	/// <summary>
+	/// V1 → V2 (the V1.5 schema bump — PRD 17 § 6.3). Additive, idempotent, lossless:
+	/// <list type="bullet">
+	///   <item>Ensures <see cref="SuiDocument.Variables"/> is a non-null empty list
+	///         (V1 documents had no Variables; JSON deserialise already gives <c>[]</c>,
+	///         this just guards a hand-edited <c>null</c>).</item>
+	///   <item>Forces <c>Output.Mode = Manual</c> — V1's implicit behaviour was
+	///         "developer wires everything", which is exactly Manual. A V1 document
+	///         predates the Mode field, so this is the correct conservative default.</item>
+	///   <item>Bumps <see cref="SuiDocument.SchemaVersion"/> to 2.</item>
+	/// </list>
+	/// No element fields are rewritten; V1 documents had no bindings or variables.
+	/// </summary>
+	private static void MigrateV1ToV2( SuiDocument doc )
+	{
+		doc.Variables ??= new();
+		doc.Output ??= new();
+		doc.Output.Mode = SuiOutputMode.Manual;
+		doc.SchemaVersion = 2;
 	}
 
 	/// <summary>

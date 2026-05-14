@@ -127,6 +127,9 @@ public static class SuiDocumentValidator
 				r.Errors.Add( "output is configured but className is empty" );
 		}
 
+		// V1.5 — Variables (PRD 18 § 3.6).
+		ValidateVariables( doc, r );
+
 		return r;
 	}
 
@@ -141,6 +144,84 @@ public static class SuiDocumentValidator
 			current = parent;
 		}
 		return false;
+	}
+
+	// ---------- V1.5 — Variables (PRD 18 § 3.6) ----------
+
+	/// <summary>
+	/// Names that would collide with a member the generator already emits on the
+	/// PanelComponent class, plus the most common C# keywords. PRD 18 § 3.9.
+	/// </summary>
+	private static readonly HashSet<string> ReservedVariableNames = new()
+	{
+		"Components", "GameObject", "Scene", "Network", "Tags", "Enabled", "Owner",
+		"ScreenPanel", "Panel", "BuildHash", "BuildRenderHash",
+		"OnAwake", "OnEnabled", "OnDisabled", "OnUpdate", "OnFixedUpdate", "OnDestroy",
+		// common C# keywords most likely to be typed as a Variable name
+		"class", "struct", "int", "float", "double", "long", "bool", "string",
+		"void", "object", "null", "true", "false", "new", "this", "base",
+		"public", "private", "static", "return", "if", "else", "for", "foreach",
+	};
+
+	/// <summary>
+	/// Validates the document's Variables (PRD 18 § 3.6). M0 scope covers the
+	/// structural rules — Id presence + uniqueness, valid C# identifier names,
+	/// case-sensitive name uniqueness, reserved-name rejection, non-empty type.
+	/// The Type-match / Source-resolution rules (§ 3.6 rules 4–9) land with the
+	/// binding system in M1.
+	/// </summary>
+	private static void ValidateVariables( SuiDocument doc, Result r )
+	{
+		if ( doc.Variables == null || doc.Variables.Count == 0 ) return;
+
+		var seenIds = new HashSet<string>();
+		var seenNames = new HashSet<string>(); // case-sensitive — PRD 18 § 3.6 rule 2
+
+		foreach ( var v in doc.Variables )
+		{
+			if ( v == null )
+			{
+				r.Errors.Add( "null entry in Variables list" );
+				continue;
+			}
+
+			if ( string.IsNullOrEmpty( v.Id ) )
+				r.Errors.Add( $"variable '{v.Name}' has no id" );
+			else if ( !seenIds.Add( v.Id ) )
+				r.Errors.Add( $"duplicate variable id: {v.Id}" );
+
+			if ( string.IsNullOrEmpty( v.Name ) )
+			{
+				r.Errors.Add( $"variable '{v.Id}' has no name" );
+				continue;
+			}
+
+			if ( !IsValidCSharpIdentifier( v.Name ) )
+				r.Errors.Add( $"variable '{v.Name}' is not a valid C# identifier" );
+			else if ( ReservedVariableNames.Contains( v.Name ) )
+				r.Errors.Add( $"variable name '{v.Name}' is reserved (collides with a generated member or C# keyword)" );
+
+			if ( !seenNames.Add( v.Name ) )
+				r.Errors.Add( $"duplicate variable name: '{v.Name}' (names are case-sensitive and must be unique within the document)" );
+
+			if ( string.IsNullOrEmpty( v.Type ) )
+				r.Errors.Add( $"variable '{v.Name}' has no type" );
+		}
+	}
+
+	/// <summary>
+	/// True if <paramref name="s"/> is a valid C# identifier — a letter or
+	/// underscore followed by letters, digits, or underscores.
+	/// </summary>
+	public static bool IsValidCSharpIdentifier( string s )
+	{
+		if ( string.IsNullOrEmpty( s ) ) return false;
+		if ( !(char.IsLetter( s[0] ) || s[0] == '_') ) return false;
+		for ( int i = 1; i < s.Length; i++ )
+		{
+			if ( !(char.IsLetterOrDigit( s[i] ) || s[i] == '_') ) return false;
+		}
+		return true;
 	}
 
 	// ---------- Sanitizers ----------
