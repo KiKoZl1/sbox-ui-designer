@@ -441,6 +441,115 @@ Resultado: divergência canvas vs runtime — canvas mostra "20" em cima do berr
 
 ---
 
+## ISSUE-006 — Shift/Ctrl+click no Hierarchy não faz multi-select
+
+**Reportado:** 2026-05-13 (primeiro issue da comunidade — [#2](https://github.com/KiKoZl1/sbox-ui-designer/issues/2), por @FinallyDeadUwU)
+**Severity:** major
+**Status:** open — agendado pra V1.0.2
+
+### Sintoma
+
+Segurar Shift e clicar em vários elementos no painel Hierarchy seleciona **apenas um** (o último clicado), em vez de acumular a seleção. O canvas já suporta multi-select (marquee + Shift), mas o Hierarchy não.
+
+**Reprodução confirmada:** criar `.sui`, soltar elementos no designer, segurar Shift e clicar em múltiplos no Hierarchy → só o último fica selecionado.
+
+### Hypothesis
+
+A infra de multi-select já existe (`controller.SelectedSet` + `controller.SetSelection(HashSet)`, usada pelo canvas marquee em `SuiCanvasWidget.cs:342-347`). O Hierarchy só não foi ligado nela. Cadeia do bug:
+
+1. `SuiHierarchyWidget.cs:~834` — `SuiTreeRow.OnMousePress` chama `_tree.OnRowClicked(this)` **sem passar `e.KeyboardModifiers`**
+2. `SuiHierarchyWidget.cs:~475` — `SuiTreeView.OnRowClicked` só invoca `OnElementSelected(row.Element)` — single element, sem modifier
+3. `SuiDesignerWindow.cs:776` — handler: `_controller.SetSelected(el)` → **substitui a seleção inteira**
+
+### Possíveis caminhos de resolução
+
+1. **Wire dos modifiers pela cadeia** (~30-40 linhas, baixo risco):
+   - `SuiTreeRow.OnMousePress` passa o `MouseEvent` pro `OnRowClicked`
+   - `SuiTreeView.OnRowClicked(row, e)` lê `(e.KeyboardModifiers & KeyboardModifiers.Shift)` / `.Ctrl` e roteia pra 1 de 3 callbacks: `OnElementSelected` (replace, existente), `OnElementAddedToSelection` (Shift = add), `OnElementToggled` (Ctrl = toggle)
+   - `SuiHierarchyWidget` ganha 2 events novos; `SuiDesignerWindow` liga eles em `controller.SetSelection(...)`
+   - Comportamento final = idêntico ao canvas marquee (Shift = add) + Ctrl (toggle), batendo com `docs/reference/keyboard-shortcuts.md`
+2. **Range select** (Shift+click do primeiro → Shift+click do último seleciona o intervalo) — mais complexo, **deferido pra V1.0.3 ou V1.5**, fora do escopo do fix imediato.
+
+### Path de teste
+
+1. Criar `.sui`, soltar 3+ elementos (Text, Panel, etc.)
+2. Click num elemento no Hierarchy → seleciona ele (replace) ✓
+3. Shift+click em outro → ambos selecionados ✓
+4. Ctrl+click num já-selecionado → remove ele da seleção ✓
+5. Ctrl+click num não-selecionado → adiciona ✓
+6. Confirmar que Details panel + canvas refletem a multi-seleção
+
+### Arquivo relacionado
+
+- [`Editor/Widgets/SuiHierarchyWidget.cs`](Editor/Widgets/SuiHierarchyWidget.cs) — `SuiTreeRow.OnMousePress` (~834), `SuiTreeView.OnRowClicked` (~475), event wiring (~90)
+- [`Editor/SuiDesignerWindow.cs:776`](Editor/SuiDesignerWindow.cs) — `_hierarchy.ElementSelected` handler
+- [`Editor/Widgets/SuiCanvasWidget.cs:342-347`](Editor/Widgets/SuiCanvasWidget.cs) — referência: como o canvas faz Shift-additive
+
+---
+
+## ISSUE-007 — Delete em multi-seleção só apaga 1 elemento
+
+**Reportado:** 2026-05-14 (reportado pela comunidade)
+**Severity:** major
+**Status:** open — agendado pro próximo patch
+
+### Sintoma
+
+Selecionar vários elementos no canvas (Shift+marquee ou Shift+click) e pressionar Del apaga **apenas um** (o primary — último focado). Os outros selecionados permanecem.
+
+Mesma família do ISSUE-006: a infra de multi-select existe (`controller.SelectedSet`), mas a operação de delete não consome ela — só age sobre o primary `Selected`.
+
+### Hypothesis
+
+`SuiDesignerController.DeleteElement(element = null)` (`SuiDesignerController.cs:310-318`):
+
+```csharp
+public void DeleteElement( SuiElement element = null )
+{
+    element ??= Selected;   // ← só o primary, ignora SelectedSet inteiro
+    if ( element == null || string.IsNullOrEmpty( element.ParentId ) ) return;
+    var newSelection = Document.GetElement( element.ParentId ) ?? Document.GetRoot();
+    Execute( new SuiDeleteElementCommand( element.Id ) );  // command singular
+    SetSelected( newSelection );
+}
+```
+
+`element ??= Selected` resolve só pro primary. Call sites afetados:
+- `OnShortcutDelete()` → `DeleteElement()` sem arg → deveria ser batch
+- Edit menu "Delete" → `DeleteElement()` sem arg → deveria ser batch
+- `CutElement` → `DeleteElement(el)` com arg → single (correto — cut é 1 elemento)
+- Hierarchy right-click → `DeleteElement(el)` com arg → single
+
+### Possíveis caminhos de resolução
+
+1. **Novo command `SuiDeleteElementsCommand`** (batch, plural) — espelha o padrão de `SuiAlignElementsCommand` ("single undo entry covers every element"). Recebe `IEnumerable<string>`, 1 Apply / 1 Undo. Nuances:
+   - **Dedup:** se um elemento selecionado é descendente de outro também selecionado, captura só o ancestral (o subtree dele já leva o filho — evita double-capture / double-remove)
+   - **Filtra root** (não deletável)
+   - Captura subtree + sibling index de cada raiz-de-seleção; Undo re-adiciona respeitando ordem e índices
+2. **Editar `DeleteElement()` no controller** (~15 linhas):
+   - `DeleteElement(null)` → deleta `SelectedSet` inteiro via o novo command
+   - `DeleteElement(specificEl)` → mantém single (preserva `CutElement` + context-menu do hierarchy)
+   - Pós-delete: seleciona o pai do primary, ou root se o pai também foi deletado
+3. **(opcional, refinamento)** Hierarchy right-click → Delete num elemento que faz parte de multi-seleção → deletar todos. Deferível — o bug reportado é o Del key no canvas.
+
+### Path de teste
+
+1. Criar `.sui`, soltar 4+ elementos no canvas
+2. Shift+marquee ou Shift+click pra selecionar 3+
+3. Pressionar Del → **todos os selecionados** somem (não só 1) ✓
+4. Ctrl+Z → **todos voltam** num único undo ✓
+5. Selecionar pai + filho juntos, Del → não crash, ambos somem, Ctrl+Z restaura subtree inteiro ✓
+6. Confirmar que `CutElement` (Ctrl+X) ainda funciona em elemento único
+
+### Arquivo relacionado
+
+- [`Editor/SuiDesignerController.cs:310-318`](Editor/SuiDesignerController.cs) — `DeleteElement` resolve só pro primary
+- [`Editor/Commands/SuiDeleteElementCommand.cs`](Editor/Commands/SuiDeleteElementCommand.cs) — command singular existente (reusar lógica de subtree capture)
+- [`Editor/Commands/SuiAlignElementsCommand.cs`](Editor/Commands/SuiAlignElementsCommand.cs) — referência: padrão de batch command com single-undo
+- [`Editor/SuiDesignerWindow.cs:395,800,1136`](Editor/SuiDesignerWindow.cs) — call sites de `DeleteElement`
+
+---
+
 ## (template para próximos issues)
 
 ```
