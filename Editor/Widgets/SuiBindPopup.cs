@@ -335,7 +335,34 @@ public sealed class SuiBindPopup : Window
 			}
 		}
 
+		menu.AddSeparator();
+		menu.AddOption( "+ Custom Converter…", "add_circle", OpenCustomConverterDialog );
+
 		menu.OpenAtCursor( true );
+	}
+
+	/// <summary>
+	/// Open the custom-converter dialog and scaffold the result into the user
+	/// converters file (PRD 18 § 5.6). The new method appears in the chain
+	/// menu after the next compile — discovery via TypeLibrary lands with the
+	/// codegen integration in M1-D.
+	/// </summary>
+	private void OpenCustomConverterDialog()
+	{
+		var dlg = new SuiCustomConverterDialog();
+		dlg.OnAccept = config =>
+		{
+			var path = SuiUserConverterScaffolder.Scaffold( config );
+			if ( !string.IsNullOrEmpty( path ) )
+			{
+				Log.Info( $"[SUI] Created converter '{config.Name}' → {path}" );
+				Log.Info( "[SUI] Fill in the stub, save, and the converter will appear in the chain menu after the next compile." );
+			}
+			else
+			{
+				Log.Warning( "[SUI] Failed to scaffold the custom converter — see warnings above." );
+			}
+		};
 	}
 
 	private void AddStep( SuiConverterMetadata meta )
