@@ -69,7 +69,29 @@ public sealed class SuiRazorGenerator
 		}
 		_sb.AppendLine( "</root>" );
 
+		// V1.5 — @code block with Variables as [Property] fields + BuildHash()
+		// override. Emitted only when the document declares Variables or has
+		// reactive bindings; V1 documents stay byte-identical.
+		EmitCodeBlock();
+
 		return _sb.ToString();
+	}
+
+	private void EmitCodeBlock()
+	{
+		if ( _doc.Variables == null || _doc.Variables.Count == 0 ) return;
+
+		var body = new System.Text.StringBuilder();
+		SuiVariableEmitter.EmitProperties( _doc.Variables, body );
+		SuiBuildHashEmitter.EmitBuildHash( _doc.Variables, _doc.Elements, body );
+
+		if ( body.Length == 0 ) return;
+
+		_sb.AppendLine();
+		_sb.AppendLine( "@code" );
+		_sb.AppendLine( "{" );
+		_sb.Append( body );
+		_sb.AppendLine( "}" );
 	}
 
 	// ─────────────────────────────────────────────────────────────────────
@@ -116,9 +138,15 @@ public sealed class SuiRazorGenerator
 
 	private void EmitTextElement( SuiElement el, string className, string indent )
 	{
-		var text = SuiNameSanitizer.EscapeRazorText( el.Props?.Text ?? "" );
-		_sb.Append( indent ).Append( "<label class=\"" ).Append( className ).Append( "\">" )
-			.Append( text )
+		// V1.5 — if the Text element's Text property is bound, the body becomes
+		// a Razor @() expression; otherwise it stays the literal authored value.
+		var bodyExpr = SuiBindingEmitter.TryGetTextBodyExpression( el, _doc );
+		var body = bodyExpr ?? SuiNameSanitizer.EscapeRazorText( el.Props?.Text ?? "" );
+
+		var bindAttrs = SuiBindingEmitter.EmitElementAttributes( el, _doc );
+		_sb.Append( indent ).Append( "<label class=\"" ).Append( className ).Append( "\"" )
+			.Append( bindAttrs ).Append( ">" )
+			.Append( body )
 			.AppendLine( "</label>" );
 	}
 
@@ -126,8 +154,10 @@ public sealed class SuiRazorGenerator
 	{
 		var hasChildren = el.Children != null && el.Children.Count > 0;
 
-		// Open tag
-		_sb.Append( indent ).Append( "<div class=\"" ).Append( className ).Append( "\"" );
+		// Open tag — class attribute first, then any V1.5 data-sui-* binding attrs.
+		var bindAttrs = SuiBindingEmitter.EmitElementAttributes( el, _doc );
+		_sb.Append( indent ).Append( "<div class=\"" ).Append( className ).Append( "\"" )
+			.Append( bindAttrs );
 
 		// Self-closing if no children and no intrinsic content (e.g. Button label).
 		if ( !hasChildren && !HasIntrinsicContent( el ) )
