@@ -154,10 +154,22 @@ public sealed class SuiRazorGenerator
 	{
 		var hasChildren = el.Children != null && el.Children.Count > 0;
 
-		// Open tag — class attribute first, then any V1.5 data-sui-* binding attrs.
-		var bindAttrs = SuiBindingEmitter.EmitElementAttributes( el, _doc );
+		// Open tag — class attribute first, then V1.5 data-sui-* binding attrs
+		// + a unified inline style="" body (extended with positioning rules for
+		// the ProgressBar fill-child special case).
+		var dataAttrs = SuiBindingEmitter.EmitElementDataAttrs( el, _doc );
+		var styleBody = SuiBindingEmitter.EmitElementStyleBody( el, _doc );
+		var needsProgressFill = SuiBindingEmitter.HasProgressFillBindings( el );
+		if ( needsProgressFill )
+		{
+			styleBody = "position: relative; overflow: hidden;"
+				+ ( styleBody.Length > 0 ? " " + styleBody : "" );
+		}
+
 		_sb.Append( indent ).Append( "<div class=\"" ).Append( className ).Append( "\"" )
-			.Append( bindAttrs );
+			.Append( dataAttrs );
+		if ( styleBody.Length > 0 )
+			_sb.Append( " style=\"" ).Append( styleBody ).Append( "\"" );
 
 		// Self-closing if no children and no intrinsic content (e.g. Button label).
 		if ( !hasChildren && !HasIntrinsicContent( el ) )
@@ -185,6 +197,7 @@ public sealed class SuiRazorGenerator
 	private bool HasIntrinsicContent( SuiElement el ) => el.Type switch
 	{
 		SuiElementType.Button when !string.IsNullOrEmpty( el.Props?.ButtonText ) => true,
+		SuiElementType.ProgressBar when SuiBindingEmitter.HasProgressFillBindings( el ) => true,
 		_ => false,
 	};
 
@@ -203,6 +216,68 @@ public sealed class SuiRazorGenerator
 						.AppendLine( "</label>" );
 				}
 				break;
+
+			case SuiElementType.ProgressBar:
+				if ( SuiBindingEmitter.HasProgressFillBindings( el ) )
+					EmitProgressFill( el, indent );
+				break;
 		}
+	}
+
+	/// <summary>
+	/// Emit the inner <c>.sui-progress-fill</c> child whose width is the
+	/// clamped (value − min) / (max − min) of the ProgressBar's bound or
+	/// literal Value / Min / Max. Drives the visual fill at runtime so the
+	/// user gets a responsive bar from designer-binding alone.
+	/// </summary>
+	private void EmitProgressFill( SuiElement el, string indent )
+	{
+		var valueExpr     = ResolveBoundOrLiteralFloat( el, "Value", el.Props?.ProgressPreviewValue ?? 50f );
+		var minExpr       = ResolveBoundOrLiteralFloat( el, "Min",   el.Props?.ProgressMin          ?? 0f );
+		var maxExpr       = ResolveBoundOrLiteralFloat( el, "Max",   el.Props?.ProgressMax          ?? 100f );
+		var fillColorExpr = ResolveBoundOrLiteralColor( el, "FillColor", el.Props?.ProgressFillColor ?? "#4ade80" );
+
+		// Width % = Clamp01( (value - min) / (max - min) ) * 100
+		var pct =
+			"global::SboxUiDesigner.Runtime.SuiBuiltinConverters.Clamp01( "
+			+ "global::SboxUiDesigner.Runtime.SuiBuiltinConverters.Divide( "
+			+ "(float)(" + valueExpr + ") - (float)(" + minExpr + "), "
+			+ "(float)(" + maxExpr + ") - (float)(" + minExpr + ")"
+			+ " ) ) * 100f";
+
+		_sb.Append( indent )
+			.Append( "<div class=\"sui-progress-fill\" style=\"position: absolute; left: 0; top: 0; bottom: 0; width: @(" )
+			.Append( pct )
+			.Append( ")%; background-color: @(" )
+			.Append( fillColorExpr )
+			.AppendLine( "); pointer-events: none;\"></div>" );
+	}
+
+	/// <summary>Bound expression for <paramref name="property"/> if present, else the C# literal for the given float default.</summary>
+	private string ResolveBoundOrLiteralFloat( SuiElement el, string property, float literalDefault )
+	{
+		if ( el.Bindings != null )
+		{
+			foreach ( var b in el.Bindings )
+			{
+				if ( b == null || b.Property != property ) continue;
+				return SuiBindingExpressionEmitter.Emit( b, _doc );
+			}
+		}
+		return literalDefault.ToString( "G9", System.Globalization.CultureInfo.InvariantCulture ) + "f";
+	}
+
+	/// <summary>Bound expression's <c>.Hex</c> if present, else the literal hex string from Props.</summary>
+	private string ResolveBoundOrLiteralColor( SuiElement el, string property, string literalHex )
+	{
+		if ( el.Bindings != null )
+		{
+			foreach ( var b in el.Bindings )
+			{
+				if ( b == null || b.Property != property ) continue;
+				return "(" + SuiBindingExpressionEmitter.Emit( b, _doc ) + ").Hex";
+			}
+		}
+		return "\"" + ( literalHex ?? "#4ade80" ).Replace( "\"", "\\\"" ) + "\"";
 	}
 }
