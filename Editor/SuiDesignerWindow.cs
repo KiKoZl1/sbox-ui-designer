@@ -52,6 +52,7 @@ public class SuiDesignerWindow : DockWindow, IAssetEditor
 	// Region widgets — owned by our custom layout (NO DockManager).
 	private SuiPaletteWidget _palette;
 	private SuiHierarchyWidget _hierarchy;
+	private SuiVariablesWidget _variables;
 	private SuiCenterTabsWidget _centerTabs;
 	// Backwards-compatible accessor — returns the canvas inside the center tabs.
 	private SuiCanvasWidget _canvas => _centerTabs?.Canvas;
@@ -157,6 +158,7 @@ public class SuiDesignerWindow : DockWindow, IAssetEditor
 	private void OnControllerDocumentChanged()
 	{
 		_hierarchy?.SetDocument( Document );
+		_variables?.SetDocument( Document );
 		_centerTabs?.SetDocument( Document );
 		_bottomTabs?.SetDocument( Document );
 		_details?.SetDocument( Document );
@@ -705,6 +707,39 @@ public class SuiDesignerWindow : DockWindow, IAssetEditor
 		menu.OpenAtCursor( true );
 	}
 
+	// ─────────────────────────────────────────────────────────────────────
+	//  Variables panel (PRD 18 § 3.7)
+	// ─────────────────────────────────────────────────────────────────────
+
+	private void OnAddVariableRequested()
+	{
+		if ( Document == null ) return;
+		var dlg = new SuiVariableDialog();
+		dlg.OnAccept = v => _controller.Execute( new SuiAddVariableCommand( v ) );
+	}
+
+	private void OnEditVariableRequested( SuiVariable v )
+	{
+		if ( Document == null || v == null ) return;
+		var dlg = new SuiVariableDialog( v );
+		dlg.OnAccept = edited => _controller.Execute( new SuiEditVariableCommand( v, edited ) );
+	}
+
+	private void OnDeleteVariableRequested( SuiVariable v )
+	{
+		if ( Document == null || v == null ) return;
+		_controller.Execute( new SuiDeleteVariableCommand( v ) );
+	}
+
+	private void OnDuplicateVariableRequested( SuiVariable v )
+	{
+		if ( Document == null || v == null ) return;
+		var copy = v.Clone();
+		copy.Id = SuiVariable.NewVariableId();
+		copy.Name = (v.Name ?? "Variable") + "_Copy";
+		_controller.Execute( new SuiAddVariableCommand( copy ) );
+	}
+
 	private void OpenInventoryGridWizard()
 	{
 		if ( Document == null ) return;
@@ -771,6 +806,7 @@ public class SuiDesignerWindow : DockWindow, IAssetEditor
 
 		_palette = new SuiPaletteWidget();
 		_hierarchy = new SuiHierarchyWidget();
+		_variables = new SuiVariablesWidget();
 		_centerTabs = new SuiCenterTabsWidget();
 		_details = new SuiDetailsWidget();
 		_bottomTabs = new SuiBottomTabsWidget();
@@ -815,6 +851,14 @@ public class SuiDesignerWindow : DockWindow, IAssetEditor
 		_hierarchy.ReparentRequested += ( child, newParent, idx ) => _controller.ReparentElement( child, newParent, idx );
 		_hierarchy.FlagsChanged += () => _canvas?.GetViewport()?.Invalidate();
 
+		// Variables panel — opens the add/edit dialog and turns the result into
+		// undoable commands; the controller's DocumentChanged event fans the
+		// refresh back into the panel via OnControllerDocumentChanged.
+		_variables.AddVariableRequested += OnAddVariableRequested;
+		_variables.EditVariableRequested += OnEditVariableRequested;
+		_variables.DeleteVariableRequested += OnDeleteVariableRequested;
+		_variables.DuplicateVariableRequested += OnDuplicateVariableRequested;
+
 		// Wire mini-toolbar (dropdowns + view-toggle buttons + fit) inside the center widget.
 		_centerTabs.WireMiniToolbar(
 			ScreenValueFor(), OpenScreenSizeMenuAt,
@@ -856,16 +900,18 @@ public class SuiDesignerWindow : DockWindow, IAssetEditor
 		// DockManager — this is the "imitação de docker" layer.
 		var paletteDock = new SuiDockPanel( "Palette", "category", _palette );
 		var hierarchyDock = new SuiDockPanel( "Hierarchy", "account_tree", _hierarchy );
+		var variablesDock = new SuiDockPanel( "Variables", "data_object", _variables );
 		var detailsDock = new SuiDockPanel( "Details", "tune", _details );
 
 		var leftSidebar = new Widget( body );
 		leftSidebar.SetStyles( "background-color: transparent;" );
 		leftSidebar.Layout = Layout.Column();
 		leftSidebar.Layout.Margin = 0;
-		leftSidebar.Layout.Spacing = 4; // 4px gap between Palette and Hierarchy
+		leftSidebar.Layout.Spacing = 4; // 4px gaps between Palette / Hierarchy / Variables
 		leftSidebar.FixedWidth = 280;
 		leftSidebar.Layout.Add( paletteDock, 1 );
 		leftSidebar.Layout.Add( hierarchyDock, 1 );
+		leftSidebar.Layout.Add( variablesDock, 1 );
 		body.Layout.Add( leftSidebar );
 
 		// 4px gap between left sidebar and center.
