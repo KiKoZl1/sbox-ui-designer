@@ -127,4 +127,22 @@ public static class SuiBindingEmitter
 		}
 		return null;
 	}
+
+	/// <summary>
+	/// When a Button has its <c>ButtonText</c> bound, return the
+	/// <c>@(expression)</c> to use as the inner label body. Returns null
+	/// otherwise — the caller falls back to the literal <c>Props.ButtonText</c>.
+	/// </summary>
+	public static string TryGetButtonBodyExpression( SuiElement el, SuiDocument doc )
+	{
+		if ( el?.Type != SuiElementType.Button || el.Bindings == null ) return null;
+		foreach ( var b in el.Bindings )
+		{
+			if ( b == null ) continue;
+			if ( b.Property != "ButtonText" ) continue;
+			var expr = SuiBindingExpressionEmitter.Emit( b, doc );
+			return $"@({expr})";
+		}
+		return null;
+	}
 }

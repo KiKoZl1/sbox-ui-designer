@@ -59,21 +59,28 @@ public static class SuiBindingCssMapper
 			case "ImagePath":
 			case "IconPath":         return $"background-image: url(\"@({expression})\");";
 
-			// Properties the body emit handles, or composites the generator handles directly.
-			case "Text":
-			case "ButtonText":
-			case "Value":
+			// ── Image fit-mode → CSS background-size. The enum's ToString() gives
+			// "Cover"/"Contain"/"Fill" — lowercased so CSS accepts them as-is.
+			case "FitMode":          return $"background-size: @(({expression}).ToString().ToLowerInvariant());";
+
+			// Body / composite / not-yet-mapped — generator handles these directly
+			// when they have a visual rendering at all. The ones marked "no visual"
+			// stay as [Property] fields the user can read from .partial.cs;
+			// they don't trigger CSS updates by themselves.
+			case "Text":          // → Text-element label body (SuiBindingEmitter)
+			case "ButtonText":    // → Button-label body (SuiBindingEmitter)
+			case "Value":         // → ProgressBar fill child (SuiRazorGenerator)
 			case "Min":
 			case "Max":
-			case "Columns":
+			case "Columns":       // → grid layout (deferred to M2)
 			case "Rows":
 			case "CellWidth":
 			case "CellHeight":
 			case "Gap":
-			case "Direction":
-			case "SlotIndex":
+			case "Direction":     // → progress fill direction (deferred)
+			case "SlotIndex":     // → semantic, no direct visual
 			case "Count":
-			case "Checked":
+			case "Checked":       // → input widget (M4)
 			case "SelectedIndex":
 			case "Placeholder":
 				return null;

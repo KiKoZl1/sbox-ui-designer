@@ -196,7 +196,8 @@ public sealed class SuiRazorGenerator
 
 	private bool HasIntrinsicContent( SuiElement el ) => el.Type switch
 	{
-		SuiElementType.Button when !string.IsNullOrEmpty( el.Props?.ButtonText ) => true,
+		SuiElementType.Button when !string.IsNullOrEmpty( el.Props?.ButtonText )
+			|| SuiBindingEmitter.TryGetButtonBodyExpression( el, _doc ) != null => true,
 		SuiElementType.ProgressBar when SuiBindingEmitter.HasProgressFillBindings( el ) => true,
 		_ => false,
 	};
@@ -208,7 +209,19 @@ public sealed class SuiRazorGenerator
 		switch ( el.Type )
 		{
 			case SuiElementType.Button:
-				if ( !string.IsNullOrEmpty( el.Props?.ButtonText ) )
+			{
+				// If ButtonText is bound, the label body becomes a Razor
+				// expression — the button updates live as gameplay code
+				// reassigns the bound Variable. Otherwise the literal Props
+				// value stays baked in at compile time.
+				var boundBody = SuiBindingEmitter.TryGetButtonBodyExpression( el, _doc );
+				if ( boundBody != null )
+				{
+					_sb.Append( indent ).Append( "<label class=\"label\">" )
+						.Append( boundBody )
+						.AppendLine( "</label>" );
+				}
+				else if ( !string.IsNullOrEmpty( el.Props?.ButtonText ) )
 				{
 					var text = SuiNameSanitizer.EscapeRazorText( el.Props.ButtonText );
 					_sb.Append( indent ).Append( "<label class=\"label\">" )
@@ -216,6 +229,7 @@ public sealed class SuiRazorGenerator
 						.AppendLine( "</label>" );
 				}
 				break;
+			}
 
 			case SuiElementType.ProgressBar:
 				if ( SuiBindingEmitter.HasProgressFillBindings( el ) )
