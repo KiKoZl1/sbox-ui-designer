@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Sandbox;
 
 namespace SboxUiDesigner.Runtime;
 
@@ -19,13 +20,87 @@ public static class SuiConverterCatalog
 	public static IReadOnlyList<SuiConverterMetadata> GetBuiltins()
 		=> _builtins ??= BuildBuiltins();
 
-	/// <summary>Look up a converter by its <c>builtin.*</c> ref. Returns null if unknown.</summary>
+	/// <summary>Look up a converter by ref — checks built-ins first, then user-discovered converters.</summary>
 	public static SuiConverterMetadata Find( string converterRef )
 	{
 		if ( string.IsNullOrEmpty( converterRef ) ) return null;
 		foreach ( var m in GetBuiltins() )
 			if ( m.Ref == converterRef ) return m;
+		foreach ( var m in GetUserConverters() )
+			if ( m.Ref == converterRef ) return m;
 		return null;
+	}
+
+	/// <summary>
+	/// Every converter the bind popup can offer — built-ins plus any
+	/// <c>[SuiConverter]</c> methods discovered in the user's project assembly
+	/// (PRD 18 § 5.4). Re-runs the discovery on every call so newly-scaffolded
+	/// converters appear immediately after the engine recompiles.
+	/// </summary>
+	public static IReadOnlyList<SuiConverterMetadata> GetAll()
+	{
+		var users = GetUserConverters();
+		var built = GetBuiltins();
+		if ( users.Count == 0 ) return built;
+		var combined = new List<SuiConverterMetadata>( built.Count + users.Count );
+		combined.AddRange( built );
+		combined.AddRange( users );
+		return combined;
+	}
+
+	/// <summary>
+	/// User <c>[SuiConverter]</c> methods discovered via <c>TypeLibrary</c>.
+	/// M1-D scope: only the <c>Game.GameConverters</c> container scaffolded by
+	/// <c>SuiUserConverterScaffolder</c>. Arbitrary-type discovery is M3 polish.
+	/// </summary>
+	public static IReadOnlyList<SuiConverterMetadata> GetUserConverters()
+	{
+		var list = new List<SuiConverterMetadata>();
+		try
+		{
+			var typeDesc = TypeLibrary.GetType( "Game.GameConverters" );
+			if ( typeDesc == null ) return list;
+
+			foreach ( var method in typeDesc.Methods )
+			{
+				if ( method == null ) continue;
+				if ( !method.IsStatic || !method.IsPublic ) continue;
+
+				var attr = method.GetCustomAttribute<SuiConverterAttribute>();
+				if ( attr == null ) continue;
+
+				var displayName = string.IsNullOrEmpty( attr.DisplayName ) ? method.Name : attr.DisplayName;
+				var category    = string.IsNullOrEmpty( attr.Category ) ? "User" : attr.Category;
+				var returnType  = method.ReturnType?.Name ?? "object";
+
+				var inputs = new List<SuiConverterParam>();
+				foreach ( var p in method.Parameters )
+				{
+					inputs.Add( new SuiConverterParam
+					{
+						Name = p.Name,
+						Type = p.ParameterType?.Name ?? "object",
+						HasDefault = false,
+					} );
+				}
+
+				list.Add( new SuiConverterMetadata
+				{
+					Ref         = "user.Game.GameConverters." + method.Name,
+					DisplayName = displayName,
+					Category    = category,
+					Description = attr.Description ?? "",
+					Inputs      = inputs.ToArray(),
+					ReturnType  = returnType,
+					IsBuiltin   = false,
+				} );
+			}
+		}
+		catch ( System.Exception e )
+		{
+			Log.Warning( $"[SUI] Custom converter discovery failed: {e.Message}" );
+		}
+		return list;
 	}
 
 	private static List<SuiConverterMetadata> BuildBuiltins()

@@ -310,9 +310,10 @@ public sealed class SuiBindPopup : Window
 	{
 		var menu = new Menu( _addConverterBtn );
 
-		// Group built-ins by category — easier to scan a 51-entry catalog.
+		// Group every available converter (built-ins + user [SuiConverter]
+		// discoveries) by category — easier to scan a 51+-entry catalog.
 		var byCategory = new Dictionary<string, List<SuiConverterMetadata>>();
-		foreach ( var c in SuiConverterCatalog.GetBuiltins() )
+		foreach ( var c in SuiConverterCatalog.GetAll() )
 		{
 			if ( c == null ) continue;
 			var cat = string.IsNullOrEmpty( c.Category ) ? "Other" : c.Category;
