@@ -127,8 +127,9 @@ public static class SuiDocumentValidator
 				r.Errors.Add( "output is configured but className is empty" );
 		}
 
-		// V1.5 — Variables (PRD 18 § 3.6).
+		// V1.5 — Variables (PRD 18 § 3.6) and Bindings (PRD 18 § 4.10).
 		ValidateVariables( doc, r );
+		ValidateBindings( doc, r );
 
 		return r;
 	}
@@ -222,6 +223,90 @@ public static class SuiDocumentValidator
 			if ( !(char.IsLetterOrDigit( s[i] ) || s[i] == '_') ) return false;
 		}
 		return true;
+	}
+
+	// ---------- V1.5 — Bindings (PRD 18 § 4.10) ----------
+
+	/// <summary>
+	/// Validates the <see cref="SuiBinding"/> entries across every element
+	/// (PRD 18 § 4.10). M1-A scope covers the structural rules — binding Id
+	/// uniqueness, non-empty Property, Source resolves to a real Variable, Mode
+	/// valid for the (element type, property) pair, and the TwoWay "no converters"
+	/// constraint. Deep converter-chain type composition (§ 4.10 rules 4–6) lands
+	/// with the converter catalog in M1-C.
+	/// </summary>
+	private static void ValidateBindings( SuiDocument doc, Result r )
+	{
+		if ( doc.Elements == null ) return;
+
+		// Variable ids available as binding sources.
+		var variableIds = new HashSet<string>();
+		if ( doc.Variables != null )
+		{
+			foreach ( var v in doc.Variables )
+				if ( v != null && !string.IsNullOrEmpty( v.Id ) ) variableIds.Add( v.Id );
+		}
+
+		var seenBindingIds = new HashSet<string>();
+
+		foreach ( var el in doc.Elements )
+		{
+			if ( el?.Bindings == null || el.Bindings.Count == 0 ) continue;
+
+			foreach ( var b in el.Bindings )
+			{
+				if ( b == null )
+				{
+					r.Errors.Add( $"element '{el.Id}' has a null binding entry" );
+					continue;
+				}
+
+				var where = $"binding on '{el.Id}'.{b.Property ?? "?"}";
+
+				if ( string.IsNullOrEmpty( b.Id ) )
+					r.Errors.Add( $"{where} has no id" );
+				else if ( !seenBindingIds.Add( b.Id ) )
+					r.Errors.Add( $"duplicate binding id: {b.Id}" );
+
+				if ( string.IsNullOrEmpty( b.Property ) )
+				{
+					r.Errors.Add( $"binding '{b.Id}' on '{el.Id}' has no target property" );
+					continue;
+				}
+
+				// Source must resolve to a Variable on this document.
+				var sourceVarId = b.Source?.VariableId;
+				if ( string.IsNullOrEmpty( sourceVarId ) )
+					r.Errors.Add( $"{where} has no source Variable" );
+				else if ( !variableIds.Contains( sourceVarId ) )
+					r.Errors.Add( $"{where} references unknown Variable id '{sourceVarId}'" );
+
+				// Mode must be valid for this (element type, property) pair.
+				if ( !SuiBindingModeMatrix.IsBindable( el.Type, b.Property ) )
+				{
+					r.Errors.Add( $"{where}: property '{b.Property}' is not bindable on a {el.Type} element" );
+				}
+				else if ( !SuiBindingModeMatrix.IsModeAllowed( el.Type, b.Property, b.Mode ) )
+				{
+					r.Errors.Add( $"{where}: mode '{b.Mode}' is not allowed for {el.Type}.{b.Property}" );
+				}
+
+				// TwoWay bindings cannot carry a converter chain (PRD 18 § 4.6).
+				if ( b.Mode == SuiBindingMode.TwoWay && b.Converters != null && b.Converters.Count > 0 )
+					r.Errors.Add( $"{where}: TwoWay bindings cannot have converters" );
+
+				// Each converter step must name a converter (deep type-composition
+				// validation lands in M1-C with the converter catalog).
+				if ( b.Converters != null )
+				{
+					for ( int i = 0; i < b.Converters.Count; i++ )
+					{
+						if ( string.IsNullOrEmpty( b.Converters[i]?.ConverterRef ) )
+							r.Errors.Add( $"{where}: converter step {i} has no ConverterRef" );
+					}
+				}
+			}
+		}
 	}
 
 	// ---------- Sanitizers ----------

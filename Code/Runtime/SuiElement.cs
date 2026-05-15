@@ -28,6 +28,14 @@ public sealed class SuiElement
 	public SuiStyleData Style { get; set; } = new();
 	public SuiElementProps Props { get; set; } = new();
 
+	/// <summary>
+	/// V1.5 — property bindings on this element (PRD 18 § 4). Each entry binds one
+	/// <see cref="SuiBinding.Property"/> to a document Variable, optionally through
+	/// a converter chain. A bound property's literal value in <see cref="Props"/>
+	/// is ignored at generation time. Empty on V1 documents.
+	/// </summary>
+	public List<SuiBinding> Bindings { get; set; } = new();
+
 	/// <summary>Optional designer-only notes attached to the element.</summary>
 	public string Notes { get; set; }
 
@@ -51,23 +59,28 @@ public sealed class SuiElement
 	/// </summary>
 	public string StyleRef { get; set; }
 
-	public SuiElement Clone() => new()
+	public SuiElement Clone()
 	{
-		Id = Id,
-		Name = Name,
-		Type = Type,
-		ParentId = ParentId,
-		Children = new List<string>( Children ?? new() ),
-		Flags = Flags?.Clone() ?? new(),
-		Layout = Layout?.Clone() ?? new(),
-		Style = Style?.Clone() ?? new(),
-		Props = Props?.Clone() ?? new(),
-		Notes = Notes,
-		TooltipText = TooltipText,
-		IsVisible = IsVisible,
-		ClassOverride = ClassOverride,
-		StyleRef = StyleRef,
-	};
+		var clone = new SuiElement
+		{
+			Id = Id,
+			Name = Name,
+			Type = Type,
+			ParentId = ParentId,
+			Children = new List<string>( Children ?? new() ),
+			Flags = Flags?.Clone() ?? new(),
+			Layout = Layout?.Clone() ?? new(),
+			Style = Style?.Clone() ?? new(),
+			Props = Props?.Clone() ?? new(),
+			Notes = Notes,
+			TooltipText = TooltipText,
+			IsVisible = IsVisible,
+			ClassOverride = ClassOverride,
+			StyleRef = StyleRef,
+		};
+		foreach ( var b in Bindings ) clone.Bindings.Add( b?.Clone() );
+		return clone;
+	}
 
 	/// <summary>
 	/// Apply the per-element-type defaults (pointer-events, etc.) to a freshly
