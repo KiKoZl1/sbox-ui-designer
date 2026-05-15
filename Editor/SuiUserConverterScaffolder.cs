@@ -16,7 +16,10 @@ namespace SboxUiDesigner.EditorUi;
 /// </summary>
 public static class SuiUserConverterScaffolder
 {
-	private const string TargetRelativePath = "Assets/GameConverters.cs";
+	// .cs files in Assets/ are NOT compiled by the s&box csproj (Assets is for
+	// runtime resources — models, sounds, sui docs). User converters need to be
+	// in Code/ to actually become part of the assembly the engine loads.
+	private const string TargetRelativePath = "Code/GameConverters.cs";
 	private const string BeginMarker        = "// SUI:USER-CONVERTERS:BEGIN";
 	private const string EndMarker          = "// SUI:USER-CONVERTERS:END";
 
