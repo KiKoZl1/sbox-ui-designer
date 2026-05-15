@@ -20,8 +20,14 @@ public static class SuiUserConverterScaffolder
 	// runtime resources — models, sounds, sui docs). User converters need to be
 	// in Code/ to actually become part of the assembly the engine loads.
 	private const string TargetRelativePath = "Code/GameConverters.cs";
-	private const string BeginMarker        = "// SUI:USER-CONVERTERS:BEGIN";
-	private const string EndMarker          = "// SUI:USER-CONVERTERS:END";
+
+	// Legacy path from before the Assets→Code fix. We auto-migrate any file
+	// found here into the correct path on the next scaffold so the user never
+	// has to touch the filesystem.
+	private const string LegacyRelativePath = "Assets/GameConverters.cs";
+
+	private const string BeginMarker = "// SUI:USER-CONVERTERS:BEGIN";
+	private const string EndMarker   = "// SUI:USER-CONVERTERS:END";
 
 	/// <summary>
 	/// Append a new method stub for <paramref name="config"/> to the user
@@ -42,10 +48,33 @@ public static class SuiUserConverterScaffolder
 		var fullPath = Path.Combine(
 			projectRoot,
 			TargetRelativePath.Replace( '/', Path.DirectorySeparatorChar ) );
+		var legacyPath = Path.Combine(
+			projectRoot,
+			LegacyRelativePath.Replace( '/', Path.DirectorySeparatorChar ) );
 
 		try
 		{
 			Directory.CreateDirectory( Path.GetDirectoryName( fullPath ) );
+
+			// Auto-migrate the legacy Assets/ location → Code/. Pre-fix scaffolds
+			// landed in Assets/GameConverters.cs which never compiled. Move the
+			// file (preserving any user edits) so the next scaffold appends to
+			// the working location without the user having to touch the FS.
+			if ( File.Exists( legacyPath ) )
+			{
+				if ( !File.Exists( fullPath ) )
+				{
+					File.Move( legacyPath, fullPath );
+					Log.Info( $"[SUI] Migrated legacy {LegacyRelativePath} → {TargetRelativePath} (Assets/ isn't compiled by s&box)." );
+				}
+				else
+				{
+					// Both exist — keep the new one, warn so the user can review.
+					Log.Warning(
+						$"[SUI] Found both {LegacyRelativePath} (legacy) and {TargetRelativePath}. " +
+						"Using the new location; the legacy file is orphaned and safe to delete." );
+				}
+			}
 
 			if ( !File.Exists( fullPath ) )
 				File.WriteAllText( fullPath, BuildTemplate() );
