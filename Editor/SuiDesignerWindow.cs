@@ -740,6 +740,36 @@ public class SuiDesignerWindow : DockWindow, IAssetEditor
 		_controller.Execute( new SuiAddVariableCommand( copy ) );
 	}
 
+	// ─────────────────────────────────────────────────────────────────────
+	//  Bindings panel (PRD 18 § 4.8)
+	// ─────────────────────────────────────────────────────────────────────
+
+	private void OnAddBindingRequested()
+	{
+		if ( Document == null ) return;
+		// Prefill the target with whatever the user has selected in the canvas /
+		// Hierarchy — saves them from hunting through the element list (a real
+		// pain on dense UIs). Element stays selectable; not locked.
+		var popup = new SuiBindPopup( Document, _controller.Selected );
+		popup.OnAccept = ( elementId, binding ) =>
+			_controller.Execute( new SuiSetBindingCommand( elementId, binding ) );
+	}
+
+	private void OnEditBindingRequested( string elementId, SuiBinding binding )
+	{
+		if ( Document == null || binding == null ) return;
+		var el = Document.GetElement( elementId );
+		var popup = new SuiBindPopup( Document, el, binding.Property, binding );
+		popup.OnAccept = ( eid, edited ) =>
+			_controller.Execute( new SuiSetBindingCommand( eid, edited ) );
+	}
+
+	private void OnDeleteBindingRequested( string elementId, SuiBinding binding )
+	{
+		if ( Document == null || binding == null ) return;
+		_controller.Execute( new SuiClearBindingCommand( elementId, binding ) );
+	}
+
 	private void OpenInventoryGridWizard()
 	{
 		if ( Document == null ) return;
@@ -858,6 +888,12 @@ public class SuiDesignerWindow : DockWindow, IAssetEditor
 		_variables.EditVariableRequested += OnEditVariableRequested;
 		_variables.DeleteVariableRequested += OnDeleteVariableRequested;
 		_variables.DuplicateVariableRequested += OnDuplicateVariableRequested;
+
+		// Bindings panel — opens the bind popup; results are routed through the
+		// controller command stack, and DocumentChanged fans the refresh back.
+		_bottomTabs.Bindings.AddBindingRequested += OnAddBindingRequested;
+		_bottomTabs.Bindings.EditBindingRequested += OnEditBindingRequested;
+		_bottomTabs.Bindings.DeleteBindingRequested += OnDeleteBindingRequested;
 
 		// Wire mini-toolbar (dropdowns + view-toggle buttons + fit) inside the center widget.
 		_centerTabs.WireMiniToolbar(

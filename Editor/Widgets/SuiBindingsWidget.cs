@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using Editor;
 using Sandbox;
 using SboxUiDesigner.Runtime;
@@ -7,20 +6,25 @@ using SboxUiDesigner.Runtime;
 namespace SboxUiDesigner.EditorUi.Widgets;
 
 /// <summary>
-/// Bindings tab — minimal table of property bindings for the current document
-/// (mockup Image 1). Each row: Target | Property | Source | Path | Mode + delete.
-/// Add Binding button at the top.
+/// Bindings panel — a document-wide table of every property binding (PRD 18 § 4.8).
+/// Rebuilt in M1-C for the V1.5 <see cref="SuiBinding"/> model (previously the V1
+/// <c>SuiPropertyBinding</c> table). Each row: Element · Property ← Source Variable
+/// · Mode, with edit / delete buttons.
 ///
-/// V1 persists bindings in the .sui (<c>SuiDocument.Bindings</c>) but does
-/// NOT emit them to the generated Razor yet. V2 will translate to
-/// <c>@bind-X</c> + <c>[Property]</c> code.
+/// The "+ Add Binding" button and the per-row edit/delete fire request events;
+/// <see cref="SuiDesignerWindow"/> turns them into undoable commands via the
+/// <see cref="SuiBindPopup"/>.
 /// </summary>
 public sealed class SuiBindingsWidget : Widget
 {
 	private SuiDocument _document;
 	private Widget _listHost;
-	private LineEdit _searchInput;
+	private LineEdit _search;
 	private string _filter = "";
+
+	public event Action AddBindingRequested;
+	public event Action<string, SuiBinding> EditBindingRequested;
+	public event Action<string, SuiBinding> DeleteBindingRequested;
 
 	public SuiBindingsWidget( Widget parent = null ) : base( parent )
 	{
@@ -31,187 +35,145 @@ public sealed class SuiBindingsWidget : Widget
 		Layout.Margin = 8;
 		Layout.Spacing = 6;
 
-		// Top toolbar — Add Binding + Search.
 		var top = new Widget( this );
 		top.Layout = Layout.Row();
 		top.Layout.Spacing = 6;
 		top.FixedHeight = 28;
 
-		var addBtn = new Button( "Add Binding", "add", top );
-		addBtn.Clicked += AddBinding;
+		var addBtn = new Button( "+ Add Binding", "add", top );
+		addBtn.Clicked = () => AddBindingRequested?.Invoke();
 		top.Layout.Add( addBtn );
 
-		_searchInput = new LineEdit( top );
-		_searchInput.PlaceholderText = "Search bindings…";
-		_searchInput.TextEdited += s => { _filter = (s ?? "").ToLowerInvariant(); RefreshList(); };
-		top.Layout.Add( _searchInput, 1 );
-
+		_search = new LineEdit( top );
+		_search.PlaceholderText = "Search bindings…";
+		_search.SetStyles(
+			"background-color: rgb(20,20,19);" +
+			"border: 1px solid rgba(255,255,255,0.06);" +
+			"border-radius: 3px;" );
+		_search.TextEdited += s => { _filter = (s ?? "").ToLowerInvariant(); Refresh(); };
+		top.Layout.Add( _search, 1 );
 		Layout.Add( top );
 
-		// Header row.
-		var header = new Widget( this );
-		header.Layout = Layout.Row();
-		header.Layout.Spacing = 6;
-		header.FixedHeight = 22;
-		AddHeaderCell( header, "Target", 1 );
-		AddHeaderCell( header, "Property", 1 );
-		AddHeaderCell( header, "Binding Source", 1 );
-		AddHeaderCell( header, "Path", 1 );
-		AddHeaderCell( header, "Mode", 0, 70 );
-		var delHdr = new Label( "", header );
-		delHdr.FixedWidth = 24;
-		header.Layout.Add( delHdr );
-		Layout.Add( header );
-
-		// Scrollable list of binding rows.
 		var scroll = new ScrollArea( this );
-		scroll.Canvas = new Widget( null );
-		scroll.Canvas.Layout = Layout.Column();
-		scroll.Canvas.Layout.Margin = 0;
-		scroll.Canvas.Layout.Spacing = 2;
-		_listHost = scroll.Canvas;
+		_listHost = new Widget( scroll );
+		_listHost.Layout = Layout.Column();
+		_listHost.Layout.Spacing = 2;
+		scroll.Canvas = _listHost;
 		Layout.Add( scroll, 1 );
+
+		Refresh();
 	}
 
 	public void SetDocument( SuiDocument document )
 	{
 		_document = document;
-		RefreshList();
+		Refresh();
 	}
 
-	private void AddBinding()
-	{
-		if ( _document == null ) return;
-		_document.Bindings.Add( new SuiPropertyBinding
-		{
-			TargetElementId = _document.GetRoot()?.Id,
-			Property = "Value",
-			Source = "Player",
-			Path = "Health",
-			Mode = "OneWay",
-		} );
-		RefreshList();
-	}
-
-	private void RefreshList()
+	public void Refresh()
 	{
 		if ( _listHost?.Layout == null ) return;
 		_listHost.Layout.Clear( true );
-		if ( _document == null )
+
+		if ( _document?.Elements == null )
 		{
-			var none = new Label( "(no document)", _listHost );
-			none.SetStyles( "color: #6b7280; font-size: 11px;" );
-			_listHost.Layout.Add( none );
+			AddEmpty( "(no document)" );
 			return;
 		}
 
-		var any = false;
-		foreach ( var b in _document.Bindings )
+		int shown = 0;
+		foreach ( var el in _document.Elements )
 		{
-			if ( !MatchesFilter( b ) ) continue;
-			any = true;
-			BuildRow( b );
+			if ( el?.Bindings == null ) continue;
+			foreach ( var b in el.Bindings )
+			{
+				if ( b == null || !Matches( el, b ) ) continue;
+				_listHost.Layout.Add( BuildRow( el, b ) );
+				shown++;
+			}
 		}
-		if ( !any )
+
+		if ( shown == 0 )
 		{
-			var none = new Label( string.IsNullOrEmpty( _filter )
-				? "No bindings yet — click 'Add Binding' to create one."
-				: "No bindings match your search.", _listHost );
-			none.SetStyles( "color: #6b7280; font-size: 11px; padding: 8px;" );
-			_listHost.Layout.Add( none );
+			AddEmpty( string.IsNullOrEmpty( _filter )
+				? "No bindings yet — click \"+ Add Binding\"."
+				: "No bindings match your search." );
+			return;
 		}
 		_listHost.Layout.AddStretchCell();
 	}
 
-	private bool MatchesFilter( SuiPropertyBinding b )
+	private bool Matches( SuiElement el, SuiBinding b )
 	{
 		if ( string.IsNullOrEmpty( _filter ) ) return true;
-		var elName = ResolveTargetName( b.TargetElementId )?.ToLowerInvariant() ?? "";
-		return elName.Contains( _filter )
-			|| (b.Property?.ToLowerInvariant() ?? "").Contains( _filter )
-			|| (b.Source?.ToLowerInvariant() ?? "").Contains( _filter )
-			|| (b.Path?.ToLowerInvariant() ?? "").Contains( _filter );
+		return (el.Name ?? "").ToLowerInvariant().Contains( _filter )
+			|| (b.Property ?? "").ToLowerInvariant().Contains( _filter )
+			|| SourceName( b ).ToLowerInvariant().Contains( _filter );
 	}
 
-	private string ResolveTargetName( string elementId )
+	private string SourceName( SuiBinding b )
 	{
-		if ( _document == null || string.IsNullOrEmpty( elementId ) ) return null;
-		var el = _document.GetElement( elementId );
-		return el?.Name;
+		var id = b?.Source?.VariableId;
+		if ( string.IsNullOrEmpty( id ) || _document?.Variables == null ) return "(unset)";
+		foreach ( var v in _document.Variables )
+			if ( v?.Id == id ) return v.Name ?? "(unnamed)";
+		return "(missing)";
 	}
 
-	private void BuildRow( SuiPropertyBinding b )
+	private Widget BuildRow( SuiElement el, SuiBinding b )
 	{
 		var row = new Widget( _listHost );
+		row.SetStyles(
+			"background-color: rgb(28,28,27);" +
+			"border: 1px solid rgba(255,255,255,0.06);" +
+			"border-radius: 4px;" );
 		row.Layout = Layout.Row();
+		row.Layout.Margin = new Sandbox.UI.Margin( 8, 4, 4, 4 );
 		row.Layout.Spacing = 6;
-		row.FixedHeight = 26;
+		row.FixedHeight = 30;
 
-		// Target — dropdown of elements in the document.
-		var targetBtn = new Button( ResolveTargetName( b.TargetElementId ) ?? "(unset)", "category", row );
-		targetBtn.Clicked += () =>
-		{
-			var menu = new Menu( targetBtn );
-			foreach ( var el in _document.Elements )
-			{
-				if ( string.IsNullOrEmpty( el.ParentId ) ) continue;
-				var captured = el;
-				menu.AddOption( captured.Name, "category", () => { b.TargetElementId = captured.Id; RefreshList(); } );
-			}
-			menu.OpenAtCursor( true );
-		};
-		row.Layout.Add( targetBtn, 1 );
+		var elLbl = new Label( el.Name ?? el.Id, row ) { FixedWidth = 92 };
+		elLbl.SetStyles( "color: #e5e7eb; font-size: 11px; font-weight: 600;" );
+		row.Layout.Add( elLbl );
 
-		// Property — text input.
-		var propEdit = new LineEdit( row );
-		propEdit.Text = b.Property ?? "";
-		propEdit.PlaceholderText = "Value";
-		propEdit.EditingFinished += () => b.Property = propEdit.Text;
-		row.Layout.Add( propEdit, 1 );
+		var propLbl = new Label( b.Property ?? "?", row ) { FixedWidth = 84 };
+		propLbl.SetStyles( "color: #93c5fd; font-size: 11px;" );
+		row.Layout.Add( propLbl );
 
-		// Source — text input.
-		var srcEdit = new LineEdit( row );
-		srcEdit.Text = b.Source ?? "";
-		srcEdit.PlaceholderText = "Player";
-		srcEdit.EditingFinished += () => b.Source = srcEdit.Text;
-		row.Layout.Add( srcEdit, 1 );
+		var arrow = new Label( "<-", row );
+		arrow.SetStyles( "color: #6b7280; font-size: 11px;" );
+		row.Layout.Add( arrow );
 
-		// Path — text input.
-		var pathEdit = new LineEdit( row );
-		pathEdit.Text = b.Path ?? "";
-		pathEdit.PlaceholderText = "Health";
-		pathEdit.EditingFinished += () => b.Path = pathEdit.Text;
-		row.Layout.Add( pathEdit, 1 );
+		var srcLbl = new Label( SourceName( b ), row );
+		srcLbl.SetStyles( "color: #c4b5fd; font-size: 11px;" );
+		row.Layout.Add( srcLbl, 1 );
 
-		// Mode dropdown.
-		var modeBtn = new Button( b.Mode ?? "OneWay", "swap_horiz", row );
-		modeBtn.FixedWidth = 70;
-		modeBtn.Clicked += () =>
-		{
-			var menu = new Menu( modeBtn );
-			void Add( string m ) => menu.AddOption( m, "swap_horiz", () => { b.Mode = m; modeBtn.Text = m; } );
-			Add( "OneWay" );
-			Add( "TwoWay" );
-			Add( "OneTime" );
-			menu.OpenAtCursor( true );
-		};
-		row.Layout.Add( modeBtn );
+		var modeLbl = new Label( b.Mode.ToString(), row ) { FixedWidth = 64 };
+		modeLbl.SetStyles( "color: #6b7280; font-size: 10px;" );
+		row.Layout.Add( modeLbl );
 
-		// Delete.
+		var editBtn = new Button( "", "edit", row );
+		editBtn.FixedWidth = 24;
+		editBtn.FixedHeight = 24;
+		editBtn.SetStyles( "background-color: transparent; border: none; color: #9ca3af;" );
+		editBtn.Clicked = () => EditBindingRequested?.Invoke( el.Id, b );
+		row.Layout.Add( editBtn );
+
 		var delBtn = new Button( "", "delete", row );
 		delBtn.FixedWidth = 24;
-		delBtn.ToolTip = "Delete binding";
-		delBtn.Clicked += () => { _document.Bindings.Remove( b ); RefreshList(); };
+		delBtn.FixedHeight = 24;
+		delBtn.SetStyles( "background-color: transparent; border: none; color: #9ca3af;" );
+		delBtn.Clicked = () => DeleteBindingRequested?.Invoke( el.Id, b );
 		row.Layout.Add( delBtn );
 
-		_listHost.Layout.Add( row );
+		return row;
 	}
 
-	private static void AddHeaderCell( Widget row, string text, int stretch, int fixedWidth = 0 )
+	private void AddEmpty( string msg )
 	{
-		var lbl = new Label( text, row );
-		lbl.SetStyles( "color: #9ca3af; font-size: 10px; font-weight: 600; letter-spacing: 0.5px;" );
-		if ( fixedWidth > 0 ) lbl.FixedWidth = fixedWidth;
-		row.Layout.Add( lbl, stretch );
+		var none = new Label( msg, _listHost );
+		none.SetStyles( "color: #6b7280; font-size: 11px; padding: 8px;" );
+		_listHost.Layout.Add( none );
+		_listHost.Layout.AddStretchCell();
 	}
 }

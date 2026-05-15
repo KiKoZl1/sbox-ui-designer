@@ -111,7 +111,7 @@ public class SuiVariablesWidget : Widget
 
 	private Widget BuildRow( SuiVariable v )
 	{
-		var accent = TypeAccent( v.Type );
+		var meta = SuiTypeRegistry.Get( v.Type );
 
 		var row = new Widget( _list );
 		row.SetStyles(
@@ -119,21 +119,28 @@ public class SuiVariablesWidget : Widget
 			"border: 1px solid rgba(255,255,255,0.06);" +
 			"border-radius: 4px;" );
 		row.Layout = Layout.Row();
-		row.Layout.Margin = 0;
-		row.Layout.Spacing = 0;
+		row.Layout.Margin = new Sandbox.UI.Margin( 6, 6, 4, 6 );
+		row.Layout.Spacing = 8;
 		row.FixedHeight = 46;
 
-		// Type-coloured accent stripe down the left edge (UMG convention).
-		var stripe = new Widget( row );
-		stripe.FixedWidth = 3;
-		stripe.SetStyles( $"background-color: {accent};" );
-		row.Layout.Add( stripe );
+		// Type chip — a coloured square with the type's Material icon. Inspired
+		// by UMG's pin-cap leader, but our own: icon SHAPE carries the type
+		// identity for colour-blind users; colour reinforces it for everyone else.
+		var chip = new Button( "", meta.Icon, row );
+		chip.FixedWidth = 30;
+		chip.FixedHeight = 30;
+		chip.SetStyles(
+			$"background-color: {meta.Color}1a;" +
+			$"border: 1px solid {meta.Color}55;" +
+			$"color: {meta.Color};" +
+			"border-radius: 4px;" );
+		// Non-interactive — just a visual chip. Clicked stays null.
+		row.Layout.Add( chip );
 
 		// Info column — name on top, type pill + source below.
 		var info = new Widget( row );
 		info.Layout = Layout.Column();
-		info.Layout.Margin = new Sandbox.UI.Margin( 9, 6, 6, 6 );
-		info.Layout.Spacing = 4;
+		info.Layout.Spacing = 2;
 
 		var nameLbl = new Label( v.Name ?? "(unnamed)", info );
 		nameLbl.SetStyles( "color: #f3f4f6; font-size: 12px; font-weight: 600;" );
@@ -143,20 +150,19 @@ public class SuiVariablesWidget : Widget
 		tagRow.Layout = Layout.Row();
 		tagRow.Layout.Spacing = 6;
 
-		// Tinted type pill.
-		var typePill = new Label( v.Type ?? "?", tagRow );
+		var typePill = new Label( meta.DisplayName, tagRow );
 		typePill.SetStyles(
-			$"background-color: {accent}26;" +
-			$"color: {accent};" +
+			$"background-color: {meta.Color}26;" +
+			$"color: {meta.Color};" +
 			"font-size: 9px; font-weight: 700;" +
 			"border-radius: 3px; padding: 1px 6px;" );
 		tagRow.Layout.Add( typePill );
 
 		var srcText = v.Source?.Kind switch
 		{
-			SuiVariableSourceKind.FromComponent => "from Component",
+			SuiVariableSourceKind.FromComponent   => "from Component",
 			SuiVariableSourceKind.FromActionGraph => "from ActionGraph",
-			_ => "Manual",
+			_                                     => "Manual",
 		};
 		var srcLbl = new Label( srcText, tagRow );
 		srcLbl.SetStyles( "color: #6b7280; font-size: 9px;" );
@@ -166,7 +172,6 @@ public class SuiVariablesWidget : Widget
 		info.Layout.Add( tagRow );
 		row.Layout.Add( info, 1 );
 
-		// Subtle "⋮" menu button.
 		var menuBtn = new Button( "", "more_vert", row );
 		menuBtn.FixedWidth = 28;
 		menuBtn.FixedHeight = 28;
@@ -175,46 +180,6 @@ public class SuiVariablesWidget : Widget
 		row.Layout.Add( menuBtn );
 
 		return row;
-	}
-
-	/// <summary>
-	/// UMG-style per-type accent colour — drives the left stripe + the type pill,
-	/// so the Variables list stays scannable at a glance: int/long teal,
-	/// float/double lime, string pink, bool red, Color violet, vectors gold,
-	/// transforms orange, asset refs blue, everything else grey.
-	/// </summary>
-	private static string TypeAccent( string type )
-	{
-		switch ( type )
-		{
-			case "int":
-			case "long":
-				return "#2dd4bf";
-			case "float":
-			case "double":
-				return "#a3e635";
-			case "string":
-				return "#f472b6";
-			case "bool":
-				return "#f87171";
-			case "Color":
-				return "#c084fc";
-			case "Vector2":
-			case "Vector3":
-			case "Vector4":
-				return "#facc15";
-			case "Angles":
-			case "Rotation":
-			case "Transform":
-				return "#fb923c";
-			case "Texture":
-			case "Resource":
-			case "Sound":
-			case "Material":
-				return "#60a5fa";
-			default:
-				return "#9ca3af"; // Enum:* / Component:* / List<*> / unknown
-		}
 	}
 
 	private void OpenRowMenu( SuiVariable v )
