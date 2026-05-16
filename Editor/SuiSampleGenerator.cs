@@ -24,7 +24,138 @@ public static class SuiSampleGenerator
 			("inventory_basic", BuildInventoryBasic()),
 			("hotbar_basic", BuildHotbarBasic()),
 			("hud_survival", BuildHudSurvival()),
+			("composed_stat_row", BuildComposedStatRow()),
+			("auto_mount_hud", BuildAutoMountHud()),
 		};
+	}
+
+	// ─────────────────────────────────────────────────────────────────────
+	//  composed_stat_row — V1.5 composition demo (child)
+	//  A reusable label + value pair the parent embeds via SuiReference.
+	//  Declares two AcceptedProps so the parent can pass in "HP / 75" etc.
+	// ─────────────────────────────────────────────────────────────────────
+	public static SuiDocument BuildComposedStatRow()
+	{
+		var doc = SuiDocument.CreateDefault( "composed_stat_row" );
+		doc.Output.ClassName = "ComposedStatRow";
+		doc.Output.Namespace = "Game.UI";
+
+		// AcceptedProps: Label + Value. "Create matching Variable" equivalent done inline.
+		var labelProp = new SuiAcceptedProp
+		{
+			PropId = SuiAcceptedProp.NewPropId(),
+			Name = "StatLabel",
+			Type = "string",
+			Default = System.Text.Json.Nodes.JsonValue.Create( "HP" ),
+			Description = "Left-side label, e.g. HP / MP / Stamina.",
+		};
+		var valueProp = new SuiAcceptedProp
+		{
+			PropId = SuiAcceptedProp.NewPropId(),
+			Name = "StatValue",
+			Type = "string",
+			Default = System.Text.Json.Nodes.JsonValue.Create( "100" ),
+			Description = "Right-side value, formatted string.",
+		};
+		doc.AcceptedProps.Add( labelProp );
+		doc.AcceptedProps.Add( valueProp );
+
+		// Bridge Variables so element bindings inside this doc are uniform.
+		var labelVar = new SuiVariable
+		{
+			Id = SuiVariable.NewVariableId(),
+			Name = "StatLabel",
+			Type = "string",
+			Source = new SuiVariableSource { Kind = SuiVariableSourceKind.FromAcceptedProp, PropId = labelProp.PropId },
+		};
+		var valueVar = new SuiVariable
+		{
+			Id = SuiVariable.NewVariableId(),
+			Name = "StatValue",
+			Type = "string",
+			Source = new SuiVariableSource { Kind = SuiVariableSourceKind.FromAcceptedProp, PropId = valueProp.PropId },
+		};
+		doc.Variables.Add( labelVar );
+		doc.Variables.Add( valueVar );
+
+		var root = doc.GetRoot();
+		var row = AddChild( doc, root, SuiElementType.HorizontalBox, "Row", absolute: false );
+		row.Layout.Width = 240;
+		row.Layout.Height = 28;
+		row.Layout.Gap = 8;
+		row.Layout.AlignItems = SuiAlignItems.Center;
+		row.Style.BackgroundColor = "#1f2937";
+		row.Style.BorderRadius = 4;
+
+		var labelText = AddChild( doc, row, SuiElementType.Text, "Label", absolute: false );
+		labelText.Layout.Width = 80;
+		labelText.Layout.Height = 24;
+		labelText.Props.Text = "HP";
+		labelText.Props.FontSize = 14;
+		labelText.Props.FontWeight = SuiFontWeight.SemiBold;
+		labelText.Props.Color = "#cbd5e1";
+		labelText.Bindings.Add( new SuiBinding
+		{
+			Id = SuiBinding.NewBindingId(),
+			Property = "Text",
+			Mode = SuiBindingMode.OneWay,
+			Source = new SuiBindingSource { VariableId = labelVar.Id },
+		} );
+
+		var valueText = AddChild( doc, row, SuiElementType.Text, "Value", absolute: false );
+		valueText.Layout.Width = 140;
+		valueText.Layout.Height = 24;
+		valueText.Props.Text = "100";
+		valueText.Props.FontSize = 14;
+		valueText.Props.FontWeight = SuiFontWeight.Normal;
+		valueText.Props.Color = "#e5e7eb";
+		valueText.Bindings.Add( new SuiBinding
+		{
+			Id = SuiBinding.NewBindingId(),
+			Property = "Text",
+			Mode = SuiBindingMode.OneWay,
+			Source = new SuiBindingSource { VariableId = valueVar.Id },
+		} );
+
+		return doc;
+	}
+
+	// ─────────────────────────────────────────────────────────────────────
+	//  auto_mount_hud — V1.5 PerLocalPlayer demo
+	//  A minimal HUD set to Output.Mode = PerLocalPlayer. The Compile
+	//  generates a Spawner Component the user drops on a player prefab; it
+	//  auto-creates a ScreenPanel + the HUD on the local player only.
+	// ─────────────────────────────────────────────────────────────────────
+	public static SuiDocument BuildAutoMountHud()
+	{
+		var doc = SuiDocument.CreateDefault( "auto_mount_hud" );
+		doc.Output.ClassName = "AutoMountHud";
+		doc.Output.Namespace = "Game.UI";
+		doc.Output.Mode = SuiOutputMode.PerLocalPlayer;
+
+		var root = doc.GetRoot();
+		var pad = AddChild( doc, root, SuiElementType.Panel, "Pad", absolute: true );
+		pad.Layout.X = 16;
+		pad.Layout.Y = 16;
+		pad.Layout.Width = 240;
+		pad.Layout.Height = 64;
+		pad.Layout.Anchor = SuiAnchor.TopLeft;
+		pad.Style.BackgroundColor = "#0b1220";
+		pad.Style.BorderColor = "#6366f1";
+		pad.Style.BorderWidth = 1;
+		pad.Style.BorderRadius = 6;
+
+		var text = AddChild( doc, pad, SuiElementType.Text, "Label", absolute: true );
+		text.Layout.Width = 220;
+		text.Layout.Height = 32;
+		text.Layout.X = 10;
+		text.Layout.Y = 16;
+		text.Layout.Anchor = SuiAnchor.TopLeft;
+		text.Props.Text = "PerLocalPlayer HUD ✓";
+		text.Props.FontSize = 16;
+		text.Props.FontWeight = SuiFontWeight.SemiBold;
+		text.Props.Color = "#e5e7eb";
+		return doc;
 	}
 
 	// ─────────────────────────────────────────────────────────────────────
