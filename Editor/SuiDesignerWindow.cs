@@ -53,6 +53,7 @@ public class SuiDesignerWindow : DockWindow, IAssetEditor
 	private SuiPaletteWidget _palette;
 	private SuiHierarchyWidget _hierarchy;
 	private SuiVariablesWidget _variables;
+	private SuiAcceptedPropsWidget _acceptedProps;
 	private SuiCenterTabsWidget _centerTabs;
 	// Backwards-compatible accessor — returns the canvas inside the center tabs.
 	private SuiCanvasWidget _canvas => _centerTabs?.Canvas;
@@ -159,6 +160,7 @@ public class SuiDesignerWindow : DockWindow, IAssetEditor
 	{
 		_hierarchy?.SetDocument( Document );
 		_variables?.SetDocument( Document );
+		_acceptedProps?.SetDocument( Document );
 		_centerTabs?.SetDocument( Document );
 		_bottomTabs?.SetDocument( Document );
 		_details?.SetDocument( Document );
@@ -741,6 +743,59 @@ public class SuiDesignerWindow : DockWindow, IAssetEditor
 	}
 
 	// ─────────────────────────────────────────────────────────────────────
+	//  AcceptedProps panel (PRD 19 § 4.3)
+	// ─────────────────────────────────────────────────────────────────────
+
+	private void OnAddAcceptedPropRequested()
+	{
+		if ( Document == null ) return;
+		var dlg = new SuiAcceptedPropDialog();
+		dlg.OnAccept = ( prop, createVariable ) =>
+		{
+			SuiVariable matching = null;
+			if ( createVariable )
+			{
+				matching = new SuiVariable
+				{
+					Id = SuiVariable.NewVariableId(),
+					Name = prop.Name,
+					Type = prop.Type,
+					Default = prop.Default?.DeepClone(),
+					Description = $"Bridge to AcceptedProp '{prop.Name}' (PRD 19 § 3.2).",
+					Source = new SuiVariableSource
+					{
+						Kind = SuiVariableSourceKind.FromAcceptedProp,
+						PropId = prop.PropId,
+					},
+				};
+			}
+			_controller.Execute( new SuiAddAcceptedPropCommand( prop, matching ) );
+		};
+	}
+
+	private void OnEditAcceptedPropRequested( SuiAcceptedProp p )
+	{
+		if ( Document == null || p == null ) return;
+		var dlg = new SuiAcceptedPropDialog( p );
+		dlg.OnAccept = ( edited, _ ) => _controller.Execute( new SuiEditAcceptedPropCommand( p, edited ) );
+	}
+
+	private void OnDeleteAcceptedPropRequested( SuiAcceptedProp p )
+	{
+		if ( Document == null || p == null ) return;
+		_controller.Execute( new SuiDeleteAcceptedPropCommand( p ) );
+	}
+
+	private void OnDuplicateAcceptedPropRequested( SuiAcceptedProp p )
+	{
+		if ( Document == null || p == null ) return;
+		var copy = p.Clone();
+		copy.PropId = SuiAcceptedProp.NewPropId();
+		copy.Name = (p.Name ?? "Prop") + "_Copy";
+		_controller.Execute( new SuiAddAcceptedPropCommand( copy ) );
+	}
+
+	// ─────────────────────────────────────────────────────────────────────
 	//  Bindings panel (PRD 18 § 4.8)
 	// ─────────────────────────────────────────────────────────────────────
 
@@ -837,6 +892,7 @@ public class SuiDesignerWindow : DockWindow, IAssetEditor
 		_palette = new SuiPaletteWidget();
 		_hierarchy = new SuiHierarchyWidget();
 		_variables = new SuiVariablesWidget();
+		_acceptedProps = new SuiAcceptedPropsWidget();
 		_centerTabs = new SuiCenterTabsWidget();
 		_details = new SuiDetailsWidget();
 		_bottomTabs = new SuiBottomTabsWidget();
@@ -889,6 +945,11 @@ public class SuiDesignerWindow : DockWindow, IAssetEditor
 		_variables.DeleteVariableRequested += OnDeleteVariableRequested;
 		_variables.DuplicateVariableRequested += OnDuplicateVariableRequested;
 
+		_acceptedProps.AddPropRequested += OnAddAcceptedPropRequested;
+		_acceptedProps.EditPropRequested += OnEditAcceptedPropRequested;
+		_acceptedProps.DeletePropRequested += OnDeleteAcceptedPropRequested;
+		_acceptedProps.DuplicatePropRequested += OnDuplicateAcceptedPropRequested;
+
 		// Bindings panel — opens the bind popup; results are routed through the
 		// controller command stack, and DocumentChanged fans the refresh back.
 		_bottomTabs.Bindings.AddBindingRequested += OnAddBindingRequested;
@@ -937,6 +998,7 @@ public class SuiDesignerWindow : DockWindow, IAssetEditor
 		var paletteDock = new SuiDockPanel( "Palette", "category", _palette );
 		var hierarchyDock = new SuiDockPanel( "Hierarchy", "account_tree", _hierarchy );
 		var variablesDock = new SuiDockPanel( "Variables", "data_object", _variables );
+		var acceptedPropsDock = new SuiDockPanel( "Accepted Props", "input", _acceptedProps );
 		var detailsDock = new SuiDockPanel( "Details", "tune", _details );
 
 		var leftSidebar = new Widget( body );
@@ -948,6 +1010,7 @@ public class SuiDesignerWindow : DockWindow, IAssetEditor
 		leftSidebar.Layout.Add( paletteDock, 1 );
 		leftSidebar.Layout.Add( hierarchyDock, 1 );
 		leftSidebar.Layout.Add( variablesDock, 1 );
+		leftSidebar.Layout.Add( acceptedPropsDock, 1 );
 		body.Layout.Add( leftSidebar );
 
 		// 4px gap between left sidebar and center.
