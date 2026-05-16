@@ -247,7 +247,7 @@ public sealed class SuiCanvasRenderer
 		// the bind icon uses). Painted as 4 sides of short segments so it works
 		// without a dashed-line primitive.
 		var c = new Color( 167 / 255f, 139 / 255f, 250 / 255f, 0.8f );
-		Paint.SetPen( c, 1.5f );
+		Editor.Paint.SetPen( c, 1.5f );
 		const float dashLen = 6f;
 		const float gapLen = 4f;
 		DrawDashedLine( rect.Left, rect.Top, rect.Right, rect.Top, dashLen, gapLen );
@@ -268,7 +268,7 @@ public sealed class SuiCanvasRenderer
 		while ( pos < len )
 		{
 			var end = MathF.Min( pos + dashLen, len );
-			Paint.DrawLine(
+			Editor.Paint.DrawLine(
 				new Vector2( x1 + nx * pos, y1 + ny * pos ),
 				new Vector2( x1 + nx * end, y1 + ny * end ) );
 			pos = end + gapLen;
@@ -277,11 +277,11 @@ public sealed class SuiCanvasRenderer
 
 	private static void DrawSuiReferencePlaceholder( Rect rect, string label )
 	{
-		Paint.SetBrushAndPen( new Color( 0.1f, 0.1f, 0.12f, 0.4f ) );
-		Paint.DrawRect( rect, 4 );
-		Paint.SetPen( new Color( 167 / 255f, 139 / 255f, 250 / 255f ) );
-		Paint.SetDefaultFont( 11 );
-		Paint.DrawText( rect, "Sub-UI — " + label, TextFlag.Center );
+		Editor.Paint.SetBrushAndPen( new Color( 0.1f, 0.1f, 0.12f, 0.4f ) );
+		Editor.Paint.DrawRect( rect, 4 );
+		Editor.Paint.SetPen( new Color( 167 / 255f, 139 / 255f, 250 / 255f ) );
+		Editor.Paint.SetDefaultFont( 11 );
+		Editor.Paint.DrawText( rect, "Sub-UI — " + label, TextFlag.Center );
 	}
 
 	private void PaintChildren( SuiElement el )
