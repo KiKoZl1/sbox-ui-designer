@@ -52,6 +52,14 @@ public sealed class SuiCanvasRenderer
 	/// </summary>
 	public float Zoom { get; set; } = 1.0f;
 
+	/// <summary>
+	/// V1.5 — when true, the Canvas-root element's faint outline is suppressed
+	/// (children still render). Set on the throwaway child renderer spawned by
+	/// <see cref="PaintSuiReference"/> so the child's canvas frame doesn't
+	/// bleed past the SuiReference bounds.
+	/// </summary>
+	public bool SkipRootFrame { get; set; } = false;
+
 	public SuiCanvasRenderer( SuiLayoutSolver solver, string projectAssetsRoot )
 	{
 		_solver = solver;
@@ -89,7 +97,7 @@ public sealed class SuiCanvasRenderer
 		switch ( el.Type )
 		{
 			case SuiElementType.Canvas:
-				PaintCanvasRoot( el, rect );
+				if ( !SkipRootFrame ) PaintCanvasRoot( el, rect );
 				break;
 			case SuiElementType.Panel:
 			case SuiElementType.Overlay:
@@ -219,21 +227,22 @@ public sealed class SuiCanvasRenderer
 				r.Height * scaleY );
 		}
 
-		// Strip the child's Canvas root from the solver so it's not painted.
-		// The root's faint-white outline would otherwise extend past the
-		// SuiReference bounds — its rect is the full (1920x1080) child canvas
-		// scaled-and-offset, which lands outside the reference rectangle.
-		// The dashed border we already paint here is the right affordance for
-		// "this is a Sub-UI" — we don't need the inner canvas frame too.
-		var childRootId = childDoc.GetRoot()?.Id;
-		if ( !string.IsNullOrEmpty( childRootId ) )
-			childSolver.Rects.Remove( childRootId );
-
 		// Recurse with a child renderer using the transformed solver. The child
 		// renderer respects opacity by reading each element's own Style, so we
 		// don't need to inject the outer opacity (it would multiply twice — the
 		// child elements are independently authored).
-		var childRenderer = new SuiCanvasRenderer( childSolver, _projectAssetsRoot ) { Zoom = Zoom };
+		//
+		// SkipRootFrame suppresses the child Canvas's faint-white outline (which
+		// would otherwise extend past the SuiReference bounds because the root's
+		// rect after scale+offset lands outside the ref). PaintChildren still
+		// fires for the root so the actual content draws normally — the dashed
+		// border we already paint around the SuiReference is the right
+		// "this is a Sub-UI" affordance.
+		var childRenderer = new SuiCanvasRenderer( childSolver, _projectAssetsRoot )
+		{
+			Zoom = Zoom,
+			SkipRootFrame = true,
+		};
 		childRenderer.Paint( childDoc );
 	}
 
