@@ -82,17 +82,10 @@ public sealed class SuiRazorGenerator
 	private void EmitCodeBlock()
 	{
 		var hasVars = _doc.Variables != null && _doc.Variables.Count > 0;
-		var hasProps = _doc.AcceptedProps != null && _doc.AcceptedProps.Count > 0;
-		if ( !hasVars && !hasProps ) return;
+		if ( !hasVars ) return;
 
 		var body = new System.Text.StringBuilder();
-
-		// AcceptedProps come first — Variable aliases with Source=FromAcceptedProp
-		// emit `get => <PropName>;` and need those props in scope at the C# level
-		// for the alias to resolve when the user reads it.
-		SuiAcceptedPropEmitter.EmitProperties( _doc.AcceptedProps, body );
-
-		SuiVariableEmitter.EmitProperties( _doc.Variables, body, _doc.AcceptedProps );
+		SuiVariableEmitter.EmitProperties( _doc.Variables, body );
 		SuiBuildHashEmitter.EmitBuildHash( _doc.Variables, _doc.Elements, body );
 
 		if ( body.Length == 0 ) return;
@@ -189,60 +182,61 @@ public sealed class SuiRazorGenerator
 			_sb.Append( indent ).Append( "@foreach ( var (item, __idx) in " ).Append( sourceVarName )
 				.AppendLine( ".Select((__x, __i) => (__x, __i)) )" );
 			_sb.Append( indent ).AppendLine( "{" );
-			EmitSuiReferenceTag( fqType, target.AcceptedProps, data.Props, fe, indent + "  " );
+			EmitSuiReferenceTag( fqType, target.PublicVariables, data.Props, fe, indent + "  " );
 			_sb.Append( indent ).AppendLine( "}" );
 		}
 		else
 		{
-			EmitSuiReferenceTag( fqType, target.AcceptedProps, data.Props, null, indent );
+			EmitSuiReferenceTag( fqType, target.PublicVariables, data.Props, null, indent );
 		}
 	}
 
 	private void EmitSuiReferenceTag(
 		string fqType,
-		System.Collections.Generic.IList<SuiAcceptedProp> targetProps,
+		System.Collections.Generic.IList<SuiVariable> targetVars,
 		Dictionary<string, System.Text.Json.Nodes.JsonNode> sourceProps,
 		SuiForEachData forEach,
 		string indent )
 	{
 		_sb.Append( indent ).Append( "<" ).Append( fqType );
 
-		if ( targetProps != null )
+		if ( targetVars != null )
 		{
-			foreach ( var p in targetProps )
+			foreach ( var v in targetVars )
 			{
-				if ( p == null || string.IsNullOrEmpty( p.Name ) ) continue;
+				if ( v == null || string.IsNullOrEmpty( v.Name ) ) continue;
 
 				// ForEach overrides whatever the user put in Props for the item/index
-				// slots — runtime loop variables take precedence (PRD 19 § 3.5).
+				// slots — runtime loop variables take precedence. Keys
+				// (Item/IndexPropId) reference Variable.Id post-migration.
 				if ( forEach != null )
 				{
-					if ( p.PropId == forEach.ItemPropId )
+					if ( v.Id == forEach.ItemPropId )
 					{
-						_sb.Append( " " ).Append( p.Name ).Append( "=@item" );
+						_sb.Append( " " ).Append( v.Name ).Append( "=@item" );
 						continue;
 					}
-					if ( p.PropId == forEach.IndexPropId )
+					if ( v.Id == forEach.IndexPropId )
 					{
-						_sb.Append( " " ).Append( p.Name ).Append( "=@__idx" );
+						_sb.Append( " " ).Append( v.Name ).Append( "=@__idx" );
 						continue;
 					}
 				}
 
-				if ( sourceProps != null && sourceProps.TryGetValue( p.PropId, out var node ) && node != null )
+				if ( sourceProps != null && sourceProps.TryGetValue( v.Id, out var node ) && node != null )
 				{
-					var rendered = RenderPropAttribute( p, node );
+					var rendered = RenderPropAttribute( v, node );
 					if ( !string.IsNullOrEmpty( rendered ) )
-						_sb.Append( " " ).Append( p.Name ).Append( "=" ).Append( rendered );
+						_sb.Append( " " ).Append( v.Name ).Append( "=" ).Append( rendered );
 				}
-				// else: omit attribute → child uses its own AcceptedProp.Default
+				// else: omit attribute → child uses its own Variable.Default
 			}
 		}
 
 		_sb.AppendLine( " />" );
 	}
 
-	private string RenderPropAttribute( SuiAcceptedProp prop, System.Text.Json.Nodes.JsonNode node )
+	private string RenderPropAttribute( SuiVariable prop, System.Text.Json.Nodes.JsonNode node )
 	{
 		// Binding object marker `{ "$bind": { ... } }` is recognised by presence
 		// of a "$bind" key — the literal otherwise renders straight as a Razor

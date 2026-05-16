@@ -60,18 +60,37 @@ public static class SuiReferenceResolver
 
 				var loaded = asset.LoadResource<SuiAsset>();
 				var doc = loaded?.Document;
-				var className = doc?.Output?.ClassName;
+				if ( doc == null )
+				{
+					Log.Warning( $"[SUI] SuiReferenceResolver: LoadResource returned null for '{relPath}'." );
+					return null;
+				}
+
+				// Migrate legacy AcceptedProps → public Variables before reading
+				// so codegen sees the V1.5-M2-K shape regardless of when the
+				// referenced .sui was last saved.
+				doc.MigrateAcceptedPropsToPublicVariables();
+
+				var className = doc.Output?.ClassName;
 				if ( string.IsNullOrEmpty( className ) )
 				{
 					Log.Warning( $"[SUI] SuiReferenceResolver: '{relPath}' has no Output.ClassName — codegen embed will be skipped." );
 					return null;
 				}
 
+				// Only the IsPublic Variables become props parents can set.
+				var publics = new System.Collections.Generic.List<SuiVariable>();
+				if ( doc.Variables != null )
+				{
+					foreach ( var v in doc.Variables )
+						if ( v != null && v.IsPublic ) publics.Add( v );
+				}
+
 				var target = new SuiReferenceTarget
 				{
 					Namespace = doc.Output?.Namespace,
 					ClassName = className,
-					AcceptedProps = doc.AcceptedProps,
+					PublicVariables = publics,
 				};
 				cache[guid] = target;
 				return target;

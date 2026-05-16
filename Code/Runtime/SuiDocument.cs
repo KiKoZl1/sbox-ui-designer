@@ -46,10 +46,11 @@ public sealed class SuiDocument
 	public List<SuiVariable> Variables { get; set; } = new();
 
 	/// <summary>
-	/// Typed parameters this document exposes to parents that embed it via
-	/// <see cref="SuiElementType.SuiReference"/> (PRD 19 § 3.1). Empty when the
-	/// document is never embedded (most HUDs). The generator emits one
-	/// <c>[Property]</c> per entry on the partial class.
+	/// V1.5-M2-K — DEPRECATED. AcceptedProps merged into <see cref="SuiVariable.IsPublic"/>
+	/// (DEVIATIONS D-005). Kept on the schema only so JSON deserialise still works
+	/// for documents authored before the merge; <see cref="MigrateAcceptedPropsToPublicVariables"/>
+	/// converts each entry into a public Variable on load and clears this list.
+	/// Never written back to disk after migration runs.
 	/// </summary>
 	public List<SuiAcceptedProp> AcceptedProps { get; set; } = new();
 
@@ -94,6 +95,84 @@ public sealed class SuiDocument
 			if ( el.Id == id ) return el;
 		}
 		return null;
+	}
+
+	/// <summary>
+	/// V1.5-M2-K migration — fold each <see cref="SuiAcceptedProp"/> into a
+	/// public <see cref="SuiVariable"/> (IsPublic = true). Called on load. Idempotent:
+	/// safe to call multiple times; after the first call <see cref="AcceptedProps"/>
+	/// is empty and the method is a no-op.
+	///
+	/// <para>Existing Variables whose <c>Source.Kind == FromAcceptedProp</c> are
+	/// converted to Manual sources (the bridge alias is no longer needed because
+	/// the public Variable IS the contract now).</para>
+	///
+	/// <para>Returns the count of AcceptedProps migrated, so callers can log or
+	/// surface a one-time toast.</para>
+	/// </summary>
+	public int MigrateAcceptedPropsToPublicVariables()
+	{
+		if ( AcceptedProps == null || AcceptedProps.Count == 0 ) return 0;
+
+		var migrated = 0;
+		Variables ??= new List<SuiVariable>();
+
+		foreach ( var prop in AcceptedProps )
+		{
+			if ( prop == null || string.IsNullOrEmpty( prop.Name ) ) continue;
+
+			// Already mirrored? If a FromAcceptedProp Variable points at this
+			// PropId, upgrade it in place rather than creating a duplicate.
+			SuiVariable existingBridge = null;
+			foreach ( var v in Variables )
+			{
+				if ( v?.Source?.Kind == SuiVariableSourceKind.FromAcceptedProp
+					&& v.Source.PropId == prop.PropId )
+				{
+					existingBridge = v;
+					break;
+				}
+			}
+
+			if ( existingBridge != null )
+			{
+				existingBridge.IsPublic = true;
+				existingBridge.Type = prop.Type ?? existingBridge.Type;
+				existingBridge.Default = prop.Default?.DeepClone() ?? existingBridge.Default;
+				existingBridge.Description = string.IsNullOrEmpty( existingBridge.Description ) ? prop.Description : existingBridge.Description;
+				existingBridge.Group = string.IsNullOrEmpty( existingBridge.Group ) ? prop.Group : existingBridge.Group;
+				existingBridge.Source = new SuiVariableSource { Kind = SuiVariableSourceKind.Manual };
+			}
+			else
+			{
+				Variables.Add( new SuiVariable
+				{
+					Id = SuiVariable.NewVariableId(),
+					Name = prop.Name,
+					Type = prop.Type ?? "string",
+					Default = prop.Default?.DeepClone(),
+					Description = prop.Description,
+					Group = prop.Group,
+					IsPublic = true,
+					Source = new SuiVariableSource { Kind = SuiVariableSourceKind.Manual },
+				} );
+			}
+			migrated++;
+		}
+
+		AcceptedProps.Clear();
+
+		// Cleanup orphan FromAcceptedProp bridges that referenced PropIds NOT in
+		// the migrated list (defensive; shouldn't happen in healthy docs).
+		foreach ( var v in Variables )
+		{
+			if ( v?.Source?.Kind == SuiVariableSourceKind.FromAcceptedProp )
+			{
+				v.Source = new SuiVariableSource { Kind = SuiVariableSourceKind.Manual };
+			}
+		}
+
+		return migrated;
 	}
 
 	/// <summary>

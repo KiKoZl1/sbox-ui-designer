@@ -53,7 +53,8 @@ public class SuiDesignerWindow : DockWindow, IAssetEditor
 	private SuiPaletteWidget _palette;
 	private SuiHierarchyWidget _hierarchy;
 	private SuiVariablesWidget _variables;
-	private SuiAcceptedPropsWidget _acceptedProps;
+	// AcceptedProps panel removed in M2-K2 (DEVIATIONS D-005).
+	// All exposure now flows through SuiVariable.IsPublic.
 	private SuiCenterTabsWidget _centerTabs;
 	// Backwards-compatible accessor — returns the canvas inside the center tabs.
 	private SuiCanvasWidget _canvas => _centerTabs?.Canvas;
@@ -106,6 +107,14 @@ public class SuiDesignerWindow : DockWindow, IAssetEditor
 		_resource ??= new SuiAsset();
 
 		var doc = _resource.Document;
+
+		// V1.5-M2-K migration — fold legacy AcceptedProps into public Variables.
+		// Idempotent: skips when the list is already empty.
+		var migrated = doc?.MigrateAcceptedPropsToPublicVariables() ?? 0;
+		if ( migrated > 0 )
+		{
+			Log.Info( $"[SUI] Migrated {migrated} AcceptedProp(s) to public Variables in '{asset?.Name ?? "(unsaved)"}'. Save to persist." );
+		}
 		_loadLikelyFailed = false;
 
 		if ( doc == null || doc.Elements.Count == 0 )
@@ -160,7 +169,6 @@ public class SuiDesignerWindow : DockWindow, IAssetEditor
 	{
 		_hierarchy?.SetDocument( Document );
 		_variables?.SetDocument( Document );
-		_acceptedProps?.SetDocument( Document );
 		_palette?.SetHostDocumentId( Document?.DocumentId );
 		_centerTabs?.SetDocument( Document );
 		_bottomTabs?.SetDocument( Document );
@@ -743,58 +751,10 @@ public class SuiDesignerWindow : DockWindow, IAssetEditor
 		_controller.Execute( new SuiAddVariableCommand( copy ) );
 	}
 
-	// ─────────────────────────────────────────────────────────────────────
-	//  AcceptedProps panel (PRD 19 § 4.3)
-	// ─────────────────────────────────────────────────────────────────────
-
-	private void OnAddAcceptedPropRequested()
-	{
-		if ( Document == null ) return;
-		var dlg = new SuiAcceptedPropDialog();
-		dlg.OnAccept = ( prop, createVariable ) =>
-		{
-			SuiVariable matching = null;
-			if ( createVariable )
-			{
-				matching = new SuiVariable
-				{
-					Id = SuiVariable.NewVariableId(),
-					Name = prop.Name,
-					Type = prop.Type,
-					Default = prop.Default?.DeepClone(),
-					Description = $"Bridge to AcceptedProp '{prop.Name}' (PRD 19 § 3.2).",
-					Source = new SuiVariableSource
-					{
-						Kind = SuiVariableSourceKind.FromAcceptedProp,
-						PropId = prop.PropId,
-					},
-				};
-			}
-			_controller.Execute( new SuiAddAcceptedPropCommand( prop, matching ) );
-		};
-	}
-
-	private void OnEditAcceptedPropRequested( SuiAcceptedProp p )
-	{
-		if ( Document == null || p == null ) return;
-		var dlg = new SuiAcceptedPropDialog( p );
-		dlg.OnAccept = ( edited, _ ) => _controller.Execute( new SuiEditAcceptedPropCommand( p, edited ) );
-	}
-
-	private void OnDeleteAcceptedPropRequested( SuiAcceptedProp p )
-	{
-		if ( Document == null || p == null ) return;
-		_controller.Execute( new SuiDeleteAcceptedPropCommand( p ) );
-	}
-
-	private void OnDuplicateAcceptedPropRequested( SuiAcceptedProp p )
-	{
-		if ( Document == null || p == null ) return;
-		var copy = p.Clone();
-		copy.PropId = SuiAcceptedProp.NewPropId();
-		copy.Name = (p.Name ?? "Prop") + "_Copy";
-		_controller.Execute( new SuiAddAcceptedPropCommand( copy ) );
-	}
+	// AcceptedProps panel + dialog + commands were removed in M2-K2
+	// (DEVIATIONS D-005). Exposure is now per-Variable via the IsPublic
+	// checkbox in the Variable dialog — there is no separate "external
+	// contract" surface to manage.
 
 	// ─────────────────────────────────────────────────────────────────────
 	//  Bindings panel (PRD 18 § 4.8)
@@ -909,7 +869,6 @@ public class SuiDesignerWindow : DockWindow, IAssetEditor
 		_palette = new SuiPaletteWidget();
 		_hierarchy = new SuiHierarchyWidget();
 		_variables = new SuiVariablesWidget();
-		_acceptedProps = new SuiAcceptedPropsWidget();
 		_centerTabs = new SuiCenterTabsWidget();
 		_details = new SuiDetailsWidget();
 		_bottomTabs = new SuiBottomTabsWidget();
@@ -989,11 +948,6 @@ public class SuiDesignerWindow : DockWindow, IAssetEditor
 		_variables.DeleteVariableRequested += OnDeleteVariableRequested;
 		_variables.DuplicateVariableRequested += OnDuplicateVariableRequested;
 
-		_acceptedProps.AddPropRequested += OnAddAcceptedPropRequested;
-		_acceptedProps.EditPropRequested += OnEditAcceptedPropRequested;
-		_acceptedProps.DeletePropRequested += OnDeleteAcceptedPropRequested;
-		_acceptedProps.DuplicatePropRequested += OnDuplicateAcceptedPropRequested;
-
 		// Bindings panel — opens the bind popup; results are routed through the
 		// controller command stack, and DocumentChanged fans the refresh back.
 		_bottomTabs.Bindings.AddBindingRequested += OnAddBindingRequested;
@@ -1042,7 +996,6 @@ public class SuiDesignerWindow : DockWindow, IAssetEditor
 		var paletteDock = new SuiDockPanel( "Palette", "category", _palette );
 		var hierarchyDock = new SuiDockPanel( "Hierarchy", "account_tree", _hierarchy );
 		var variablesDock = new SuiDockPanel( "Variables", "data_object", _variables );
-		var acceptedPropsDock = new SuiDockPanel( "Accepted Props", "input", _acceptedProps );
 		var detailsDock = new SuiDockPanel( "Details", "tune", _details );
 
 		var leftSidebar = new Widget( body );
@@ -1054,7 +1007,6 @@ public class SuiDesignerWindow : DockWindow, IAssetEditor
 		leftSidebar.Layout.Add( paletteDock, 1 );
 		leftSidebar.Layout.Add( hierarchyDock, 1 );
 		leftSidebar.Layout.Add( variablesDock, 1 );
-		leftSidebar.Layout.Add( acceptedPropsDock, 1 );
 		body.Layout.Add( leftSidebar );
 
 		// 4px gap between left sidebar and center.

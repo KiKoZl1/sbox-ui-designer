@@ -112,24 +112,16 @@ public static class SuiOutputModeEmitter
 
 	private static void EmitForwardAssignmentsForView( SuiDocument doc, StringBuilder sb, string varName )
 	{
-		if ( doc.AcceptedProps != null )
+		// V1.5-M2-K — every Manual Variable forwards; IsPublic vs internal
+		// both apply (the wrapper is the single source of truth feeding the
+		// rendered View).
+		if ( doc.Variables == null ) return;
+		foreach ( var v in doc.Variables )
 		{
-			foreach ( var p in doc.AcceptedProps )
-			{
-				if ( p == null || string.IsNullOrEmpty( p.Name ) ) continue;
-				sb.Append( "\t\t" ).Append( varName ).Append( '.' ).Append( p.Name )
-					.Append( " = " ).Append( p.Name ).AppendLine( ";" );
-			}
-		}
-		if ( doc.Variables != null )
-		{
-			foreach ( var v in doc.Variables )
-			{
-				if ( v == null || string.IsNullOrEmpty( v.Name ) ) continue;
-				if ( (v.Source?.Kind ?? SuiVariableSourceKind.Manual) != SuiVariableSourceKind.Manual ) continue;
-				sb.Append( "\t\t" ).Append( varName ).Append( '.' ).Append( v.Name )
-					.Append( " = " ).Append( v.Name ).AppendLine( ";" );
-			}
+			if ( v == null || string.IsNullOrEmpty( v.Name ) ) continue;
+			if ( (v.Source?.Kind ?? SuiVariableSourceKind.Manual) != SuiVariableSourceKind.Manual ) continue;
+			sb.Append( "\t\t" ).Append( varName ).Append( '.' ).Append( v.Name )
+				.Append( " = " ).Append( v.Name ).AppendLine( ";" );
 		}
 	}
 
@@ -162,36 +154,22 @@ public static class SuiOutputModeEmitter
 
 	private static void EmitForwardedProperties( SuiDocument doc, StringBuilder sb )
 	{
-		// Plain [Property]s the Spawner needs to mirror — Manual Variables + AcceptedProps.
-		// FromAcceptedProp aliases collapse into their AcceptedProp.
-
-		if ( doc.AcceptedProps != null )
+		// V1.5-M2-K — every Manual Variable becomes a [Property] on the wrapper.
+		// IsPublic Variables get an extra hint in the inspector group so the
+		// user sees which fields are also surfaced to parent embeds.
+		if ( doc.Variables == null ) return;
+		foreach ( var v in doc.Variables )
 		{
-			foreach ( var p in doc.AcceptedProps )
-			{
-				if ( p == null || string.IsNullOrEmpty( p.Name ) ) continue;
-				var csType = SuiTypeMapper.ToCSharp( p.Type );
-				var def = SuiTypeMapper.DefaultLiteral( p.Type, p.Default );
-				sb.Append( "\t[Property, Group( \"" ).Append( p.Group ?? "Slot" ).Append( "\" )] public " )
-					.Append( csType ).Append( ' ' ).Append( p.Name )
-					.Append( " { get; set; } = " ).Append( def ).AppendLine( ";" );
-			}
-		}
+			if ( v == null || string.IsNullOrEmpty( v.Name ) ) continue;
+			if ( (v.Source?.Kind ?? SuiVariableSourceKind.Manual) != SuiVariableSourceKind.Manual ) continue;
 
-		if ( doc.Variables != null )
-		{
-			foreach ( var v in doc.Variables )
-			{
-				if ( v == null || string.IsNullOrEmpty( v.Name ) ) continue;
-				if ( (v.Source?.Kind ?? SuiVariableSourceKind.Manual) != SuiVariableSourceKind.Manual ) continue;
-				var csType = SuiTypeMapper.ToCSharp( v.Type );
-				var def = SuiTypeMapper.DefaultLiteral( v.Type, v.Default );
-				sb.Append( "\t[Property" );
-				if ( !string.IsNullOrEmpty( v.Group ) )
-					sb.Append( ", Group( \"" ).Append( v.Group.Replace( "\"", "\\\"" ) ).Append( "\" )" );
-				sb.Append( "] public " ).Append( csType ).Append( ' ' ).Append( v.Name )
-					.Append( " { get; set; } = " ).Append( def ).AppendLine( ";" );
-			}
+			var csType = SuiTypeMapper.ToCSharp( v.Type );
+			var def = SuiTypeMapper.DefaultLiteral( v.Type, v.Default );
+			var group = v.Group ?? ( v.IsPublic ? "Public" : "Internal" );
+
+			sb.Append( "\t[Property, Group( \"" ).Append( group.Replace( "\"", "\\\"" ) ).Append( "\" )] public " )
+				.Append( csType ).Append( ' ' ).Append( v.Name )
+				.Append( " { get; set; } = " ).Append( def ).AppendLine( ";" );
 		}
 	}
 

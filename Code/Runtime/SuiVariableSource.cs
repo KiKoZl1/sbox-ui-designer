@@ -16,10 +16,11 @@ public enum SuiVariableSourceKind
 	FromActionGraph,
 
 	/// <summary>
-	/// V1.5 — value is bridged from an <see cref="SuiAcceptedProp"/> of this
-	/// document (PRD 19 § 3.2). Read-only: cannot be the target of a TwoWay
-	/// binding (validator enforces). The Variable becomes a thin alias over the
-	/// AcceptedProp so bindings inside the doc reference Variables uniformly.
+	/// V1.5-M2-K — DEPRECATED. Variables with this source kind are migrated to
+	/// <see cref="Manual"/> on load (see
+	/// <see cref="SuiDocument.MigrateAcceptedPropsToPublicVariables"/>). The
+	/// enum value is kept only so JSON deserialise of legacy schema doesn't
+	/// throw. New documents never write this kind. See DEVIATIONS D-005.
 	/// </summary>
 	FromAcceptedProp,
 }

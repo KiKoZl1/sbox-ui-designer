@@ -30,9 +30,11 @@ public static class SuiSampleGenerator
 	}
 
 	// ─────────────────────────────────────────────────────────────────────
-	//  composed_stat_row — V1.5 composition demo (child)
+	//  composed_stat_row — V1.5-M2-K composition demo (child)
 	//  A reusable label + value pair the parent embeds via SuiReference.
-	//  Declares two AcceptedProps so the parent can pass in "HP / 75" etc.
+	//  Declares two public Variables (IsPublic=true) so parents can set
+	//  StatLabel/StatValue per instance, and gameplay code can drive
+	//  `Hud.StaminaBar.StatValue = "75"` etc.
 	// ─────────────────────────────────────────────────────────────────────
 	public static SuiDocument BuildComposedStatRow()
 	{
@@ -40,40 +42,28 @@ public static class SuiSampleGenerator
 		doc.Output.ClassName = "ComposedStatRow";
 		doc.Output.Namespace = "Game.UI";
 
-		// AcceptedProps: Label + Value. "Create matching Variable" equivalent done inline.
-		var labelProp = new SuiAcceptedProp
-		{
-			PropId = SuiAcceptedProp.NewPropId(),
-			Name = "StatLabel",
-			Type = "string",
-			Default = System.Text.Json.Nodes.JsonValue.Create( "HP" ),
-			Description = "Left-side label, e.g. HP / MP / Stamina.",
-		};
-		var valueProp = new SuiAcceptedProp
-		{
-			PropId = SuiAcceptedProp.NewPropId(),
-			Name = "StatValue",
-			Type = "string",
-			Default = System.Text.Json.Nodes.JsonValue.Create( "100" ),
-			Description = "Right-side value, formatted string.",
-		};
-		doc.AcceptedProps.Add( labelProp );
-		doc.AcceptedProps.Add( valueProp );
-
-		// Bridge Variables so element bindings inside this doc are uniform.
+		// V1.5-M2-K — public Variables. IsPublic=true exposes each to parent
+		// SuiReferences AND makes them reachable as Parent.ChildName.VarName
+		// from gameplay code.
 		var labelVar = new SuiVariable
 		{
 			Id = SuiVariable.NewVariableId(),
 			Name = "StatLabel",
 			Type = "string",
-			Source = new SuiVariableSource { Kind = SuiVariableSourceKind.FromAcceptedProp, PropId = labelProp.PropId },
+			Default = System.Text.Json.Nodes.JsonValue.Create( "HP" ),
+			Description = "Left-side label, e.g. HP / MP / Stamina.",
+			IsPublic = true,
+			Source = new SuiVariableSource { Kind = SuiVariableSourceKind.Manual },
 		};
 		var valueVar = new SuiVariable
 		{
 			Id = SuiVariable.NewVariableId(),
 			Name = "StatValue",
 			Type = "string",
-			Source = new SuiVariableSource { Kind = SuiVariableSourceKind.FromAcceptedProp, PropId = valueProp.PropId },
+			Default = System.Text.Json.Nodes.JsonValue.Create( "100" ),
+			Description = "Right-side value, formatted string.",
+			IsPublic = true,
+			Source = new SuiVariableSource { Kind = SuiVariableSourceKind.Manual },
 		};
 		doc.Variables.Add( labelVar );
 		doc.Variables.Add( valueVar );

@@ -253,16 +253,17 @@ public class SuiDetailsWidget : Widget
 			return;
 		}
 
-		// Read the source doc's AcceptedProps from disk so we can render a row
-		// per slot. Cached by SuiReferenceResolver across the Details refresh.
+		// Read the source doc's public Variables (V1.5-M2-K: every Variable
+		// with IsPublic=true is parent-settable). Cached by
+		// SuiReferenceResolver across the Details refresh.
 		var target = SuiReferenceResolver.Build()( guid );
-		var props = target?.AcceptedProps;
+		var props = target?.PublicVariables;
 		var foreachData = data.ForEach;
 
 		// ── Props editor ────────────────────────────────────────────────────
 		if ( props == null || props.Count == 0 )
 		{
-			AddNote( "Source document has no AcceptedProps. Add some in its Accepted Props panel to expose values to this reference." );
+			AddNote( "Source document has no public Variables. Open it and toggle Is Public on any Variable to expose it to parent embeds." );
 		}
 		else
 		{
@@ -312,7 +313,7 @@ public class SuiDetailsWidget : Widget
 				_controller?.Execute( new SuiSetReferenceDataCommand( el.Id, data, nextData ) );
 			} );
 
-			// Item / Index prop pickers — only AcceptedProps of the source doc are eligible.
+			// Item / Index prop pickers — only public Variables of the source doc are eligible.
 			var propIds = new System.Collections.Generic.List<string> { "" };
 			var propLabels = new System.Collections.Generic.List<string> { "(none)" };
 			if ( props != null )
@@ -320,7 +321,7 @@ public class SuiDetailsWidget : Widget
 				foreach ( var p in props )
 				{
 					if ( p == null ) continue;
-					propIds.Add( p.PropId );
+					propIds.Add( p.Id );
 					propLabels.Add( p.Name + "  :  " + p.Type );
 				}
 			}
@@ -351,26 +352,28 @@ public class SuiDetailsWidget : Widget
 		}
 	}
 
-	private void BuildPropEditorRow( SuiElement el, SuiReferenceData data, SuiAcceptedProp prop, SuiForEachData fe )
+	private void BuildPropEditorRow( SuiElement el, SuiReferenceData data, SuiVariable prop, SuiForEachData fe )
 	{
+		// V1.5-M2-K: ForEach keys are Variable.Id now (was PropId).
 		var occupiedByForEach = fe != null
-			&& ( prop.PropId == fe.ItemPropId || prop.PropId == fe.IndexPropId );
+			&& ( prop.Id == fe.ItemPropId || prop.Id == fe.IndexPropId );
 
 		if ( occupiedByForEach )
 		{
-			var label = prop.PropId == fe.ItemPropId ? "(item)" : "(index)";
+			var label = prop.Id == fe.ItemPropId ? "(item)" : "(index)";
 			AddReadonlyRow( prop.Name, label + "  — set by ForEach loop" );
 			return;
 		}
 
-		// Current value: literal JSON, binding object, or null.
+		// Current value: literal JSON, binding object, or null. Props map is
+		// keyed by Variable.Id post-migration.
 		data.Props ??= new System.Collections.Generic.Dictionary<string, System.Text.Json.Nodes.JsonNode>();
-		data.Props.TryGetValue( prop.PropId, out var node );
+		data.Props.TryGetValue( prop.Id, out var node );
 
 		// V1.5-M2 MVP: surface raw JSON literal in a text field. Round-trips
-		// cleanly for primitives. Binding-aware editor + per-type widgets land
-		// alongside the PreviewData polish — wiring is intentionally minimal so
-		// composition end-to-end works today.
+		// cleanly for primitives. Binding-aware editor + per-type widgets are
+		// M3 polish — wiring is intentionally minimal so composition
+		// end-to-end works today.
 		var current = node?.ToJsonString() ?? "";
 		AddTextRow( prop.Name + "  :  " + prop.Type, current, v =>
 		{
@@ -378,18 +381,18 @@ public class SuiDetailsWidget : Widget
 			nextData.Props ??= new System.Collections.Generic.Dictionary<string, System.Text.Json.Nodes.JsonNode>();
 			if ( string.IsNullOrWhiteSpace( v ) )
 			{
-				nextData.Props.Remove( prop.PropId );
+				nextData.Props.Remove( prop.Id );
 			}
 			else
 			{
 				try
 				{
-					nextData.Props[prop.PropId] = System.Text.Json.Nodes.JsonNode.Parse( v );
+					nextData.Props[prop.Id] = System.Text.Json.Nodes.JsonNode.Parse( v );
 				}
 				catch
 				{
 					// Wrap as a JSON string so unparseable text still round-trips.
-					nextData.Props[prop.PropId] = System.Text.Json.Nodes.JsonValue.Create( v );
+					nextData.Props[prop.Id] = System.Text.Json.Nodes.JsonValue.Create( v );
 				}
 			}
 			_controller?.Execute( new SuiSetReferenceDataCommand( el.Id, data, nextData ) );
