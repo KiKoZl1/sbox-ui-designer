@@ -24,7 +24,7 @@ namespace SboxUiDesigner.Runtime;
 /// per-Connection variant (UMG/UEFN-style <c>UIMap[player]</c>) is V1.6
 /// polish on top of this class via a manager wrapper.</para>
 /// </summary>
-public abstract class SuiPanel<TView> where TView : PanelComponent
+public abstract class SuiPanel<TView> where TView : PanelComponent, new()
 {
 	/// <summary>The mounted host GameObject; null until <see cref="Add"/> runs.</summary>
 	protected GameObject MountedObject { get; private set; }
