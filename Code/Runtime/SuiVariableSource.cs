@@ -14,6 +14,14 @@ public enum SuiVariableSourceKind
 
 	/// <summary>Value is computed by an ActionGraph each <c>BuildHash()</c> evaluation (PRD 18 § 3.5.3).</summary>
 	FromActionGraph,
+
+	/// <summary>
+	/// V1.5 — value is bridged from an <see cref="SuiAcceptedProp"/> of this
+	/// document (PRD 19 § 3.2). Read-only: cannot be the target of a TwoWay
+	/// binding (validator enforces). The Variable becomes a thin alias over the
+	/// AcceptedProp so bindings inside the doc reference Variables uniformly.
+	/// </summary>
+	FromAcceptedProp,
 }
 
 /// <summary>
@@ -37,11 +45,17 @@ public sealed class SuiVariableSource
 	/// <summary>Project-relative path to the <c>.action</c> asset that computes the value.</summary>
 	public string ActionGraphAssetPath { get; set; }
 
+	// ---------- FromAcceptedProp ----------
+
+	/// <summary>Id of the <see cref="SuiAcceptedProp"/> this Variable mirrors (PRD 19 § 3.2).</summary>
+	public string PropId { get; set; }
+
 	public SuiVariableSource Clone() => new()
 	{
 		Kind = Kind,
 		ComponentVariableId = ComponentVariableId,
 		PropertyPath = PropertyPath,
 		ActionGraphAssetPath = ActionGraphAssetPath,
+		PropId = PropId,
 	};
 }

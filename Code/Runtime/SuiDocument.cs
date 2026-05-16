@@ -45,6 +45,21 @@ public sealed class SuiDocument
 	/// </summary>
 	public List<SuiVariable> Variables { get; set; } = new();
 
+	/// <summary>
+	/// Typed parameters this document exposes to parents that embed it via
+	/// <see cref="SuiElementType.SuiReference"/> (PRD 19 § 3.1). Empty when the
+	/// document is never embedded (most HUDs). The generator emits one
+	/// <c>[Property]</c> per entry on the partial class.
+	/// </summary>
+	public List<SuiAcceptedProp> AcceptedProps { get; set; } = new();
+
+	/// <summary>
+	/// Design-time preview values for Variables and AcceptedProps (PRD 19 § 3.6).
+	/// Read by the canvas renderer only; never emitted to generated code. Null
+	/// when the user hasn't authored any overrides.
+	/// </summary>
+	public SuiPreviewData PreviewData { get; set; }
+
 	// ---------- Reserved (V1.5+) ----------
 
 	public List<SuiEventBinding> Events { get; set; } = new();
@@ -153,8 +168,10 @@ public sealed class SuiDocument
 		};
 		foreach ( var el in Elements ) clone.Elements.Add( el.Clone() );
 		foreach ( var v in Variables ) clone.Variables.Add( v.Clone() );
+		foreach ( var ap in AcceptedProps ) clone.AcceptedProps.Add( ap.Clone() );
 		foreach ( var ev in Events ) clone.Events.Add( ev.Clone() );
 		foreach ( var an in Animations ) clone.Animations.Add( an.Clone() );
+		clone.PreviewData = PreviewData?.Clone();
 		return clone;
 	}
 }

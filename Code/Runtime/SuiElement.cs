@@ -36,6 +36,13 @@ public sealed class SuiElement
 	/// </summary>
 	public List<SuiBinding> Bindings { get; set; } = new();
 
+	/// <summary>
+	/// V1.5 — when <see cref="Type"/> is <see cref="SuiElementType.SuiReference"/>,
+	/// this block holds the embedded doc's GUID + per-prop value map + optional
+	/// ForEach block (PRD 19 § 3.3). Null for non-SuiReference elements.
+	/// </summary>
+	public SuiReferenceData SuiReference { get; set; }
+
 	/// <summary>Optional designer-only notes attached to the element.</summary>
 	public string Notes { get; set; }
 
@@ -72,6 +79,7 @@ public sealed class SuiElement
 			Layout = Layout?.Clone() ?? new(),
 			Style = Style?.Clone() ?? new(),
 			Props = Props?.Clone() ?? new(),
+			SuiReference = SuiReference?.Clone(),
 			Notes = Notes,
 			TooltipText = TooltipText,
 			IsVisible = IsVisible,

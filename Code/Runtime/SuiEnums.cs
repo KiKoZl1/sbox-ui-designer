@@ -23,6 +23,10 @@ public enum SuiElementType
 	ItemIcon,
 	Tooltip,
 	Hotbar,
+
+	// V1.5 additions:
+	/// <summary>Embeds another <c>.sui</c> document by GUID. PRD 19.</summary>
+	SuiReference,
 }
 
 /// <summary>
