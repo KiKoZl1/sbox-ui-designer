@@ -96,6 +96,46 @@ The Add/Show/Hide/Remove API + per-View field sync are inherited from `SboxUiDes
 
 V1.5 ships **single-mount** semantics: one Add() per instance. If you need per-Connection panels (UMG `UIMap[player]` pattern), declare multiple fields, or wait for the V1.6 `SuiPanelManager<T>` wrapper that adds per-Connection tracking on top of `SuiPanel<TView>`.
 
+### Composition — `Parent.ChildName.Var` (M2-K4)
+
+When the parent's canvas embeds child `.sui` files via the **USER WIDGETS** palette section, each embed gets a uniquely-named C# field on the parent wrapper. With 4 SuiReferences renamed `StaminaBar` / `HealthBar` / `FoodBar` / `WaterBar` (all backed by the same `progress_bar.sui`), the wrapper generates:
+
+```csharp
+public sealed class Hud : SuiPanel<HudPanel>
+{
+    [Property, Group("Children")] public Game.UI.ProgressBar StaminaBar { get; set; } = new();
+    [Property, Group("Children")] public Game.UI.ProgressBar HealthBar  { get; set; } = new();
+    [Property, Group("Children")] public Game.UI.ProgressBar FoodBar    { get; set; } = new();
+    [Property, Group("Children")] public Game.UI.ProgressBar WaterBar   { get; set; } = new();
+}
+```
+
+User code:
+
+```csharp
+Hud.HealthBar.ActualValue  = Player.Hp;
+Hud.StaminaBar.ActualValue = Player.Stamina;
+```
+
+Each child's exposed Variables (`IsPublic = true`) become typed properties on that child's wrapper. **Only `IsPublic` Variables surface to the parent** — internal Variables stay private to the child document.
+
+### ForEach — `Hud.Slots.Add(...)` (M2-K4)
+
+When a SuiReference has ForEach enabled, the parent field is a `List<>`:
+
+```csharp
+[Property, Group("Children")] public System.Collections.Generic.List<Game.UI.ChatMessage> Messages { get; set; } = new();
+```
+
+User code edits the list, parent re-renders automatically (BuildHash picks up the change):
+
+```csharp
+Hud.Messages.Add( new ChatMessage { Text = "Hello", Color = Color.Green } );
+Hud.Messages[0] = new ChatMessage { Text = "Updated!", Color = Color.Yellow };
+```
+
+Individual mounted-child instances are NOT addressable — `Hud.MessagesContainer[3].Text = "X"` doesn't exist. The list is the source of truth; views are derived. Match React `.map(...)` or Vue `v-for` semantics.
+
 ## Switching modes
 
 Change `Output.Mode` at any time. The next compile emits/removes the bootstrap aux file. Your `.partial.cs` sidecar with custom logic is preserved.
