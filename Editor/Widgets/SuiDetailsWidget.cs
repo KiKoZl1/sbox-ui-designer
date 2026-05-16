@@ -252,11 +252,147 @@ public class SuiDetailsWidget : Widget
 			return;
 		}
 
-		// Show registered AcceptedProps as static rows so the user knows what
-		// Props the embedded child expects. Editing Prop values is wired in
-		// M2-D (PreviewData panel) + M2-E (codegen literal pass-through).
-		// For M2-C we just list them so the contract is visible.
-		AddNote( "Props of the referenced document appear here once the AcceptedProps editor lands in M2-D. For now this section confirms which doc is wired in." );
+		// Read the source doc's AcceptedProps from disk so we can render a row
+		// per slot. Cached by SuiReferenceResolver across the Details refresh.
+		var target = SuiReferenceResolver.Build()( guid );
+		var props = target?.AcceptedProps;
+		var foreachData = data.ForEach;
+
+		// ── Props editor ────────────────────────────────────────────────────
+		if ( props == null || props.Count == 0 )
+		{
+			AddNote( "Source document has no AcceptedProps. Add some in its Accepted Props panel to expose values to this reference." );
+		}
+		else
+		{
+			AddSectionHeader( "Props" );
+			foreach ( var p in props )
+			{
+				if ( p == null ) continue;
+				BuildPropEditorRow( el, data, p, foreachData );
+			}
+		}
+
+		// ── ForEach editor ──────────────────────────────────────────────────
+		AddSectionHeader( "ForEach (iterate a list)" );
+		AddBoolRow( "Iterate", foreachData != null, on =>
+		{
+			var nextForEach = on ? (foreachData ?? new SuiForEachData()) : null;
+			var nextData = data.Clone();
+			nextData.ForEach = nextForEach;
+			_controller?.Execute( new SuiSetReferenceDataCommand( el.Id, data, nextData ) );
+			Refresh();
+		} );
+
+		if ( foreachData != null )
+		{
+			var listVars = new System.Collections.Generic.List<string> { "" };
+			var listVarLabels = new System.Collections.Generic.List<string> { "(pick a list Variable)" };
+			if ( _document?.Variables != null )
+			{
+				foreach ( var v in _document.Variables )
+				{
+					var t = v?.Type ?? "";
+					if ( t.StartsWith( "List<", System.StringComparison.Ordinal ) )
+					{
+						listVars.Add( v.Id );
+						listVarLabels.Add( v.Name + "  :  " + t );
+					}
+				}
+			}
+			var currentSrcLabel = listVarLabels[System.Math.Max( 0, listVars.IndexOf( foreachData.SourceVariableId ?? "" ) )];
+			AddDropdownStringRow( "Source list", currentSrcLabel, listVarLabels.ToArray(), label =>
+			{
+				var idx = System.Array.IndexOf( listVarLabels.ToArray(), label );
+				if ( idx < 0 ) return;
+				var nextData = data.Clone();
+				nextData.ForEach ??= new SuiForEachData();
+				nextData.ForEach.SourceVariableId = listVars[idx];
+				_controller?.Execute( new SuiSetReferenceDataCommand( el.Id, data, nextData ) );
+			} );
+
+			// Item / Index prop pickers — only AcceptedProps of the source doc are eligible.
+			var propIds = new System.Collections.Generic.List<string> { "" };
+			var propLabels = new System.Collections.Generic.List<string> { "(none)" };
+			if ( props != null )
+			{
+				foreach ( var p in props )
+				{
+					if ( p == null ) continue;
+					propIds.Add( p.PropId );
+					propLabels.Add( p.Name + "  :  " + p.Type );
+				}
+			}
+
+			var curItem = propLabels[System.Math.Max( 0, propIds.IndexOf( foreachData.ItemPropId ?? "" ) )];
+			AddDropdownStringRow( "Item prop", curItem, propLabels.ToArray(), label =>
+			{
+				var idx = System.Array.IndexOf( propLabels.ToArray(), label );
+				if ( idx < 0 ) return;
+				var nextData = data.Clone();
+				nextData.ForEach ??= new SuiForEachData();
+				nextData.ForEach.ItemPropId = propIds[idx];
+				_controller?.Execute( new SuiSetReferenceDataCommand( el.Id, data, nextData ) );
+			} );
+
+			var curIdx = propLabels[System.Math.Max( 0, propIds.IndexOf( foreachData.IndexPropId ?? "" ) )];
+			AddDropdownStringRow( "Index prop", curIdx, propLabels.ToArray(), label =>
+			{
+				var idx = System.Array.IndexOf( propLabels.ToArray(), label );
+				if ( idx < 0 ) return;
+				var nextData = data.Clone();
+				nextData.ForEach ??= new SuiForEachData();
+				nextData.ForEach.IndexPropId = propIds[idx];
+				_controller?.Execute( new SuiSetReferenceDataCommand( el.Id, data, nextData ) );
+			} );
+
+			AddNote( "Runtime overrides Item/Index slots with the loop value/index; their Props row values above are ignored when iterating." );
+		}
+	}
+
+	private void BuildPropEditorRow( SuiElement el, SuiReferenceData data, SuiAcceptedProp prop, SuiForEachData fe )
+	{
+		var occupiedByForEach = fe != null
+			&& ( prop.PropId == fe.ItemPropId || prop.PropId == fe.IndexPropId );
+
+		if ( occupiedByForEach )
+		{
+			var label = prop.PropId == fe.ItemPropId ? "(item)" : "(index)";
+			AddReadonlyRow( prop.Name, label + "  — set by ForEach loop" );
+			return;
+		}
+
+		// Current value: literal JSON, binding object, or null.
+		data.Props ??= new System.Collections.Generic.Dictionary<string, System.Text.Json.Nodes.JsonNode>();
+		data.Props.TryGetValue( prop.PropId, out var node );
+
+		// V1.5-M2 MVP: surface raw JSON literal in a text field. Round-trips
+		// cleanly for primitives. Binding-aware editor + per-type widgets land
+		// alongside the PreviewData polish — wiring is intentionally minimal so
+		// composition end-to-end works today.
+		var current = node?.ToJsonString() ?? "";
+		AddTextRow( prop.Name + "  :  " + prop.Type, current, v =>
+		{
+			var nextData = data.Clone();
+			nextData.Props ??= new System.Collections.Generic.Dictionary<string, System.Text.Json.Nodes.JsonNode>();
+			if ( string.IsNullOrWhiteSpace( v ) )
+			{
+				nextData.Props.Remove( prop.PropId );
+			}
+			else
+			{
+				try
+				{
+					nextData.Props[prop.PropId] = System.Text.Json.Nodes.JsonNode.Parse( v );
+				}
+				catch
+				{
+					// Wrap as a JSON string so unparseable text still round-trips.
+					nextData.Props[prop.PropId] = System.Text.Json.Nodes.JsonValue.Create( v );
+				}
+			}
+			_controller?.Execute( new SuiSetReferenceDataCommand( el.Id, data, nextData ) );
+		} );
 	}
 
 	private void BuildBindingSection( SuiElement el )
