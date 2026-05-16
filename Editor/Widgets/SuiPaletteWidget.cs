@@ -565,7 +565,7 @@ internal sealed class SuiPaletteUserCategory : Widget
 internal sealed class SuiPaletteUserWidgetItem : Widget
 {
 	public string SourceGuid { get; }
-	public string Name { get; }
+	public string DisplayName { get; }
 	public string SearchKey { get; }
 
 	public event Action<string, string> Clicked;
@@ -576,13 +576,13 @@ internal sealed class SuiPaletteUserWidgetItem : Widget
 	public SuiPaletteUserWidgetItem( string sourceGuid, string name, Widget parent ) : base( parent )
 	{
 		SourceGuid = sourceGuid;
-		Name = name ?? "(unnamed)";
-		SearchKey = Name.ToLowerInvariant();
+		DisplayName = name ?? "(unnamed)";
+		SearchKey = DisplayName.ToLowerInvariant();
 		FixedHeight = 24;
 		Cursor = CursorShape.Finger;
 		IsDraggable = true;
 		SetStyles( "background-color: transparent; border: none;" );
-		ToolTip = $"User widget: {Name}\nDrop into the canvas to embed as a SuiReference.\nGUID: {sourceGuid}";
+		ToolTip = $"User widget: {DisplayName}\nDrop into the canvas to embed as a SuiReference.\nGUID: {sourceGuid}";
 	}
 
 	protected override void OnPaint()
@@ -597,7 +597,7 @@ internal sealed class SuiPaletteUserWidgetItem : Widget
 		x += 22f;
 
 		var labelRect = new Rect( x, 0, Width - x - 4, Height );
-		Paint.DrawText( labelRect, Name, TextFlag.LeftCenter );
+		Paint.DrawText( labelRect, DisplayName, TextFlag.LeftCenter );
 
 		if ( _hover || _pressed )
 		{
@@ -619,7 +619,7 @@ internal sealed class SuiPaletteUserWidgetItem : Widget
 		{
 			_pressed = false;
 			bool shouldFire = _hover;
-			if ( shouldFire ) Clicked?.Invoke( SourceGuid, Name );
+			if ( shouldFire ) Clicked?.Invoke( SourceGuid, DisplayName );
 			if ( IsValid ) Update();
 		}
 	}

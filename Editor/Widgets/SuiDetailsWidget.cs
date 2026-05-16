@@ -4,6 +4,7 @@ using System.Linq;
 using Editor;
 using Sandbox;
 using SboxUiDesigner.EditorUi;
+using SboxUiDesigner.EditorUi.Commands;
 using SboxUiDesigner.Runtime;
 
 namespace SboxUiDesigner.EditorUi.Widgets;

@@ -190,12 +190,12 @@ public sealed class SuiAcceptedPropDialog : Window
 			Name = name,
 			Type = _type,
 			Default = ParseDefault( _type, _defaultEdit.Text ),
-			Required = _requiredToggle?.Value ?? false,
+			Required = _requiredToggle?.Checked ?? false,
 			Group = string.IsNullOrWhiteSpace( _groupEdit.Text ) ? null : _groupEdit.Text.Trim(),
 			Description = string.IsNullOrWhiteSpace( _descEdit.Text ) ? null : _descEdit.Text.Trim(),
 		};
 
-		var createVar = !_isEdit && (_autoVariableToggle?.Value ?? false);
+		var createVar = !_isEdit && (_autoVariableToggle?.Checked ?? false);
 		OnAccept?.Invoke( p, createVar );
 		Close();
 	}
