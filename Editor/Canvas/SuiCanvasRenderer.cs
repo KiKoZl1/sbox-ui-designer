@@ -1,7 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.IO;
-using System.Text.Json;
 using Editor;
 using Sandbox;
 using SboxUiDesigner.EditorUi;
@@ -235,26 +233,22 @@ public sealed class SuiCanvasRenderer
 				return null;
 			}
 
-			var root = registry.ProjectRoot;
-			if ( string.IsNullOrEmpty( root ) )
+			// Use the engine's asset loader — not System.Text.Json. The s&box
+			// serializer registers custom converters for engine enums
+			// (SuiScaleMode etc) and Component/Resource refs that plain JSON
+			// can't deserialize. AssetSystem.FindByPath matches what
+			// SuiDesignerWindow uses to open the .sui in the first place.
+			var asset = AssetSystem.FindByPath( relPath );
+			if ( asset == null )
 			{
-				Log.Warning( "[SUI] canvas: ProjectRoot is null — child render skipped." );
+				Log.Warning( $"[SUI] canvas: AssetSystem couldn't find '{relPath}' for GUID '{sourceGuid}'." );
 				return null;
 			}
 
-			// Normalize slashes before combining (registry stores '/'; Windows
-			// needs '\' for File.Exists to hit).
-			var localPath = relPath.Replace( '/', Path.DirectorySeparatorChar );
-			var full = Path.Combine( root, localPath );
-			if ( !File.Exists( full ) )
-			{
-				Log.Warning( $"[SUI] canvas: file missing on disk: {full}" );
-				return null;
-			}
-
-			var asset = JsonSerializer.Deserialize<SuiAsset>( File.ReadAllText( full ) );
-			var doc = asset?.Document;
+			var loaded = asset.LoadResource<SuiAsset>();
+			var doc = loaded?.Document;
 			if ( doc != null ) _childDocCache[sourceGuid] = doc;
+			else Log.Warning( $"[SUI] canvas: LoadResource<SuiAsset> returned null for '{relPath}'." );
 			return doc;
 		}
 		catch ( Exception e )

@@ -1,6 +1,5 @@
 using System.Collections.Generic;
-using System.IO;
-using System.Text.Json;
+using Editor;
 using Sandbox;
 using SboxUiDesigner.Generation;
 using SboxUiDesigner.Runtime;
@@ -26,48 +25,59 @@ public static class SuiReferenceResolver
 	/// </summary>
 	public static System.Func<string, SuiReferenceTarget> Build()
 	{
+		// Only cache successful resolves so a transient registry miss during
+		// bootstrap doesn't poison the cache for the rest of the session.
 		var cache = new Dictionary<string, SuiReferenceTarget>();
 		var registry = SuiAssetRegistryService.Instance;
-		var projectRoot = registry.ProjectRoot;
 
 		return guid =>
 		{
 			if ( string.IsNullOrEmpty( guid ) ) return null;
-			if ( cache.TryGetValue( guid, out var cached ) ) return cached;
+			if ( cache.TryGetValue( guid, out var cached ) && cached != null ) return cached;
 
-			SuiReferenceTarget target = null;
 			try
 			{
 				registry.EnsureInitialized();
 				var relPath = registry.Registry.Resolve( guid );
-				if ( string.IsNullOrEmpty( relPath ) || string.IsNullOrEmpty( projectRoot ) )
+				if ( string.IsNullOrEmpty( relPath ) )
 				{
-					cache[guid] = null;
+					Log.Warning( $"[SUI] SuiReferenceResolver: registry has no entry for '{guid}'." );
 					return null;
 				}
 
-				var full = Path.Combine( projectRoot, relPath );
-				if ( !File.Exists( full ) ) { cache[guid] = null; return null; }
+				// Use AssetSystem so engine converters (SuiScaleMode etc) apply.
+				// System.Text.Json doesn't know how to deserialize these and
+				// throws on every load.
+				var asset = AssetSystem.FindByPath( relPath );
+				if ( asset == null )
+				{
+					Log.Warning( $"[SUI] SuiReferenceResolver: AssetSystem couldn't find '{relPath}' for GUID '{guid}'." );
+					return null;
+				}
 
-				var asset = JsonSerializer.Deserialize<SuiAsset>( File.ReadAllText( full ) );
-				var doc = asset?.Document;
+				var loaded = asset.LoadResource<SuiAsset>();
+				var doc = loaded?.Document;
 				var className = doc?.Output?.ClassName;
-				if ( string.IsNullOrEmpty( className ) ) { cache[guid] = null; return null; }
+				if ( string.IsNullOrEmpty( className ) )
+				{
+					Log.Warning( $"[SUI] SuiReferenceResolver: '{relPath}' has no Output.ClassName — codegen embed will be skipped." );
+					return null;
+				}
 
-				target = new SuiReferenceTarget
+				var target = new SuiReferenceTarget
 				{
 					Namespace = doc.Output?.Namespace,
 					ClassName = className,
 					AcceptedProps = doc.AcceptedProps,
 				};
+				cache[guid] = target;
+				return target;
 			}
 			catch ( System.Exception e )
 			{
 				Log.Warning( $"[SUI] SuiReferenceResolver failed for GUID '{guid}': {e.Message}" );
+				return null;
 			}
-
-			cache[guid] = target;
-			return target;
 		};
 	}
 }
