@@ -181,26 +181,40 @@ public sealed class SuiCanvasRenderer
 			return;
 		}
 
-		// Layout the child in its OWN canvas space, then transform every rect
-		// into the parent's logical space scaled to fit the SuiReference bounds.
-		// This is what makes "resize the reference → contents scale with it"
-		// behave like Unreal's child widget — uniformly-stretched preview.
+		// Layout the child in its OWN canvas space first so the solver produces
+		// proper rects for every element.
 		var childSolver = new SuiLayoutSolver( new Vector2( childCanvasW, childCanvasH ) );
 		childSolver.Solve( childDoc );
 
-		var scaleX = rect.Width / childCanvasW;
-		var scaleY = rect.Height / childCanvasH;
+		// Bounding-box scale: compute the actual content extent (excludes the
+		// Canvas root frame, which is always full-canvas), then scale that to
+		// fit the SuiReference bounds. Result — content fills the rectangle
+		// regardless of how much of the child's logical canvas it occupies.
+		// UMG-style behaviour: drop a 250x80 widget into a 700x200 ref and you
+		// see it big, not tiny in the corner.
+		var bb = ComputeContentBoundingBox( childDoc, childSolver );
+		if ( bb.Width <= 0 || bb.Height <= 0 )
+		{
+			DrawSuiReferencePlaceholder( rect, "(empty content)" );
+			return;
+		}
 
-		// Mutate childSolver.Rects in place: map child-local (0..baseW × 0..baseH)
-		// → parent logical (rect.X + r.x*scaleX, rect.Y + r.y*scaleY, w*scaleX, h*scaleY).
-		// childSolver is throwaway, so this mutation is safe.
+		var scaleX = rect.Width / bb.Width;
+		var scaleY = rect.Height / bb.Height;
+
+		// Map child-local rect r → parent-logical:
+		//   newX = refRect.x + (r.x - bb.x) * scaleX
+		//   newY = refRect.y + (r.y - bb.y) * scaleY
+		//   newW = r.w * scaleX, newH = r.h * scaleY
+		// Subtracting bb.x/bb.y shifts content so its top-left aligns with the
+		// SuiReference's top-left before scaling.
 		var ids = new List<string>( childSolver.Rects.Keys );
 		foreach ( var id in ids )
 		{
 			var r = childSolver.Rects[id];
 			childSolver.Rects[id] = new Rect(
-				rect.Left + r.Left * scaleX,
-				rect.Top + r.Top * scaleY,
+				rect.Left + ( r.Left - bb.Left ) * scaleX,
+				rect.Top + ( r.Top - bb.Top ) * scaleY,
 				r.Width * scaleX,
 				r.Height * scaleY );
 		}
@@ -258,6 +272,41 @@ public sealed class SuiCanvasRenderer
 			Log.Warning( $"[SUI] canvas resolve of '{sourceGuid}' failed: {e.Message}" );
 			return null;
 		}
+	}
+
+	/// <summary>
+	/// Bounding box of the child document's NON-root elements — the visible
+	/// content's actual extent in the child's local canvas space. Excludes the
+	/// Canvas root (which always occupies the full BaseWidth × BaseHeight and
+	/// would defeat the "scale to fit" behaviour). Empty rect if the child has
+	/// no real elements.
+	/// </summary>
+	private static Rect ComputeContentBoundingBox( SuiDocument doc, SuiLayoutSolver solver )
+	{
+		if ( doc?.Elements == null ) return new Rect( 0, 0, 0, 0 );
+		var rootId = doc.GetRoot()?.Id;
+
+		float minL = float.MaxValue, minT = float.MaxValue;
+		float maxR = float.MinValue, maxB = float.MinValue;
+		bool any = false;
+
+		foreach ( var el in doc.Elements )
+		{
+			if ( el?.Id == null ) continue;
+			if ( el.Id == rootId ) continue; // root frame is the canvas itself, skip
+			if ( el.Flags?.HiddenInDesigner == true ) continue;
+			if ( !solver.Rects.TryGetValue( el.Id, out var r ) ) continue;
+			if ( r.Width <= 0 || r.Height <= 0 ) continue;
+
+			if ( r.Left < minL ) minL = r.Left;
+			if ( r.Top < minT ) minT = r.Top;
+			if ( r.Right > maxR ) maxR = r.Right;
+			if ( r.Bottom > maxB ) maxB = r.Bottom;
+			any = true;
+		}
+
+		if ( !any ) return new Rect( 0, 0, 0, 0 );
+		return new Rect( minL, minT, maxR - minL, maxB - minT );
 	}
 
 	/// <summary>
