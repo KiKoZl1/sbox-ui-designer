@@ -38,15 +38,18 @@ public sealed class SuiVariableDialog : Window
 	private LineEdit _groupEdit;
 	private LineEdit _defaultEdit;
 	private LineEdit _descEdit;
+	private SuiToggleField _isPublicToggle;
 	private Label _error;
 
 	private string _type;
+	private bool _existingIsPublic;
 
 	public SuiVariableDialog( SuiVariable existing = null )
 	{
 		_isEdit = existing != null;
 		_editingId = existing?.Id;
 		_type = existing?.Type ?? "string";
+		_existingIsPublic = existing?.IsPublic ?? false;
 
 		Title = _isEdit ? "Edit Variable" : "New Variable";
 		WindowTitle = Title;
@@ -91,6 +94,28 @@ public sealed class SuiVariableDialog : Window
 		_groupEdit = AddTextRow( "Group", existing?.Group ?? "", "optional category" );
 		_defaultEdit = AddTextRow( "Default", existing?.Default?.ToJsonString() ?? "", "e.g. 100" );
 		_descEdit = AddTextRow( "Description", existing?.Description ?? "", "optional" );
+
+		// IsPublic toggle (V1.5-M2-K) — flip on to expose this Variable as a
+		// parent-settable parameter when the .sui is embedded via SuiReference,
+		// AND make it reachable from gameplay code as Parent.ChildName.VarName.
+		var pubRow = new Widget( Canvas );
+		pubRow.Layout = Layout.Row();
+		pubRow.Layout.Spacing = 8;
+		var pubLbl = new Label( "Is Public", pubRow ) { FixedWidth = 96 };
+		pubLbl.SetStyles( "color: #9ca3af; font-size: 11px;" );
+		pubRow.Layout.Add( pubLbl );
+		_isPublicToggle = new SuiToggleField( _existingIsPublic, pubRow );
+		pubRow.Layout.Add( _isPublicToggle );
+		pubRow.Layout.AddStretchCell();
+		Canvas.Layout.Add( pubRow );
+
+		var pubHint = new Label(
+			"Off (default): internal — only code referencing this instance reads it.\n" +
+			"On: exposed — parents that embed this .sui can set the value, and any caller can read via Parent.ChildName." + (existing?.Name ?? "VarName") + ".",
+			Canvas );
+		pubHint.WordWrap = true;
+		pubHint.SetStyles( "color: #6b7280; font-size: 10px; padding: 0 0 4px 96px;" );
+		Canvas.Layout.Add( pubHint );
 
 		_error = new Label( "", Canvas );
 		_error.SetStyles( "color: #ef4444; font-size: 11px;" );
@@ -162,6 +187,7 @@ public sealed class SuiVariableDialog : Window
 			Group = string.IsNullOrWhiteSpace( _groupEdit.Text ) ? null : _groupEdit.Text.Trim(),
 			Description = string.IsNullOrWhiteSpace( _descEdit.Text ) ? null : _descEdit.Text.Trim(),
 			Default = ParseDefault( _type, _defaultEdit.Text ),
+			IsPublic = _isPublicToggle?.Checked ?? false,
 			Source = new SuiVariableSource { Kind = SuiVariableSourceKind.Manual },
 		};
 

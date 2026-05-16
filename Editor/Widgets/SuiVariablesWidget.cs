@@ -167,6 +167,21 @@ public class SuiVariablesWidget : Widget
 		var srcLbl = new Label( srcText, tagRow );
 		srcLbl.SetStyles( "color: #6b7280; font-size: 9px;" );
 		tagRow.Layout.Add( srcLbl );
+
+		// V1.5-M2-K — public Variables are exposed to parent SuiReferences AND
+		// reachable as Parent.ChildName.VarName from gameplay. Surface with a
+		// purple pill that matches the binding/composition accent.
+		if ( v.IsPublic )
+		{
+			var pubPill = new Label( "public", tagRow );
+			pubPill.SetStyles(
+				"background-color: rgba(167,139,250,0.18);" +
+				"color: #c4b5fd;" +
+				"font-size: 9px; font-weight: 700;" +
+				"border-radius: 3px; padding: 1px 6px;" );
+			tagRow.Layout.Add( pubPill );
+		}
+
 		tagRow.Layout.AddStretchCell();
 
 		info.Layout.Add( tagRow );

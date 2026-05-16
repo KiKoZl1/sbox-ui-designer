@@ -38,6 +38,7 @@ public sealed class SuiEditVariableCommand : ISuiCommand
 		dst.Source = src.Source?.Clone() ?? new();
 		dst.Description = src.Description;
 		dst.IsAdvanced = src.IsAdvanced;
+		dst.IsPublic = src.IsPublic;
 		dst.Group = src.Group;
 		dst.ResourceType = src.ResourceType;
 		// Id intentionally left untouched — it is the stable identity.

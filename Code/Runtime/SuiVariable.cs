@@ -42,6 +42,23 @@ public sealed class SuiVariable
 	/// <summary>If true, the Variables panel groups this under an "Advanced" collapsible section.</summary>
 	public bool IsAdvanced { get; set; } = false;
 
+	/// <summary>
+	/// V1.5 (M2-K) — when true, this Variable is exposed as a parent-settable
+	/// parameter when this <c>.sui</c> is embedded via SuiReference, AND becomes
+	/// reachable from gameplay code as <c>Parent.ChildName.VarName</c>. The
+	/// generator emits it as a public field on the wrapper class (Instance mode)
+	/// and surfaces it in the parent's Sub-UI Details Props editor.
+	///
+	/// <para>Default <b>false</b> — variables are private to the document
+	/// unless the user explicitly opts in. Matches UMG / UEFN
+	/// "IsVariable / Is Public" widget-property semantics.</para>
+	///
+	/// <para>This flag is the V1.5-M2-K replacement for the separate
+	/// <c>SuiAcceptedProp</c> concept (see DEVIATIONS D-005). One concept,
+	/// flag-based exposure.</para>
+	/// </summary>
+	public bool IsPublic { get; set; } = false;
+
 	/// <summary>Optional category label for grouping in the Variables panel (e.g. "Stats").</summary>
 	public string Group { get; set; }
 
@@ -67,6 +84,7 @@ public sealed class SuiVariable
 		Source = Source?.Clone() ?? new(),
 		Description = Description,
 		IsAdvanced = IsAdvanced,
+		IsPublic = IsPublic,
 		Group = Group,
 		ResourceType = ResourceType,
 	};
