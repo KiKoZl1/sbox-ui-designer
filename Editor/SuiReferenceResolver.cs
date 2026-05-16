@@ -47,11 +47,14 @@ public static class SuiReferenceResolver
 
 				// Use AssetSystem so engine converters (SuiScaleMode etc) apply.
 				// System.Text.Json doesn't know how to deserialize these and
-				// throws on every load.
-				var asset = AssetSystem.FindByPath( relPath );
+				// throws on every load. AssetSystem.FindByPath wants a path
+				// relative to Assets/ — strip the "Assets/" prefix the registry
+				// stores so the lookup hits.
+				var assetPath = StripAssetsPrefix( relPath );
+				var asset = AssetSystem.FindByPath( assetPath );
 				if ( asset == null )
 				{
-					Log.Warning( $"[SUI] SuiReferenceResolver: AssetSystem couldn't find '{relPath}' for GUID '{guid}'." );
+					Log.Warning( $"[SUI] SuiReferenceResolver: AssetSystem couldn't find '{assetPath}' (registry path '{relPath}') for GUID '{guid}'." );
 					return null;
 				}
 
@@ -79,5 +82,14 @@ public static class SuiReferenceResolver
 				return null;
 			}
 		};
+	}
+
+	private static string StripAssetsPrefix( string projectRelative )
+	{
+		if ( string.IsNullOrEmpty( projectRelative ) ) return projectRelative;
+		const string prefix = "Assets/";
+		if ( projectRelative.StartsWith( prefix, System.StringComparison.OrdinalIgnoreCase ) )
+			return projectRelative.Substring( prefix.Length );
+		return projectRelative;
 	}
 }

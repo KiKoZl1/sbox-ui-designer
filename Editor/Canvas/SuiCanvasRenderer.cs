@@ -236,19 +236,21 @@ public sealed class SuiCanvasRenderer
 			// Use the engine's asset loader — not System.Text.Json. The s&box
 			// serializer registers custom converters for engine enums
 			// (SuiScaleMode etc) and Component/Resource refs that plain JSON
-			// can't deserialize. AssetSystem.FindByPath matches what
-			// SuiDesignerWindow uses to open the .sui in the first place.
-			var asset = AssetSystem.FindByPath( relPath );
+			// can't deserialize. AssetSystem.FindByPath takes a path RELATIVE
+			// TO Assets/ (no "Assets/" prefix) — the registry stores the full
+			// project-relative path so we strip the prefix here.
+			var assetPath = StripAssetsPrefix( relPath );
+			var asset = AssetSystem.FindByPath( assetPath );
 			if ( asset == null )
 			{
-				Log.Warning( $"[SUI] canvas: AssetSystem couldn't find '{relPath}' for GUID '{sourceGuid}'." );
+				Log.Warning( $"[SUI] canvas: AssetSystem couldn't find '{assetPath}' (registry path '{relPath}') for GUID '{sourceGuid}'." );
 				return null;
 			}
 
 			var loaded = asset.LoadResource<SuiAsset>();
 			var doc = loaded?.Document;
 			if ( doc != null ) _childDocCache[sourceGuid] = doc;
-			else Log.Warning( $"[SUI] canvas: LoadResource<SuiAsset> returned null for '{relPath}'." );
+			else Log.Warning( $"[SUI] canvas: LoadResource<SuiAsset> returned null for '{assetPath}'." );
 			return doc;
 		}
 		catch ( Exception e )
@@ -256,6 +258,21 @@ public sealed class SuiCanvasRenderer
 			Log.Warning( $"[SUI] canvas resolve of '{sourceGuid}' failed: {e.Message}" );
 			return null;
 		}
+	}
+
+	/// <summary>
+	/// The Asset Registry stores project-relative paths like
+	/// <c>"Assets/SuiSamples/foo.sui"</c>, but <see cref="AssetSystem.FindByPath"/>
+	/// expects paths RELATIVE TO Assets/ (e.g. <c>"SuiSamples/foo.sui"</c>).
+	/// Strip the prefix if present; otherwise return unchanged.
+	/// </summary>
+	private static string StripAssetsPrefix( string projectRelative )
+	{
+		if ( string.IsNullOrEmpty( projectRelative ) ) return projectRelative;
+		const string prefix = "Assets/";
+		if ( projectRelative.StartsWith( prefix, StringComparison.OrdinalIgnoreCase ) )
+			return projectRelative.Substring( prefix.Length );
+		return projectRelative;
 	}
 
 	private static void DrawSuiReferenceBorder( Rect rect )
