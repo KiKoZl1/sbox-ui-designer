@@ -44,6 +44,22 @@ public static class SuiGenerationPipeline
 			: !string.IsNullOrEmpty( doc.Output?.Namespace ) ? doc.Output.Namespace
 			: "Game.UI";
 
+		// V1.5 — Instance mode splits the generated names: the renderer becomes
+		// <Name>Panel (PanelComponent emitted from .razor), and a separate
+		// <Name>.cs file exposes the user-facing wrapper class. We rewrite
+		// ctx.ClassName here so the rest of the pipeline (razor + scss) uses
+		// the *Panel suffix, while the wrapper emitter pulls from
+		// WrapperClassName.
+#pragma warning disable CS0618 // PerLocalPlayer is obsolete; legacy auto-route.
+		var isInstance = doc.Output?.Mode == SuiOutputMode.Instance
+			|| doc.Output?.Mode == SuiOutputMode.PerLocalPlayer;
+#pragma warning restore CS0618
+		if ( isInstance && ctx.Mode == SuiGenerationMode.Final )
+		{
+			ctx.WrapperClassName = ctx.ClassName;
+			ctx.ClassName = ctx.ClassName + "Panel";
+		}
+
 		// Preview mode emits into a sentinel sub-namespace so the preview cache
 		// type never collides with the final compile output. Without this, a
 		// document that has been compiled to disk (final mode → namespace X)

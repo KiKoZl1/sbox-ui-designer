@@ -13,7 +13,22 @@ public enum SuiOutputMode
 	/// <summary>Generator emits a static factory (Show/Hide) — for menus, modals, overlays.</summary>
 	Singleton,
 
-	/// <summary>Generator emits an auto-mount that spawns a ScreenPanel on the local player only — for HUDs.</summary>
+	/// <summary>
+	/// V1.5 Instance mode (PRD 22 V1.5 revised). Generator emits BOTH the
+	/// PanelComponent renderer (<c>&lt;Name&gt;Panel</c>) AND a user-facing
+	/// wrapper class <c>&lt;Name&gt; : SuiPanel&lt;&lt;Name&gt;Panel&gt;</c>
+	/// the dev declares as a <c>[Property]</c> field on their own Component
+	/// and drives via <c>Add()/Show()/Hide()/Remove()</c>.
+	/// </summary>
+	Instance,
+
+	/// <summary>
+	/// DEPRECATED — replaced by <see cref="Instance"/> in V1.5. Older docs
+	/// auto-migrate on load. Kept as an enum value so existing
+	/// <c>.sui</c> JSON deserialises cleanly; the generator routes it to
+	/// Instance emit.
+	/// </summary>
+	[System.Obsolete( "Use Instance instead — same intent, dev-controlled lifetime instead of auto-mount." )]
 	PerLocalPlayer,
 }
 

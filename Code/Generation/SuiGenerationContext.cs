@@ -31,6 +31,13 @@ public sealed class SuiGenerationContext
 	public string Namespace { get; set; }
 
 	/// <summary>
+	/// V1.5 — when <c>Output.Mode == Instance</c> the renderer (<see cref="ClassName"/>)
+	/// is renamed to <c>&lt;UserName&gt;Panel</c> and this field carries the
+	/// user-facing wrapper class name <c>&lt;UserName&gt;</c>. Null in other modes.
+	/// </summary>
+	public string WrapperClassName { get; set; }
+
+	/// <summary>
 	/// V1.5 — resolves a SuiReference SourceGuid to a
 	/// <see cref="SuiReferenceTarget"/> carrying the embedded child's generated
 	/// <c>(Namespace, ClassName, AcceptedProps)</c>. Lets the generator emit
