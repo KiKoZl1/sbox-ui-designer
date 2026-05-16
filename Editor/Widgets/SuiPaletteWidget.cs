@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Editor;
 using Sandbox;
+using SboxUiDesigner.EditorUi;
 using SboxUiDesigner.Runtime;
 
 namespace SboxUiDesigner.EditorUi.Widgets;
@@ -32,6 +33,14 @@ public class SuiPaletteWidget : Widget
 
 	/// <summary>Raised when the user clicks a palette item.</summary>
 	public event Action<SuiElementType> ElementRequested;
+
+	/// <summary>
+	/// V1.5 — raised when the user clicks a "user widget" entry under the
+	/// USER WIDGETS section (a .sui authored in this project). The handler
+	/// creates a SuiReference element with <c>SourceGuid</c> already pre-set,
+	/// skipping the modal picker. Mirrors UMG / UEFN user-widgets palette UX.
+	/// </summary>
+	public event Action<string, string> UserWidgetRequested; // (sourceGuid, displayName)
 
 	public SuiPaletteWidget( Widget parent = null ) : base( parent )
 	{
@@ -103,15 +112,48 @@ public class SuiPaletteWidget : Widget
 			SuiElementType.Hotbar,
 		}, separatorBefore: true );
 
-		// V1.5 — composition primitives. SuiReference embeds another .sui by GUID
-		// (PRD 19). Dropping it on the canvas opens a picker for which .sui to
-		// reference; the rest is configured in the Details panel.
-		AddCategory( "COMPOSITION (V1.5)", new[]
-		{
-			SuiElementType.SuiReference,
-		}, separatorBefore: true );
+		// V1.5 — every .sui authored in this project appears here as its own
+		// palette entry, UMG-style. Click or drag to embed it as a SuiReference
+		// in the current document. Section auto-refreshes when the Asset
+		// Registry detects file changes.
+		_userCategory = new SuiPaletteUserCategory( _scrollContent );
+		_userCategory.WidgetClicked += ( guid, name ) => UserWidgetRequested?.Invoke( guid, name );
+		_userCategories.Add( _userCategory );
+		var userSep = new SuiPaletteCategorySeparator( _scrollContent );
+		_scrollContent.Layout.Add( userSep );
+		_scrollContent.Layout.Add( _userCategory );
+		RefreshUserWidgets();
+
+		// Auto-refresh hooks — the registry fires these whenever a .sui is
+		// created/deleted/renamed on disk.
+		var reg = SuiAssetRegistryService.Instance.Registry;
+		reg.EntryAdded += _ => RefreshUserWidgets();
+		reg.EntryRemoved += _ => RefreshUserWidgets();
+		reg.EntryChanged += _ => RefreshUserWidgets();
 
 		_scrollContent.Layout.AddStretchCell();
+	}
+
+	private SuiPaletteUserCategory _userCategory;
+	private readonly List<SuiPaletteUserCategory> _userCategories = new();
+
+	/// <summary>
+	/// Allow the parent designer window to tell the palette which document is
+	/// the current host, so the user widgets list can hide that doc from itself
+	/// (clicking it would create an instant cycle).
+	/// </summary>
+	public void SetHostDocumentId( string hostDocumentId )
+	{
+		if ( _userCategory == null ) return;
+		_userCategory.ExcludeDocumentId = hostDocumentId;
+		RefreshUserWidgets();
+	}
+
+	private void RefreshUserWidgets()
+	{
+		SuiAssetRegistryService.Instance.EnsureInitialized();
+		_userCategory?.Rebuild( SuiAssetRegistryService.Instance.Registry );
+		if ( !string.IsNullOrEmpty( _filter ) ) ApplyFilter();
 	}
 
 	private Widget _scrollContent;
@@ -142,6 +184,8 @@ public class SuiPaletteWidget : Widget
 	{
 		foreach ( var cat in _categories )
 			cat.ApplyFilter( _filter );
+		foreach ( var uc in _userCategories )
+			uc.ApplyFilter( _filter );
 	}
 
 	internal static string GetIconFor( SuiElementType type ) => IconFor( type );
@@ -424,6 +468,166 @@ internal sealed class SuiPaletteItem : Widget
 	{
 		var drag = new Drag( this );
 		drag.Data.Object = ElementType;
+		drag.Execute();
+	}
+}
+
+/// <summary>
+/// USER WIDGETS category — the dynamic equivalent of <see cref="SuiPaletteCategory"/>.
+/// Lists every <c>.sui</c> in the Asset Registry as its own palette item; clicking
+/// one creates a SuiReference element already wired to that source GUID (UMG /
+/// UEFN-style user-created widgets palette UX).
+/// </summary>
+internal sealed class SuiPaletteUserCategory : Widget
+{
+	public string Title => "USER WIDGETS";
+	public string ExcludeDocumentId; // hide the host doc from itself
+
+	private bool _expanded = true;
+	private readonly SuiPaletteCategoryHeader _header;
+	private readonly Widget _itemsContainer;
+	private readonly List<SuiPaletteUserWidgetItem> _items = new();
+
+	public event Action<string, string> WidgetClicked; // (sourceGuid, name)
+
+	public SuiPaletteUserCategory( Widget parent = null ) : base( parent )
+	{
+		SetStyles( "background-color: transparent; border: none;" );
+		Layout = Layout.Column();
+		Layout.Margin = 0;
+		Layout.Spacing = 0;
+
+		_header = new SuiPaletteCategoryHeader( Title, this );
+		_header.ToggledExpanded += () =>
+		{
+			_expanded = !_expanded;
+			if ( _itemsContainer.IsValid() ) _itemsContainer.Visible = _expanded;
+			_header.IsExpanded = _expanded;
+			_header.Update();
+		};
+		Layout.Add( _header );
+
+		_itemsContainer = new Widget( this );
+		_itemsContainer.SetStyles( "background-color: transparent; border: none;" );
+		_itemsContainer.Layout = Layout.Column();
+		_itemsContainer.Layout.Margin = 0;
+		_itemsContainer.Layout.Spacing = 0;
+		Layout.Add( _itemsContainer );
+	}
+
+	public void Rebuild( SboxUiDesigner.Runtime.SuiAssetRegistry registry )
+	{
+		if ( !_itemsContainer.IsValid() ) return;
+		_itemsContainer.Layout.Clear( true );
+		_items.Clear();
+
+		if ( registry?.Entries == null || registry.Entries.Count == 0 )
+		{
+			var empty = new Label( "(no .sui in project)", _itemsContainer );
+			empty.SetStyles( "color: #6b7280; font-size: 10px; padding: 4px 22px;" );
+			_itemsContainer.Layout.Add( empty );
+			return;
+		}
+
+		// Stable alpha order so the section doesn't reshuffle when the user
+		// renames an unrelated file.
+		var sorted = new List<KeyValuePair<string, SboxUiDesigner.Runtime.SuiAssetEntry>>( registry.Entries );
+		sorted.Sort( ( a, b ) => string.Compare( a.Value?.Name ?? a.Value?.Path, b.Value?.Name ?? b.Value?.Path, StringComparison.OrdinalIgnoreCase ) );
+
+		foreach ( var kv in sorted )
+		{
+			if ( !string.IsNullOrEmpty( ExcludeDocumentId ) && kv.Key == ExcludeDocumentId ) continue;
+			var name = kv.Value?.Name ?? kv.Value?.Path ?? "(unnamed)";
+			var item = new SuiPaletteUserWidgetItem( kv.Key, name, _itemsContainer );
+			item.Clicked += ( g, n ) => WidgetClicked?.Invoke( g, n );
+			_items.Add( item );
+			_itemsContainer.Layout.Add( item );
+		}
+	}
+
+	public void ApplyFilter( string filter )
+	{
+		bool anyVisible = false;
+		foreach ( var item in _items )
+		{
+			var match = string.IsNullOrEmpty( filter ) || item.SearchKey.Contains( filter );
+			item.Visible = match;
+			if ( match ) anyVisible = true;
+		}
+		Visible = anyVisible || string.IsNullOrEmpty( filter );
+	}
+}
+
+/// <summary>
+/// Palette item backed by a user-created <c>.sui</c> (not a primitive type).
+/// Paints exactly like <see cref="SuiPaletteItem"/> for visual consistency.
+/// </summary>
+internal sealed class SuiPaletteUserWidgetItem : Widget
+{
+	public string SourceGuid { get; }
+	public string Name { get; }
+	public string SearchKey { get; }
+
+	public event Action<string, string> Clicked;
+
+	private bool _hover;
+	private bool _pressed;
+
+	public SuiPaletteUserWidgetItem( string sourceGuid, string name, Widget parent ) : base( parent )
+	{
+		SourceGuid = sourceGuid;
+		Name = name ?? "(unnamed)";
+		SearchKey = Name.ToLowerInvariant();
+		FixedHeight = 24;
+		Cursor = CursorShape.Finger;
+		IsDraggable = true;
+		SetStyles( "background-color: transparent; border: none;" );
+		ToolTip = $"User widget: {Name}\nDrop into the canvas to embed as a SuiReference.\nGUID: {sourceGuid}";
+	}
+
+	protected override void OnPaint()
+	{
+		Paint.SetPen( new Color( 220 / 255f, 224 / 255f, 230 / 255f ) );
+		Paint.SetDefaultFont( 11 );
+
+		float x = 22f;
+		// Reuse the "schema" icon to match how SuiReference shows in Hierarchy.
+		var iconRect = new Rect( x, (Height - 14) / 2f, 14, 14 );
+		Paint.DrawIcon( iconRect, "schema", 14 );
+		x += 22f;
+
+		var labelRect = new Rect( x, 0, Width - x - 4, Height );
+		Paint.DrawText( labelRect, Name, TextFlag.LeftCenter );
+
+		if ( _hover || _pressed )
+		{
+			var alpha = _pressed ? 1.0f : 0.85f;
+			Paint.SetBrushAndPen( new Color( 15 / 255f, 63 / 255f, 121 / 255f, alpha ) );
+			Paint.DrawRect( new Rect( 0, Height - 2, Width, 2 ) );
+		}
+	}
+
+	protected override void OnMouseEnter() { _hover = true; Update(); }
+	protected override void OnMouseLeave() { _hover = false; _pressed = false; Update(); }
+	protected override void OnMousePress( MouseEvent e )
+	{
+		if ( e.LeftMouseButton ) { _pressed = true; Update(); }
+	}
+	protected override void OnMouseReleased( MouseEvent e )
+	{
+		if ( _pressed && e.LeftMouseButton )
+		{
+			_pressed = false;
+			bool shouldFire = _hover;
+			if ( shouldFire ) Clicked?.Invoke( SourceGuid, Name );
+			if ( IsValid ) Update();
+		}
+	}
+
+	protected override void OnDragStart()
+	{
+		var drag = new Drag( this );
+		drag.Data.Object = SourceGuid; // canvas drop handler can match on this if it cares
 		drag.Execute();
 	}
 }

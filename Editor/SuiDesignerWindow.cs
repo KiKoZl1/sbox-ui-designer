@@ -161,6 +161,7 @@ public class SuiDesignerWindow : DockWindow, IAssetEditor
 		_hierarchy?.SetDocument( Document );
 		_variables?.SetDocument( Document );
 		_acceptedProps?.SetDocument( Document );
+		_palette?.SetHostDocumentId( Document?.DocumentId );
 		_centerTabs?.SetDocument( Document );
 		_bottomTabs?.SetDocument( Document );
 		_details?.SetDocument( Document );
@@ -932,10 +933,32 @@ public class SuiDesignerWindow : DockWindow, IAssetEditor
 			}
 			if ( type == SuiElementType.SuiReference )
 			{
+				// Fallback path — palette no longer offers this generic entry,
+				// but the Details "Change source…" button still routes through
+				// the picker for swap-source scenarios.
 				OpenSuiReferencePicker();
 				return;
 			}
 			_controller.AddElement( type );
+		};
+
+		// V1.5 — user-widget click adds a SuiReference pre-wired to the picked
+		// .sui's GUID. No modal — palette acts as the picker, UMG / UEFN style.
+		_palette.UserWidgetRequested += ( sourceGuid, name ) =>
+		{
+			if ( Document == null ) return;
+			if ( sourceGuid == Document.DocumentId )
+			{
+				Log.Warning( "[Sui] cannot embed a document inside itself — instant cycle." );
+				return;
+			}
+			var el = _controller.AddElement( SuiElementType.SuiReference );
+			if ( el == null ) return;
+			el.Layout.Width = 200;
+			el.Layout.Height = 80;
+			if ( !string.IsNullOrEmpty( name ) ) _controller.RenameElement( el, name );
+			var newData = new SuiReferenceData { SourceGuid = sourceGuid };
+			_controller.Execute( new SuiSetReferenceDataCommand( el.Id, el.SuiReference, newData ) );
 		};
 
 		_hierarchy.AddChildRequested += ( parent, type ) => _controller.AddElement( type, parent );
