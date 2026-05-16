@@ -63,6 +63,7 @@ public static class SuiPreviewCacheWriter
 			Document = document,
 			Mode = SuiGenerationMode.Preview,
 			OutputFolder = "", // intentionally blank — pipeline returns plain filenames
+			ResolveReferencedClass = SuiReferenceResolver.Build(),
 		};
 
 		var gen = SuiGenerationPipeline.Run( ctx );

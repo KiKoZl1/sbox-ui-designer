@@ -26,6 +26,9 @@ public sealed class SuiAssetRegistryService
 	public SuiAssetRegistry Registry { get; } = new();
 
 	private string _projectRoot;
+
+	/// <summary>Project root directory as resolved by the bootstrap. Null until <see cref="EnsureInitialized"/> succeeds.</summary>
+	public string ProjectRoot => _projectRoot;
 	private string _cacheDir;
 	private string _cacheFile;
 	private bool _initialized;

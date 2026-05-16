@@ -105,6 +105,7 @@ public sealed class SuiCodeTabWidget : Widget
 			OutputFolder = "",
 			ClassName = _document.Output?.ClassName,
 			Namespace = _document.Output?.Namespace,
+			ResolveReferencedClass = SuiReferenceResolver.Build(),
 		};
 		var result = SuiGenerationPipeline.Run( ctx );
 

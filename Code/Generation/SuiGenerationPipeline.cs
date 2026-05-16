@@ -68,6 +68,17 @@ public static class SuiGenerationPipeline
 		if ( !string.IsNullOrEmpty( scss ) )
 			result.AddFile( SuiGeneratedFileKind.Scss, Combine( $"{ctx.ClassName}.razor.scss" ), scss );
 
+		// V1.5-M2 — Output-mode aux file (Spawner/Factory). Only Final mode writes
+		// the bootstrap aux file; Preview mode skips it (preview cache stays
+		// markup-only so hot-reload doesn't re-spawn Components per frame).
+		if ( ctx.Mode == SuiGenerationMode.Final )
+		{
+			var aux = SuiOutputModeEmitter.Emit( doc );
+			var auxName = SuiOutputModeEmitter.EmitFileName( doc );
+			if ( !string.IsNullOrEmpty( aux ) && !string.IsNullOrEmpty( auxName ) )
+				result.AddFile( SuiGeneratedFileKind.GeneratedCs, Combine( auxName ), aux );
+		}
+
 		return result;
 	}
 }

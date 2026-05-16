@@ -1125,6 +1125,7 @@ public class SuiDesignerWindow : DockWindow, IAssetEditor
 				OutputFolder = "",
 				ClassName = Document.Output.ClassName,
 				Namespace = Document.Output.Namespace,
+				ResolveReferencedClass = SuiReferenceResolver.Build(),
 			};
 
 			var generation = SuiGenerationPipeline.Run( ctx );

@@ -29,6 +29,17 @@ public sealed class SuiGenerationContext
 
 	/// <summary>Generated namespace. Defaults to <c>Document.Output.Namespace</c>.</summary>
 	public string Namespace { get; set; }
+
+	/// <summary>
+	/// V1.5 — resolves a SuiReference SourceGuid to a
+	/// <see cref="SuiReferenceTarget"/> carrying the embedded child's generated
+	/// <c>(Namespace, ClassName, AcceptedProps)</c>. Lets the generator emit
+	/// the correct <c>&lt;Game.UI.InventorySlot ... /&gt;</c> tag without
+	/// touching the Asset Registry directly. Editor populates this from
+	/// <c>SuiAssetRegistryService.Instance</c> + reading each referenced doc's
+	/// <c>Output</c> block. Null = unresolved (warning emitted in markup).
+	/// </summary>
+	public System.Func<string, SuiReferenceTarget> ResolveReferencedClass { get; set; }
 }
 
 public enum SuiGenerationMode

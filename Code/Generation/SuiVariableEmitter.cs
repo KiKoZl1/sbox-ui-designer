@@ -18,7 +18,7 @@ namespace SboxUiDesigner.Generation;
 public static class SuiVariableEmitter
 {
 	/// <summary>Append <c>[Property] T Name { get; set; } = default;</c> per Manual Variable.</summary>
-	public static void EmitProperties( IList<SuiVariable> vars, StringBuilder sb )
+	public static void EmitProperties( IList<SuiVariable> vars, StringBuilder sb, IList<SuiAcceptedProp> acceptedProps = null )
 	{
 		if ( vars == null || sb == null ) return;
 
@@ -26,12 +26,23 @@ public static class SuiVariableEmitter
 		{
 			if ( v == null || string.IsNullOrEmpty( v.Name ) ) continue;
 
-			if ( v.Source?.Kind != SuiVariableSourceKind.Manual )
+			var srcKind = v.Source?.Kind ?? SuiVariableSourceKind.Manual;
+
+			// V1.5-M2 — FromAcceptedProp emits a thin alias property pointing
+			// at the AcceptedProp's [Property] (PRD 19 § 3.2). The alias is
+			// hidden in the inspector — only the AcceptedProp itself surfaces.
+			if ( srcKind == SuiVariableSourceKind.FromAcceptedProp )
+			{
+				EmitAcceptedPropAlias( v, sb, acceptedProps );
+				continue;
+			}
+
+			if ( srcKind != SuiVariableSourceKind.Manual )
 			{
 				sb.Append( "\t// TODO M3 — Variable '" )
 					.Append( v.Name )
 					.Append( "' has source '" )
-					.Append( v.Source?.Kind )
+					.Append( srcKind )
 					.AppendLine( "', not yet emitted." );
 				continue;
 			}
@@ -45,5 +56,47 @@ public static class SuiVariableEmitter
 			sb.Append( "] public " ).Append( csType ).Append( ' ' ).Append( v.Name )
 				.Append( " { get; set; } = " ).Append( def ).AppendLine( ";" );
 		}
+	}
+
+	private static void EmitAcceptedPropAlias( SuiVariable v, StringBuilder sb, IList<SuiAcceptedProp> acceptedProps )
+	{
+		var propId = v.Source?.PropId;
+		var targetName = ResolveAcceptedPropName( propId, acceptedProps );
+
+		if ( string.IsNullOrEmpty( targetName ) )
+		{
+			sb.Append( "\t// WARN — FromAcceptedProp Variable '" ).Append( v.Name )
+				.Append( "' has no resolvable PropId='" ).Append( propId )
+				.AppendLine( "'; emitting Manual fallback so codegen still compiles." );
+			var csType = SuiTypeMapper.ToCSharp( v.Type );
+			var def = SuiTypeMapper.DefaultLiteral( v.Type, v.Default );
+			sb.Append( "\t[Property, Hide] public " ).Append( csType ).Append( ' ' )
+				.Append( v.Name ).Append( " { get; set; } = " ).Append( def ).AppendLine( ";" );
+			return;
+		}
+
+		// Skip the alias if the Variable and the target AcceptedProp share the
+		// same identifier — would emit `Hp => Hp;` which is infinite recursion.
+		// Bindings reference the AcceptedProp directly in that case.
+		if ( string.Equals( v.Name, targetName, System.StringComparison.Ordinal ) )
+		{
+			sb.Append( "\t// alias '" ).Append( v.Name )
+				.AppendLine( "' = AcceptedProp of same name (no alias property needed)" );
+			return;
+		}
+
+		var csTypeAlias = SuiTypeMapper.ToCSharp( v.Type );
+		sb.Append( "\t[Hide] public " ).Append( csTypeAlias ).Append( ' ' )
+			.Append( v.Name ).Append( " => " ).Append( targetName ).AppendLine( ";" );
+	}
+
+	private static string ResolveAcceptedPropName( string propId, IList<SuiAcceptedProp> acceptedProps )
+	{
+		if ( string.IsNullOrEmpty( propId ) || acceptedProps == null ) return null;
+		foreach ( var p in acceptedProps )
+		{
+			if ( p?.PropId == propId ) return p.Name;
+		}
+		return null;
 	}
 }

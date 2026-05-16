@@ -28,11 +28,13 @@ public sealed class SuiRazorGenerator
 {
 	private readonly StringBuilder _sb = new();
 	private SuiDocument _doc;
+	private SuiGenerationContext _ctx;
 	private Dictionary<string, SuiElement> _byId;
 
 	public string Generate( SuiGenerationContext ctx, SuiGenerationResult result )
 	{
 		_sb.Clear();
+		_ctx = ctx;
 
 		_doc = ctx?.Document;
 		if ( _doc == null )
@@ -79,10 +81,18 @@ public sealed class SuiRazorGenerator
 
 	private void EmitCodeBlock()
 	{
-		if ( _doc.Variables == null || _doc.Variables.Count == 0 ) return;
+		var hasVars = _doc.Variables != null && _doc.Variables.Count > 0;
+		var hasProps = _doc.AcceptedProps != null && _doc.AcceptedProps.Count > 0;
+		if ( !hasVars && !hasProps ) return;
 
 		var body = new System.Text.StringBuilder();
-		SuiVariableEmitter.EmitProperties( _doc.Variables, body );
+
+		// AcceptedProps come first — Variable aliases with Source=FromAcceptedProp
+		// emit `get => <PropName>;` and need those props in scope at the C# level
+		// for the alias to resolve when the user reads it.
+		SuiAcceptedPropEmitter.EmitProperties( _doc.AcceptedProps, body );
+
+		SuiVariableEmitter.EmitProperties( _doc.Variables, body, _doc.AcceptedProps );
 		SuiBuildHashEmitter.EmitBuildHash( _doc.Variables, _doc.Elements, body );
 
 		if ( body.Length == 0 ) return;
@@ -119,6 +129,10 @@ public sealed class SuiRazorGenerator
 				EmitTextElement( el, combinedClass, indent );
 				break;
 
+			case SuiElementType.SuiReference:
+				EmitSuiReferenceElement( el, indent );
+				break;
+
 			default:
 				EmitContainerElement( el, combinedClass, indent, depth );
 				break;
@@ -134,6 +148,152 @@ public sealed class SuiRazorGenerator
 		var raw = el?.Id ?? "";
 		var safe = SuiNameSanitizer.ToCssClass( raw );
 		return string.IsNullOrEmpty( safe ) ? "sui-el" : $"sui-{safe}";
+	}
+
+	/// <summary>
+	/// Emit a SuiReference as an embedded child component tag. Resolves the
+	/// child's namespace+class+AcceptedProps via <see cref="SuiGenerationContext.ResolveReferencedClass"/>,
+	/// renders each <c>Props</c> entry as <c>Name=@expression</c> or <c>Name="literal"</c>,
+	/// and wraps the whole thing in <c>@foreach</c> when <c>ForEach</c> is set
+	/// (PRD 19 § 7.1 + 7.2).
+	/// </summary>
+	private void EmitSuiReferenceElement( SuiElement el, string indent )
+	{
+		var data = el.SuiReference;
+		if ( data == null || string.IsNullOrEmpty( data.SourceGuid ) )
+		{
+			_sb.Append( indent ).Append( "@* SuiReference '" ).Append( el.Name )
+				.AppendLine( "' has no source set — skipped. *@" );
+			return;
+		}
+
+		var target = _ctx?.ResolveReferencedClass?.Invoke( data.SourceGuid );
+		if ( target == null || string.IsNullOrEmpty( target.ClassName ) )
+		{
+			_sb.Append( indent ).Append( "@* SuiReference '" ).Append( el.Name )
+				.Append( "' could not resolve SourceGuid='" ).Append( data.SourceGuid )
+				.AppendLine( "' — child class not found. *@" );
+			return;
+		}
+
+		var fqType = string.IsNullOrEmpty( target.Namespace )
+			? target.ClassName
+			: $"{target.Namespace}.{target.ClassName}";
+
+		var fe = data.ForEach;
+		var isForEach = fe != null && !string.IsNullOrEmpty( fe.SourceVariableId );
+
+		if ( isForEach )
+		{
+			var sourceVarName = ResolveVariableNameById( fe.SourceVariableId ) ?? "/* unresolved source var */ null";
+			_sb.Append( indent ).Append( "@foreach ( var (item, __idx) in " ).Append( sourceVarName )
+				.AppendLine( ".Select((__x, __i) => (__x, __i)) )" );
+			_sb.Append( indent ).AppendLine( "{" );
+			EmitSuiReferenceTag( fqType, target.AcceptedProps, data.Props, fe, indent + "  " );
+			_sb.Append( indent ).AppendLine( "}" );
+		}
+		else
+		{
+			EmitSuiReferenceTag( fqType, target.AcceptedProps, data.Props, null, indent );
+		}
+	}
+
+	private void EmitSuiReferenceTag(
+		string fqType,
+		System.Collections.Generic.IList<SuiAcceptedProp> targetProps,
+		Dictionary<string, System.Text.Json.Nodes.JsonNode> sourceProps,
+		SuiForEachData forEach,
+		string indent )
+	{
+		_sb.Append( indent ).Append( "<" ).Append( fqType );
+
+		if ( targetProps != null )
+		{
+			foreach ( var p in targetProps )
+			{
+				if ( p == null || string.IsNullOrEmpty( p.Name ) ) continue;
+
+				// ForEach overrides whatever the user put in Props for the item/index
+				// slots — runtime loop variables take precedence (PRD 19 § 3.5).
+				if ( forEach != null )
+				{
+					if ( p.PropId == forEach.ItemPropId )
+					{
+						_sb.Append( " " ).Append( p.Name ).Append( "=@item" );
+						continue;
+					}
+					if ( p.PropId == forEach.IndexPropId )
+					{
+						_sb.Append( " " ).Append( p.Name ).Append( "=@__idx" );
+						continue;
+					}
+				}
+
+				if ( sourceProps != null && sourceProps.TryGetValue( p.PropId, out var node ) && node != null )
+				{
+					var rendered = RenderPropAttribute( p, node );
+					if ( !string.IsNullOrEmpty( rendered ) )
+						_sb.Append( " " ).Append( p.Name ).Append( "=" ).Append( rendered );
+				}
+				// else: omit attribute → child uses its own AcceptedProp.Default
+			}
+		}
+
+		_sb.AppendLine( " />" );
+	}
+
+	private string RenderPropAttribute( SuiAcceptedProp prop, System.Text.Json.Nodes.JsonNode node )
+	{
+		// Binding object marker `{ "$bind": { ... } }` is recognised by presence
+		// of a "$bind" key — the literal otherwise renders straight as a Razor
+		// literal/string. The binding source-Variable name is rendered as a
+		// Razor @(VarName) expression; the host's [Property] is in scope.
+		if ( node is System.Text.Json.Nodes.JsonObject obj && obj.ContainsKey( "$bind" ) )
+		{
+			var bind = obj["$bind"];
+			var varId = bind?["VariableId"]?.GetValue<string>();
+			var varName = ResolveVariableNameById( varId );
+			return string.IsNullOrEmpty( varName )
+				? "@(default(" + SuiTypeMapper.ToCSharp( prop.Type ) + "))"
+				: "@(" + varName + ")";
+		}
+
+		switch ( prop.Type )
+		{
+			case "int":
+			case "long":
+				return "@(" + node.ToJsonString() + ")";
+			case "float":
+				return "@(" + node.ToJsonString() + "f)";
+			case "double":
+				return "@(" + node.ToJsonString() + ")";
+			case "bool":
+				return "@(" + node.ToJsonString().ToLowerInvariant() + ")";
+			case "string":
+				return "\"" + EscapeForAttr( node.GetValue<string>() ?? "" ) + "\"";
+			case "Color":
+				// Hex string literal → emit as `new Color( "#xxxxxx" )` via runtime parse
+				return "@(global::Sandbox.Color.Parse(\"" + EscapeForAttr( node.GetValue<string>() ?? "#ffffff" ) + "\"))";
+			default:
+				// Engine types / resource refs — best-effort emit as a string literal
+				return node is System.Text.Json.Nodes.JsonValue v && v.TryGetValue<string>( out var s )
+					? "\"" + EscapeForAttr( s ) + "\""
+					: "@(" + node.ToJsonString() + ")";
+		}
+	}
+
+	private static string EscapeForAttr( string s )
+		=> (s ?? "").Replace( "\\", "\\\\" ).Replace( "\"", "\\\"" );
+
+	/// <summary>Resolve a Variable Id to its Name within the current host document.</summary>
+	private string ResolveVariableNameById( string varId )
+	{
+		if ( string.IsNullOrEmpty( varId ) || _doc?.Variables == null ) return null;
+		foreach ( var v in _doc.Variables )
+		{
+			if ( v?.Id == varId ) return v.Name;
+		}
+		return null;
 	}
 
 	private void EmitTextElement( SuiElement el, string className, string indent )
