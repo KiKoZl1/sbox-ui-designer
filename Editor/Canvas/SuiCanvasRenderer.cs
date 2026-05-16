@@ -219,6 +219,16 @@ public sealed class SuiCanvasRenderer
 				r.Height * scaleY );
 		}
 
+		// Strip the child's Canvas root from the solver so it's not painted.
+		// The root's faint-white outline would otherwise extend past the
+		// SuiReference bounds — its rect is the full (1920x1080) child canvas
+		// scaled-and-offset, which lands outside the reference rectangle.
+		// The dashed border we already paint here is the right affordance for
+		// "this is a Sub-UI" — we don't need the inner canvas frame too.
+		var childRootId = childDoc.GetRoot()?.Id;
+		if ( !string.IsNullOrEmpty( childRootId ) )
+			childSolver.Rects.Remove( childRootId );
+
 		// Recurse with a child renderer using the transformed solver. The child
 		// renderer respects opacity by reading each element's own Style, so we
 		// don't need to inject the outer opacity (it would multiply twice — the
