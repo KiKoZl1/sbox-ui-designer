@@ -399,17 +399,23 @@ public class SuiDetailsWidget : Widget
 		// per-element style class (CSS class ref) lives via the Style
 		// dropdown / future style-system instead.
 		AddColorRow( "Background", s.BackgroundColor ?? "",
-			v => SetProp( el, e => e.Style.BackgroundColor, ( e, v2 ) => e.Style.BackgroundColor = v2, v, "Set bg color" ) );
+			v => SetProp( el, e => e.Style.BackgroundColor, ( e, v2 ) => e.Style.BackgroundColor = v2, v, "Set bg color" ),
+			bindingProperty: "BackgroundColor" );
 		AddColorRow( "Border", s.BorderColor ?? "",
-			v => SetProp( el, e => e.Style.BorderColor, ( e, v2 ) => e.Style.BorderColor = v2, v, "Set border color" ) );
+			v => SetProp( el, e => e.Style.BorderColor, ( e, v2 ) => e.Style.BorderColor = v2, v, "Set border color" ),
+			bindingProperty: "BorderColor" );
 		AddFloatRow( "Border Width", s.BorderWidth,
-			v => SetProp( el, e => e.Style.BorderWidth, ( e, v2 ) => e.Style.BorderWidth = v2, v, "Set border width" ) );
+			v => SetProp( el, e => e.Style.BorderWidth, ( e, v2 ) => e.Style.BorderWidth = v2, v, "Set border width" ),
+			bindingProperty: "BorderWidth" );
 		AddFloatRow( "Border Radius", s.BorderRadius,
-			v => SetProp( el, e => e.Style.BorderRadius, ( e, v2 ) => e.Style.BorderRadius = v2, v, "Set border radius" ) );
+			v => SetProp( el, e => e.Style.BorderRadius, ( e, v2 ) => e.Style.BorderRadius = v2, v, "Set border radius" ),
+			bindingProperty: "BorderRadius" );
 		AddFloatRow( "Opacity", s.Opacity,
-			v => SetProp( el, e => e.Style.Opacity, ( e, v2 ) => e.Style.Opacity = v2, ClampOpacity( v ), "Set opacity" ) );
+			v => SetProp( el, e => e.Style.Opacity, ( e, v2 ) => e.Style.Opacity = v2, ClampOpacity( v ), "Set opacity" ),
+			bindingProperty: "Opacity" );
 		AddEnumRow<SuiVisibility>( "Visibility", s.Visibility,
-			v => SetProp( el, e => e.Style.Visibility, ( e, v2 ) => e.Style.Visibility = v2, v, "Set visibility" ) );
+			v => SetProp( el, e => e.Style.Visibility, ( e, v2 ) => e.Style.Visibility = v2, v, "Set visibility" ),
+			bindingProperty: "Visibility" );
 		AddEnumRow<SuiPointerEvents>( "Pointer Events", s.PointerEvents,
 			v => SetProp( el, e => e.Style.PointerEvents, ( e, v2 ) => e.Style.PointerEvents = v2, v, "Set pointer events" ) );
 		AddEnumRow<SuiOverflow>( "Overflow", s.Overflow,
@@ -428,15 +434,20 @@ public class SuiDetailsWidget : Widget
 			case SuiElementType.Text:
 				BeginSection( "Text" );
 				AddTextRow( "Text", p.Text,
-					v => SetProp( el, e => e.Props.Text, ( e, v2 ) => e.Props.Text = v2, v, "Set text" ) );
+					v => SetProp( el, e => e.Props.Text, ( e, v2 ) => e.Props.Text = v2, v, "Set text" ),
+					bindingProperty: "Text" );
 				AddFloatRow( "Font Size", p.FontSize,
-					v => SetProp( el, e => e.Props.FontSize, ( e, v2 ) => e.Props.FontSize = v2, v, "Set font size" ) );
+					v => SetProp( el, e => e.Props.FontSize, ( e, v2 ) => e.Props.FontSize = v2, v, "Set font size" ),
+					bindingProperty: "FontSize" );
 				AddTextRow( "Font Family", p.FontFamily ?? "",
-					v => SetProp( el, e => e.Props.FontFamily, ( e, v2 ) => e.Props.FontFamily = v2, v, "Set font family" ) );
+					v => SetProp( el, e => e.Props.FontFamily, ( e, v2 ) => e.Props.FontFamily = v2, v, "Set font family" ),
+					bindingProperty: "FontFamily" );
 				AddEnumRow<SuiFontWeight>( "Font Weight", p.FontWeight,
-					v => SetProp( el, e => e.Props.FontWeight, ( e, v2 ) => e.Props.FontWeight = v2, v, "Set font weight" ) );
+					v => SetProp( el, e => e.Props.FontWeight, ( e, v2 ) => e.Props.FontWeight = v2, v, "Set font weight" ),
+					bindingProperty: "FontWeight" );
 				AddColorRow( "Color", p.Color ?? "",
-					v => SetProp( el, e => e.Props.Color, ( e, v2 ) => e.Props.Color = v2, v, "Set text color" ) );
+					v => SetProp( el, e => e.Props.Color, ( e, v2 ) => e.Props.Color = v2, v, "Set text color" ),
+					bindingProperty: "Color" );
 
 				// TextSizeMode + alignments — refresh after change so the
 				// conditional rows below appear/disappear correctly.
@@ -462,7 +473,8 @@ public class SuiDetailsWidget : Widget
 				}
 
 				AddFloatRow( "Letter Spacing", p.LetterSpacing,
-					v => SetProp( el, e => e.Props.LetterSpacing, ( e, v2 ) => e.Props.LetterSpacing = v2, v, "Set letter spacing" ) );
+					v => SetProp( el, e => e.Props.LetterSpacing, ( e, v2 ) => e.Props.LetterSpacing = v2, v, "Set letter spacing" ),
+					bindingProperty: "LetterSpacing" );
 				AddEnumRow<SuiTextOverflow>( "Text Overflow", p.TextOverflow,
 					v => SetProp( el, e => e.Props.TextOverflow, ( e, v2 ) => e.Props.TextOverflow = v2, v, "Set text overflow" ) );
 
@@ -499,11 +511,14 @@ public class SuiDetailsWidget : Widget
 			case SuiElementType.ItemIcon:
 				BeginSection( "Image" );
 				AddImageAssetRow( "Image Path", p.ImagePath ?? "",
-					v => SetProp( el, e => e.Props.ImagePath, ( e, v2 ) => e.Props.ImagePath = v2, v, "Set image path" ) );
+					v => SetProp( el, e => e.Props.ImagePath, ( e, v2 ) => e.Props.ImagePath = v2, v, "Set image path" ),
+					bindingProperty: "ImagePath" );
 				AddColorRow( "Tint", p.Tint ?? "",
-					v => SetProp( el, e => e.Props.Tint, ( e, v2 ) => e.Props.Tint = v2, v, "Set tint" ) );
+					v => SetProp( el, e => e.Props.Tint, ( e, v2 ) => e.Props.Tint = v2, v, "Set tint" ),
+					bindingProperty: "Tint" );
 				AddEnumRow<SuiImageFitMode>( "Fit Mode", p.FitMode,
-					v => SetProp( el, e => e.Props.FitMode, ( e, v2 ) => e.Props.FitMode = v2, v, "Set fit mode" ) );
+					v => SetProp( el, e => e.Props.FitMode, ( e, v2 ) => e.Props.FitMode = v2, v, "Set fit mode" ),
+					bindingProperty: "FitMode" );
 				AddEnumRow<SuiBackgroundPosition>( "Background Position", p.BackgroundPosition,
 					v => SetProp( el, e => e.Props.BackgroundPosition, ( e, v2 ) => e.Props.BackgroundPosition = v2, v, "Set bg position" ) );
 				break;
@@ -511,7 +526,8 @@ public class SuiDetailsWidget : Widget
 			case SuiElementType.Button:
 				BeginSection( "Button" );
 				AddTextRow( "Button Text", p.ButtonText ?? "",
-					v => SetProp( el, e => e.Props.ButtonText, ( e, v2 ) => e.Props.ButtonText = v2, v, "Set button text" ) );
+					v => SetProp( el, e => e.Props.ButtonText, ( e, v2 ) => e.Props.ButtonText = v2, v, "Set button text" ),
+					bindingProperty: "ButtonText" );
 				break;
 
 			case SuiElementType.Grid:
@@ -519,9 +535,11 @@ public class SuiDetailsWidget : Widget
 			case SuiElementType.Hotbar:
 				BeginSection( "Grid" );
 				AddIntRow( "Columns", p.Columns,
-					v => SetProp( el, e => e.Props.Columns, ( e, v2 ) => e.Props.Columns = v2, v, "Set columns" ) );
+					v => SetProp( el, e => e.Props.Columns, ( e, v2 ) => e.Props.Columns = v2, v, "Set columns" ),
+					bindingProperty: "Columns" );
 				AddIntRow( "Rows", p.Rows,
-					v => SetProp( el, e => e.Props.Rows, ( e, v2 ) => e.Props.Rows = v2, v, "Set rows" ) );
+					v => SetProp( el, e => e.Props.Rows, ( e, v2 ) => e.Props.Rows = v2, v, "Set rows" ),
+					bindingProperty: "Rows" );
 				AddFloatRow( "Cell Width", p.CellWidth,
 					v => SetProp( el, e => e.Props.CellWidth, ( e, v2 ) => e.Props.CellWidth = v2, v, "Set cell width" ) );
 				AddFloatRow( "Cell Height", p.CellHeight,
@@ -537,21 +555,27 @@ public class SuiDetailsWidget : Widget
 			case SuiElementType.ProgressBar:
 				BeginSection( "Progress Bar" );
 				AddFloatRow( "Min", p.ProgressMin,
-					v => SetProp( el, e => e.Props.ProgressMin, ( e, v2 ) => e.Props.ProgressMin = v2, v, "Set min" ) );
+					v => SetProp( el, e => e.Props.ProgressMin, ( e, v2 ) => e.Props.ProgressMin = v2, v, "Set min" ),
+					bindingProperty: "Min" );
 				AddFloatRow( "Max", p.ProgressMax,
-					v => SetProp( el, e => e.Props.ProgressMax, ( e, v2 ) => e.Props.ProgressMax = v2, v, "Set max" ) );
+					v => SetProp( el, e => e.Props.ProgressMax, ( e, v2 ) => e.Props.ProgressMax = v2, v, "Set max" ),
+					bindingProperty: "Max" );
 				AddFloatRow( "Preview Value", p.ProgressPreviewValue,
-					v => SetProp( el, e => e.Props.ProgressPreviewValue, ( e, v2 ) => e.Props.ProgressPreviewValue = v2, v, "Set preview value" ) );
+					v => SetProp( el, e => e.Props.ProgressPreviewValue, ( e, v2 ) => e.Props.ProgressPreviewValue = v2, v, "Set preview value" ),
+					bindingProperty: "Value" );
 				AddColorRow( "Fill Color", p.ProgressFillColor ?? "",
-					v => SetProp( el, e => e.Props.ProgressFillColor, ( e, v2 ) => e.Props.ProgressFillColor = v2, v, "Set fill color" ) );
+					v => SetProp( el, e => e.Props.ProgressFillColor, ( e, v2 ) => e.Props.ProgressFillColor = v2, v, "Set fill color" ),
+					bindingProperty: "FillColor" );
 				AddEnumRow<SuiProgressDirection>( "Direction", p.ProgressDirection,
-					v => SetProp( el, e => e.Props.ProgressDirection, ( e, v2 ) => e.Props.ProgressDirection = v2, v, "Set direction" ) );
+					v => SetProp( el, e => e.Props.ProgressDirection, ( e, v2 ) => e.Props.ProgressDirection = v2, v, "Set direction" ),
+					bindingProperty: "Direction" );
 				break;
 
 			case SuiElementType.InventorySlot:
 				BeginSection( "Inventory Slot" );
 				AddIntRow( "Slot Index", p.SlotIndex,
-					v => SetProp( el, e => e.Props.SlotIndex, ( e, v2 ) => e.Props.SlotIndex = v2, v, "Set slot index" ) );
+					v => SetProp( el, e => e.Props.SlotIndex, ( e, v2 ) => e.Props.SlotIndex = v2, v, "Set slot index" ),
+					bindingProperty: "SlotIndex" );
 				AddImageAssetRow( "Preview Icon", p.PreviewIconPath ?? "",
 					v => SetProp( el, e => e.Props.PreviewIconPath, ( e, v2 ) => e.Props.PreviewIconPath = v2, v, "Set preview icon" ) );
 				AddIntRow( "Preview Count", p.PreviewCount,
@@ -651,10 +675,10 @@ public class SuiDetailsWidget : Widget
 
 	private Widget Container() => _activeBody ?? _bodyHost;
 
-	private void AddTextRow( string label, string value, Action<string> onCommit )
+	private void AddTextRow( string label, string value, Action<string> onCommit, string bindingProperty = null )
 	{
 		var row = MakeRow();
-		AddRowLabel( row, label );
+		AddRowLabel( row, label, bindingProperty );
 		var f = new SuiTextField( row );
 		f.Text = value ?? "";
 		f.ValueCommitted += v => onCommit?.Invoke( v ?? "" );
@@ -696,10 +720,10 @@ public class SuiDetailsWidget : Widget
 	/// suffered from SV-gradient stale-state, lag, and intermittent commits
 	/// (see ISSUES.md ISSUE-001/003).
 	/// </summary>
-	private void AddColorRow( string label, string value, Action<string> onCommit )
+	private void AddColorRow( string label, string value, Action<string> onCommit, string bindingProperty = null )
 	{
 		var row = MakeRow();
-		AddRowLabel( row, label );
+		AddRowLabel( row, label, bindingProperty );
 
 		var field = new SuiColorSwatchField( row );
 		field.SetValue( value ?? "" );
@@ -732,10 +756,10 @@ public class SuiDetailsWidget : Widget
 	/// Editor.AssetPicker filtered to AssetType.ImageFile. The picked asset's
 	/// project-relative Path becomes the field value.
 	/// </summary>
-	private void AddImageAssetRow( string label, string value, Action<string> onCommit )
+	private void AddImageAssetRow( string label, string value, Action<string> onCommit, string bindingProperty = null )
 	{
 		var row = MakeRow();
-		AddRowLabel( row, label );
+		AddRowLabel( row, label, bindingProperty );
 
 		var f = new SuiTextField( row );
 		f.Text = value ?? "";
@@ -809,10 +833,10 @@ public class SuiDetailsWidget : Widget
 		return rel;
 	}
 
-	private void AddFloatRow( string label, float value, Action<float> onCommit )
+	private void AddFloatRow( string label, float value, Action<float> onCommit, string bindingProperty = null )
 	{
 		var row = MakeRow();
-		AddRowLabel( row, label );
+		AddRowLabel( row, label, bindingProperty );
 		var f = new SuiNumberField( row );
 		f.Value = value;
 		f.ValueCommitted += v => onCommit?.Invoke( v );
@@ -821,10 +845,10 @@ public class SuiDetailsWidget : Widget
 		Container().Layout.Add( row );
 	}
 
-	private void AddIntRow( string label, int value, Action<int> onCommit )
+	private void AddIntRow( string label, int value, Action<int> onCommit, string bindingProperty = null )
 	{
 		var row = MakeRow();
-		AddRowLabel( row, label );
+		AddRowLabel( row, label, bindingProperty );
 		var f = new SuiNumberField( row );
 		f.Value = value;
 		f.ValueCommitted += v => onCommit?.Invoke( (int)System.Math.Round( v ) );
@@ -833,10 +857,10 @@ public class SuiDetailsWidget : Widget
 		Container().Layout.Add( row );
 	}
 
-	private void AddBoolRow( string label, bool value, Action<bool> onCommit )
+	private void AddBoolRow( string label, bool value, Action<bool> onCommit, string bindingProperty = null )
 	{
 		var row = MakeRow();
-		AddRowLabel( row, label );
+		AddRowLabel( row, label, bindingProperty );
 		var t = new SuiToggleField( value, row );
 		t.ValueChanged += v => onCommit?.Invoke( v );
 		ApplyTooltipTo( t );
@@ -844,10 +868,10 @@ public class SuiDetailsWidget : Widget
 		Container().Layout.Add( row );
 	}
 
-	private void AddEnumRow<T>( string label, T value, Action<T> onCommit ) where T : struct, Enum
+	private void AddEnumRow<T>( string label, T value, Action<T> onCommit, string bindingProperty = null ) where T : struct, Enum
 	{
 		var row = MakeRow();
-		AddRowLabel( row, label );
+		AddRowLabel( row, label, bindingProperty );
 		var dd = new SuiDropdownField( row );
 		dd.Value = value.ToString();
 		dd.SetOptions( Enum.GetNames( typeof( T ) ) );
@@ -877,14 +901,33 @@ public class SuiDetailsWidget : Widget
 	// must live on them too, not only on the row container.
 	private string _pendingTooltip;
 
-	private void AddRowLabel( Widget row, string text )
+	private void AddRowLabel( Widget row, string text, string bindingProperty = null )
 	{
 		var lbl = new SuiDetailsRowLabel( text, row );
 		lbl.FixedWidth = 100;
+
+		// M1-C2-b — surface bindings inline. When the selected element has a
+		// binding targeting `bindingProperty`, paint the purple link icon on the
+		// label so the user immediately sees which properties are wired without
+		// scrolling to the Bindings panel. Also drops a tooltip explaining what
+		// the binding points to.
+		if ( !string.IsNullOrEmpty( bindingProperty ) )
+		{
+			var b = FindBinding( bindingProperty );
+			if ( b != null )
+			{
+				lbl.ShowBindIcon = true;
+				var srcName = ResolveBindingSourceName( b );
+				row.ToolTip = $"Bound → {srcName}"
+					+ ( b.Converters != null && b.Converters.Count > 0 ? $" (×{b.Converters.Count} converter)" : "" );
+				lbl.ToolTip = row.ToolTip;
+			}
+		}
+
 		row.Layout.Add( lbl );
 
 		_pendingTooltip = SuiDetailsTooltips.Lookup( text );
-		if ( !string.IsNullOrEmpty( _pendingTooltip ) )
+		if ( !string.IsNullOrEmpty( _pendingTooltip ) && string.IsNullOrEmpty( row.ToolTip ) )
 		{
 			row.ToolTip = _pendingTooltip;
 			lbl.ToolTip = _pendingTooltip;
@@ -892,6 +935,27 @@ public class SuiDetailsWidget : Widget
 
 		// Register so the search filter can hide rows whose label doesn't match.
 		_searchableRows.Add( (row, text.ToLowerInvariant()) );
+	}
+
+	private SuiBinding FindBinding( string property )
+	{
+		if ( _selected?.Bindings == null || string.IsNullOrEmpty( property ) ) return null;
+		foreach ( var b in _selected.Bindings )
+		{
+			if ( b != null && b.Property == property ) return b;
+		}
+		return null;
+	}
+
+	private string ResolveBindingSourceName( SuiBinding b )
+	{
+		var varId = b?.Source?.VariableId;
+		if ( string.IsNullOrEmpty( varId ) || _document?.Variables == null ) return "(unset)";
+		foreach ( var v in _document.Variables )
+		{
+			if ( v?.Id == varId ) return v.Name ?? "(unnamed)";
+		}
+		return "(missing)";
 	}
 
 	/// <summary>
