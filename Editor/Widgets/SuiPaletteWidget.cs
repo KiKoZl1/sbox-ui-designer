@@ -627,8 +627,24 @@ internal sealed class SuiPaletteUserWidgetItem : Widget
 	protected override void OnDragStart()
 	{
 		var drag = new Drag( this );
-		drag.Data.Object = SourceGuid; // canvas drop handler can match on this if it cares
+		drag.Data.Object = new SuiUserWidgetDragPayload( SourceGuid, DisplayName );
 		drag.Execute();
+	}
+}
+
+/// <summary>
+/// Drag payload emitted by <see cref="SuiPaletteUserWidgetItem"/>. The canvas
+/// viewport's drop handler type-checks for this struct to know "treat as
+/// SuiReference creation, not as a primitive element type".
+/// </summary>
+public readonly struct SuiUserWidgetDragPayload
+{
+	public string SourceGuid { get; }
+	public string DisplayName { get; }
+	public SuiUserWidgetDragPayload( string sourceGuid, string displayName )
+	{
+		SourceGuid = sourceGuid;
+		DisplayName = displayName;
 	}
 }
 

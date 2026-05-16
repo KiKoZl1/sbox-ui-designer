@@ -963,7 +963,10 @@ public sealed class SuiCanvasViewport : Widget
 	public override void OnDragHover( DragEvent ev )
 	{
 		base.OnDragHover( ev );
-		if ( ev.Data?.Object is not SuiElementType ) return;
+		var obj = ev.Data?.Object;
+		// Accept primitive element types from the palette OR a user-widget
+		// payload (M2-K0) emitted by USER WIDGETS palette items.
+		if ( obj is not SuiElementType && obj is not SboxUiDesigner.EditorUi.Widgets.SuiUserWidgetDragPayload ) return;
 		ev.Action = DropAction.Copy;
 
 		// Resolve container under cursor for visual feedback.
@@ -984,13 +987,41 @@ public sealed class SuiCanvasViewport : Widget
 		_dropHoverContainer = null;
 
 		if ( _document == null || _controller == null ) return;
-		if ( ev.Data?.Object is not SuiElementType type ) return;
 
 		var logical = WidgetToLogical( ev.LocalPosition );
 		var parent = ResolveDropContainer( logical ) ?? _document.GetRoot();
 		if ( parent == null ) return;
 
-		var added = _controller.AddElement( type, parent );
+		SuiElement added = null;
+
+		// V1.5 M2-K0 — user-widget drop creates a SuiReference pre-wired to
+		// the dragged .sui's GUID. Cycle-guard mirrors the palette-click path.
+		if ( ev.Data?.Object is SboxUiDesigner.EditorUi.Widgets.SuiUserWidgetDragPayload payload )
+		{
+			if ( !string.IsNullOrEmpty( payload.SourceGuid ) && payload.SourceGuid == _document.DocumentId )
+			{
+				Log.Warning( "[Sui] cannot embed a document inside itself — instant cycle." );
+				return;
+			}
+
+			added = _controller.AddElement( SuiElementType.SuiReference, parent );
+			if ( added == null ) return;
+			added.Layout.Width = 200;
+			added.Layout.Height = 80;
+			if ( !string.IsNullOrEmpty( payload.DisplayName ) )
+				_controller.RenameElement( added, payload.DisplayName );
+			var newData = new SuiReferenceData { SourceGuid = payload.SourceGuid };
+			_controller.Execute( new SboxUiDesigner.EditorUi.Commands.SuiSetReferenceDataCommand( added.Id, added.SuiReference, newData ) );
+		}
+		else if ( ev.Data?.Object is SuiElementType type )
+		{
+			added = _controller.AddElement( type, parent );
+		}
+		else
+		{
+			return;
+		}
+
 		if ( added != null && added.Layout?.Mode == SuiLayoutMode.Absolute && parent != null )
 		{
 			// Position the added element at the drop point relative to its parent.

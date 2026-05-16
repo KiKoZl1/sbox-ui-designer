@@ -217,26 +217,49 @@ public sealed class SuiCanvasRenderer
 
 	private SuiDocument ResolveChildDoc( string sourceGuid )
 	{
-		if ( _childDocCache.TryGetValue( sourceGuid, out var cached ) ) return cached;
+		// Cache only successful resolves so a transient miss (registry not yet
+		// initialized when the canvas first paints) doesn't poison the cache
+		// for the rest of the session.
+		if ( _childDocCache.TryGetValue( sourceGuid, out var cached ) && cached != null )
+			return cached;
 
 		try
 		{
 			var registry = SuiAssetRegistryService.Instance;
 			registry.EnsureInitialized();
-			var relPath = registry.Registry.Resolve( sourceGuid );
-			if ( string.IsNullOrEmpty( relPath ) ) { _childDocCache[sourceGuid] = null; return null; }
 
-			var full = Path.Combine( registry.ProjectRoot ?? "", relPath );
-			if ( !File.Exists( full ) ) { _childDocCache[sourceGuid] = null; return null; }
+			var relPath = registry.Registry.Resolve( sourceGuid );
+			if ( string.IsNullOrEmpty( relPath ) )
+			{
+				Log.Warning( $"[SUI] canvas: registry has no entry for '{sourceGuid}' — child render skipped." );
+				return null;
+			}
+
+			var root = registry.ProjectRoot;
+			if ( string.IsNullOrEmpty( root ) )
+			{
+				Log.Warning( "[SUI] canvas: ProjectRoot is null — child render skipped." );
+				return null;
+			}
+
+			// Normalize slashes before combining (registry stores '/'; Windows
+			// needs '\' for File.Exists to hit).
+			var localPath = relPath.Replace( '/', Path.DirectorySeparatorChar );
+			var full = Path.Combine( root, localPath );
+			if ( !File.Exists( full ) )
+			{
+				Log.Warning( $"[SUI] canvas: file missing on disk: {full}" );
+				return null;
+			}
 
 			var asset = JsonSerializer.Deserialize<SuiAsset>( File.ReadAllText( full ) );
-			_childDocCache[sourceGuid] = asset?.Document;
-			return asset?.Document;
+			var doc = asset?.Document;
+			if ( doc != null ) _childDocCache[sourceGuid] = doc;
+			return doc;
 		}
 		catch ( Exception e )
 		{
 			Log.Warning( $"[SUI] canvas resolve of '{sourceGuid}' failed: {e.Message}" );
-			_childDocCache[sourceGuid] = null;
 			return null;
 		}
 	}
