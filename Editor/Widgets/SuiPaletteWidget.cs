@@ -103,6 +103,14 @@ public class SuiPaletteWidget : Widget
 			SuiElementType.Hotbar,
 		}, separatorBefore: true );
 
+		// V1.5 — composition primitives. SuiReference embeds another .sui by GUID
+		// (PRD 19). Dropping it on the canvas opens a picker for which .sui to
+		// reference; the rest is configured in the Details panel.
+		AddCategory( "COMPOSITION (V1.5)", new[]
+		{
+			SuiElementType.SuiReference,
+		}, separatorBefore: true );
+
 		_scrollContent.Layout.AddStretchCell();
 	}
 
@@ -156,6 +164,7 @@ public class SuiPaletteWidget : Widget
 		SuiElementType.ItemIcon => "category",
 		SuiElementType.Tooltip => "info",
 		SuiElementType.Hotbar => "view_carousel",
+		SuiElementType.SuiReference => "schema",
 		_ => "extension",
 	};
 

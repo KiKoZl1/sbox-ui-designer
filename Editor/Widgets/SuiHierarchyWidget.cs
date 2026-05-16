@@ -267,6 +267,7 @@ public class SuiHierarchyWidget : Widget
 		SuiElementType.ItemIcon => "category",
 		SuiElementType.Tooltip => "info",
 		SuiElementType.Hotbar => "view_carousel",
+		SuiElementType.SuiReference => "schema",
 		_ => "extension",
 	};
 }

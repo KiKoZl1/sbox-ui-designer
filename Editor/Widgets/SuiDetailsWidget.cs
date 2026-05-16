@@ -195,7 +195,68 @@ public class SuiDetailsWidget : Widget
 		BuildLayoutSection( el );
 		BuildStyleSection( el );
 		BuildPropsSection( el );
+		if ( el.Type == SuiElementType.SuiReference )
+			BuildSuiReferenceSection( el );
 		BuildBindingSection( el );
+	}
+
+	private void BuildSuiReferenceSection( SuiElement el )
+	{
+		el.SuiReference ??= new SuiReferenceData();
+		var data = el.SuiReference;
+		var guid = data.SourceGuid;
+
+		BeginSection( "Sub-UI Reference", defaultExpanded: true );
+
+		// Resolve the source doc Name via the asset registry so the user sees
+		// "inventory_slot" instead of "sui_inventory_slot_b4c5d6e7".
+		var entry = string.IsNullOrEmpty( guid )
+			? null
+			: SuiAssetRegistryService.Instance.Registry.Entries.TryGetValue( guid, out var e ) ? e : null;
+		var displayName = entry?.Name ?? "(unset)";
+		var displayPath = entry?.Path ?? "";
+
+		AddReadonlyRow( "Document", displayName );
+		if ( !string.IsNullOrEmpty( displayPath ) ) AddReadonlyRow( "Path", displayPath );
+		if ( !string.IsNullOrEmpty( guid ) ) AddReadonlyRow( "GUID", guid );
+
+		// Swap source button — opens a fresh picker. Warning: any Props currently
+		// set will likely no longer match the new doc's AcceptedProps.
+		var swapRow = MakeRow();
+		AddRowLabel( swapRow, "" );
+		var swapBtn = new Button( "Change source…", "swap_horiz", swapRow );
+		swapBtn.Clicked = () =>
+		{
+			var picker = new SuiReferencePicker
+			{
+				ExcludeDocumentId = _document?.DocumentId,
+			};
+			picker.OnAccept = ( newGuid, newName ) =>
+			{
+				var newData = new SuiReferenceData { SourceGuid = newGuid };
+				_controller?.Execute( new SuiSetReferenceDataCommand( el.Id, data, newData ) );
+			};
+		};
+		swapRow.Layout.Add( swapBtn, 1 );
+		Container().Layout.Add( swapRow );
+
+		if ( string.IsNullOrEmpty( guid ) )
+		{
+			AddNote( "No source document selected. Click \"Change source…\" to pick a .sui." );
+			return;
+		}
+
+		if ( entry == null )
+		{
+			AddNote( $"⚠ Source document not found in registry (GUID: {guid}). The referenced .sui may have been deleted or moved. Rebuild via Tools → Rebuild SUI Asset Registry, or pick a new source." );
+			return;
+		}
+
+		// Show registered AcceptedProps as static rows so the user knows what
+		// Props the embedded child expects. Editing Prop values is wired in
+		// M2-D (PreviewData panel) + M2-E (codegen literal pass-through).
+		// For M2-C we just list them so the contract is visible.
+		AddNote( "Props of the referenced document appear here once the AcceptedProps editor lands in M2-D. For now this section confirms which doc is wired in." );
 	}
 
 	private void BuildBindingSection( SuiElement el )

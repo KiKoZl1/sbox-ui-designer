@@ -825,6 +825,22 @@ public class SuiDesignerWindow : DockWindow, IAssetEditor
 		_controller.Execute( new SuiClearBindingCommand( elementId, binding ) );
 	}
 
+	private void OpenSuiReferencePicker()
+	{
+		if ( Document == null ) return;
+		var picker = new SuiReferencePicker { ExcludeDocumentId = Document.DocumentId };
+		picker.OnAccept = ( guid, name ) =>
+		{
+			var el = _controller.AddElement( SuiElementType.SuiReference );
+			if ( el == null ) return;
+			el.Layout.Width = 200;
+			el.Layout.Height = 80;
+			if ( !string.IsNullOrEmpty( name ) ) _controller.RenameElement( el, name );
+			var newData = new SuiReferenceData { SourceGuid = guid };
+			_controller.Execute( new SuiSetReferenceDataCommand( el.Id, el.SuiReference, newData ) );
+		};
+	}
+
 	private void OpenInventoryGridWizard()
 	{
 		if ( Document == null ) return;
@@ -912,6 +928,11 @@ public class SuiDesignerWindow : DockWindow, IAssetEditor
 			if ( type == SuiElementType.InventoryGrid )
 			{
 				OpenInventoryGridWizard();
+				return;
+			}
+			if ( type == SuiElementType.SuiReference )
+			{
+				OpenSuiReferencePicker();
 				return;
 			}
 			_controller.AddElement( type );
