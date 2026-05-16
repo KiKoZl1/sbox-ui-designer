@@ -321,7 +321,41 @@ public sealed class SuiDesignerController
 	{
 		if ( element == null || string.IsNullOrEmpty( newName ) ) return;
 		if ( element.Name == newName ) return; // no-op
-		Execute( new SuiRenameElementCommand( element.Id, newName ) );
+
+		// V1.5-M2-K3 — every element name has to be unique across the document
+		// so the M2-K4 codegen can use SuiReference.Name as the field
+		// identifier on the parent. If the new name already belongs to another
+		// element, auto-suffix `_2 / _3 / ...` until free, and log a Warning
+		// so the user sees what happened.
+		var resolved = ResolveUniqueRenameTarget( element, newName );
+		if ( resolved != newName )
+		{
+			Sandbox.Log.Warning( $"[SUI] Name '{newName}' already in use — renamed to '{resolved}' to keep names unique." );
+		}
+
+		Execute( new SuiRenameElementCommand( element.Id, resolved ) );
+	}
+
+	private string ResolveUniqueRenameTarget( SuiElement self, string desired )
+	{
+		if ( Document?.Elements == null ) return desired;
+		if ( !NameExistsExcept( desired, self ) ) return desired;
+		for ( int i = 2; i < 1000; i++ )
+		{
+			var candidate = $"{desired}_{i}";
+			if ( !NameExistsExcept( candidate, self ) ) return candidate;
+		}
+		return $"{desired}_{System.Guid.NewGuid().ToString( "N" ).Substring( 0, 4 )}";
+	}
+
+	private bool NameExistsExcept( string name, SuiElement skip )
+	{
+		foreach ( var el in Document.Elements )
+		{
+			if ( ReferenceEquals( el, skip ) ) continue;
+			if ( string.Equals( el.Name, name, StringComparison.OrdinalIgnoreCase ) ) return true;
+		}
+		return false;
 	}
 
 	/// <summary>
