@@ -25,7 +25,7 @@ public static class SuiSampleGenerator
 			("hotbar_basic", BuildHotbarBasic()),
 			("hud_survival", BuildHudSurvival()),
 			("composed_stat_row", BuildComposedStatRow()),
-			("auto_mount_hud", BuildAutoMountHud()),
+			("instance_hud", BuildAutoMountHud()),
 		};
 	}
 
@@ -121,17 +121,20 @@ public static class SuiSampleGenerator
 	}
 
 	// ─────────────────────────────────────────────────────────────────────
-	//  auto_mount_hud — V1.5 PerLocalPlayer demo
-	//  A minimal HUD set to Output.Mode = PerLocalPlayer. The Compile
-	//  generates a Spawner Component the user drops on a player prefab; it
-	//  auto-creates a ScreenPanel + the HUD on the local player only.
+	//  instance_hud — V1.5 Instance-mode demo
+	//  A minimal HUD set to Output.Mode = Instance. Compile generates BOTH:
+	//      - InstanceHudPanel.razor (+.scss) — the renderer PanelComponent
+	//      - InstanceHud.cs — the user-facing wrapper
+	//  Then in any Component you can:
+	//      [Property] public InstanceHud Hud { get; set; } = new();
+	//      Hud.Show(); Hud.Hide(); Hud.Remove();
 	// ─────────────────────────────────────────────────────────────────────
 	public static SuiDocument BuildAutoMountHud()
 	{
-		var doc = SuiDocument.CreateDefault( "auto_mount_hud" );
-		doc.Output.ClassName = "AutoMountHud";
+		var doc = SuiDocument.CreateDefault( "instance_hud" );
+		doc.Output.ClassName = "InstanceHud";
 		doc.Output.Namespace = "Game.UI";
-		doc.Output.Mode = SuiOutputMode.PerLocalPlayer;
+		doc.Output.Mode = SuiOutputMode.Instance;
 
 		var root = doc.GetRoot();
 		var pad = AddChild( doc, root, SuiElementType.Panel, "Pad", absolute: true );
@@ -151,7 +154,7 @@ public static class SuiSampleGenerator
 		text.Layout.X = 10;
 		text.Layout.Y = 16;
 		text.Layout.Anchor = SuiAnchor.TopLeft;
-		text.Props.Text = "PerLocalPlayer HUD ✓";
+		text.Props.Text = "Instance HUD ✓";
 		text.Props.FontSize = 16;
 		text.Props.FontWeight = SuiFontWeight.SemiBold;
 		text.Props.Color = "#e5e7eb";
