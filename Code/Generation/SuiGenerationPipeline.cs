@@ -89,7 +89,7 @@ public static class SuiGenerationPipeline
 		// markup-only so hot-reload doesn't re-spawn Components per frame).
 		if ( ctx.Mode == SuiGenerationMode.Final )
 		{
-			var aux = SuiOutputModeEmitter.Emit( doc );
+			var aux = SuiOutputModeEmitter.Emit( doc, ctx );
 			var auxName = SuiOutputModeEmitter.EmitFileName( doc );
 			if ( !string.IsNullOrEmpty( aux ) && !string.IsNullOrEmpty( auxName ) )
 				result.AddFile( SuiGeneratedFileKind.GeneratedCs, Combine( auxName ), aux );

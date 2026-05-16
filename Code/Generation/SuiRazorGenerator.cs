@@ -82,10 +82,40 @@ public sealed class SuiRazorGenerator
 	private void EmitCodeBlock()
 	{
 		var hasVars = _doc.Variables != null && _doc.Variables.Count > 0;
-		if ( !hasVars ) return;
+		var childRefs = CollectChildReferences();
+		var hasChildren = childRefs.Count > 0;
+		if ( !hasVars && !hasChildren ) return;
 
 		var body = new System.Text.StringBuilder();
 		SuiVariableEmitter.EmitProperties( _doc.Variables, body );
+
+		// V1.5-M2-K4 — named-instance fields for every SuiReference. Single
+		// instance → [Property] FieldType FieldName = new(); ForEach → List<>.
+		// Parent code reads/writes parent.FieldName.VarName; the Razor markup
+		// (EmitSuiReferenceTag) pulls Var values from the same field, so wrapper
+		// and panel stay in sync by reference.
+		foreach ( var entry in childRefs )
+		{
+			var fqType = string.IsNullOrEmpty( entry.Target.Namespace )
+				? entry.Target.ClassName
+				: $"{entry.Target.Namespace}.{entry.Target.ClassName}";
+			var fieldName = SuiNameSanitizer.ToCSharpIdentifier( entry.Element.Name );
+			if ( string.IsNullOrEmpty( fieldName ) ) continue;
+
+			if ( entry.IsForEach )
+			{
+				body.Append( "\t[Property, Group( \"Children\" )] public System.Collections.Generic.List<" )
+					.Append( fqType ).Append( "> " ).Append( fieldName )
+					.AppendLine( " { get; set; } = new();" );
+			}
+			else
+			{
+				body.Append( "\t[Property, Group( \"Children\" )] public " )
+					.Append( fqType ).Append( ' ' ).Append( fieldName )
+					.Append( " { get; set; } = new " ).Append( fqType ).AppendLine( "();" );
+			}
+		}
+
 		SuiBuildHashEmitter.EmitBuildHash( _doc.Variables, _doc.Elements, body );
 
 		if ( body.Length == 0 ) return;
@@ -95,6 +125,40 @@ public sealed class SuiRazorGenerator
 		_sb.AppendLine( "{" );
 		_sb.Append( body );
 		_sb.AppendLine( "}" );
+	}
+
+	/// <summary>
+	/// Resolved metadata for each SuiReference element in the host doc — used
+	/// both by EmitCodeBlock (to emit named-instance fields) and consumed by
+	/// EmitSuiReferenceTag (to know the field name to dereference in markup).
+	/// </summary>
+	private readonly struct ChildRefEntry
+	{
+		public readonly SuiElement Element;
+		public readonly SuiReferenceTarget Target;
+		public readonly bool IsForEach;
+		public ChildRefEntry( SuiElement el, SuiReferenceTarget tgt, bool fe )
+		{ Element = el; Target = tgt; IsForEach = fe; }
+	}
+
+	private List<ChildRefEntry> CollectChildReferences()
+	{
+		var list = new List<ChildRefEntry>();
+		if ( _doc?.Elements == null ) return list;
+
+		foreach ( var el in _doc.Elements )
+		{
+			if ( el?.Type != SuiElementType.SuiReference ) continue;
+			var data = el.SuiReference;
+			if ( data == null || string.IsNullOrEmpty( data.SourceGuid ) ) continue;
+
+			var target = _ctx?.ResolveReferencedClass?.Invoke( data.SourceGuid );
+			if ( target == null || string.IsNullOrEmpty( target.ClassName ) ) continue;
+
+			var isForEach = data.ForEach != null && !string.IsNullOrEmpty( data.ForEach.SourceVariableId );
+			list.Add( new ChildRefEntry( el, target, isForEach ) );
+		}
+		return list;
 	}
 
 	// ─────────────────────────────────────────────────────────────────────
@@ -169,67 +233,61 @@ public sealed class SuiRazorGenerator
 			return;
 		}
 
-		var fqType = string.IsNullOrEmpty( target.Namespace )
+		var childWrapperType = string.IsNullOrEmpty( target.Namespace )
 			? target.ClassName
 			: $"{target.Namespace}.{target.ClassName}";
+		var childPanelType = childWrapperType + "Panel";
+		var fieldName = SuiNameSanitizer.ToCSharpIdentifier( el.Name );
+
+		if ( string.IsNullOrEmpty( fieldName ) )
+		{
+			_sb.Append( indent ).Append( "@* SuiReference has empty/invalid Name '" ).Append( el.Name )
+				.AppendLine( "' — cannot derive C# field. *@" );
+			return;
+		}
 
 		var fe = data.ForEach;
 		var isForEach = fe != null && !string.IsNullOrEmpty( fe.SourceVariableId );
 
+		// V1.5-M2-K4 — named-instance addressing. The @code block (see
+		// EmitCodeBlock) declared a field of type ChildWrapper named after
+		// this element; the markup pulls each Variable value from that field.
+		// User code does `parent.FieldName.VarName = X` and the next render
+		// picks it up because the field is shared by reference between the
+		// wrapper (Instance mode) and the panel.
 		if ( isForEach )
 		{
-			var sourceVarName = ResolveVariableNameById( fe.SourceVariableId ) ?? "/* unresolved source var */ null";
-			_sb.Append( indent ).Append( "@foreach ( var (item, __idx) in " ).Append( sourceVarName )
-				.AppendLine( ".Select((__x, __i) => (__x, __i)) )" );
+			_sb.Append( indent ).Append( "@if ( " ).Append( fieldName ).AppendLine( " != null )" );
 			_sb.Append( indent ).AppendLine( "{" );
-			EmitSuiReferenceTag( fqType, target.PublicVariables, data.Props, fe, indent + "  " );
+			_sb.Append( indent ).Append( "  @foreach ( var __item in " ).Append( fieldName ).AppendLine( " )" );
+			_sb.Append( indent ).AppendLine( "  {" );
+			EmitNamedChildTag( childPanelType, target.PublicVariables, "__item", indent + "    " );
+			_sb.Append( indent ).AppendLine( "  }" );
 			_sb.Append( indent ).AppendLine( "}" );
 		}
 		else
 		{
-			EmitSuiReferenceTag( fqType, target.PublicVariables, data.Props, null, indent );
+			EmitNamedChildTag( childPanelType, target.PublicVariables, fieldName, indent );
 		}
 	}
 
-	private void EmitSuiReferenceTag(
-		string fqType,
+	private void EmitNamedChildTag(
+		string childPanelType,
 		System.Collections.Generic.IList<SuiVariable> targetVars,
-		Dictionary<string, System.Text.Json.Nodes.JsonNode> sourceProps,
-		SuiForEachData forEach,
+		string accessorExpr,
 		string indent )
 	{
-		_sb.Append( indent ).Append( "<" ).Append( fqType );
+		_sb.Append( indent ).Append( "<" ).Append( childPanelType );
 
 		if ( targetVars != null )
 		{
 			foreach ( var v in targetVars )
 			{
 				if ( v == null || string.IsNullOrEmpty( v.Name ) ) continue;
-
-				// ForEach overrides whatever the user put in Props for the item/index
-				// slots — runtime loop variables take precedence. Keys
-				// (Item/IndexPropId) reference Variable.Id post-migration.
-				if ( forEach != null )
-				{
-					if ( v.Id == forEach.ItemPropId )
-					{
-						_sb.Append( " " ).Append( v.Name ).Append( "=@item" );
-						continue;
-					}
-					if ( v.Id == forEach.IndexPropId )
-					{
-						_sb.Append( " " ).Append( v.Name ).Append( "=@__idx" );
-						continue;
-					}
-				}
-
-				if ( sourceProps != null && sourceProps.TryGetValue( v.Id, out var node ) && node != null )
-				{
-					var rendered = RenderPropAttribute( v, node );
-					if ( !string.IsNullOrEmpty( rendered ) )
-						_sb.Append( " " ).Append( v.Name ).Append( "=" ).Append( rendered );
-				}
-				// else: omit attribute → child uses its own Variable.Default
+				var def = SuiTypeMapper.DefaultLiteral( v.Type, v.Default );
+				_sb.Append( " " ).Append( v.Name )
+					.Append( "=@(" ).Append( accessorExpr ).Append( '?' ).Append( '.' ).Append( v.Name )
+					.Append( " ?? " ).Append( def ).Append( ")" );
 			}
 		}
 
