@@ -1,7 +1,10 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
+using System.Text.Json;
 using Editor;
 using Sandbox;
+using SboxUiDesigner.EditorUi;
 using SboxUiDesigner.Runtime;
 
 namespace SboxUiDesigner.EditorUi.Canvas;
@@ -129,9 +132,156 @@ public sealed class SuiCanvasRenderer
 			case SuiElementType.Tooltip:
 				// Runtime-only. Skip rendering.
 				break;
+			case SuiElementType.SuiReference:
+				PaintSuiReference( el, rect, opacity );
+				break;
 		}
 
 		PaintChildren( el );
+	}
+
+	// ─────────────────────────────────────────────────────────────────────
+	//  SuiReference — recursive paint of the embedded child's subtree
+	//  (M2-K0 / D-010 reversal — was originally a placeholder rectangle).
+	// ─────────────────────────────────────────────────────────────────────
+
+	/// <summary>Cache of resolved child documents keyed by SourceGuid. Lifetime = this renderer instance.</summary>
+	private readonly Dictionary<string, SuiDocument> _childDocCache = new();
+
+	private void PaintSuiReference( SuiElement el, Rect rect, float opacity )
+	{
+		// Dashed-border affordance so the user knows this rect is a sub-UI, not
+		// a regular container they can fill with children directly.
+		DrawSuiReferenceBorder( rect );
+
+		var data = el.SuiReference;
+		if ( data == null || string.IsNullOrEmpty( data.SourceGuid ) )
+		{
+			DrawSuiReferencePlaceholder( rect, "no source set" );
+			return;
+		}
+
+		var childDoc = ResolveChildDoc( data.SourceGuid );
+		if ( childDoc == null )
+		{
+			DrawSuiReferencePlaceholder( rect, "source not found" );
+			return;
+		}
+
+		var childRoot = childDoc.GetRoot();
+		if ( childRoot == null )
+		{
+			DrawSuiReferencePlaceholder( rect, "(child empty)" );
+			return;
+		}
+
+		var childCanvasW = childDoc.Canvas?.BaseWidth ?? 1920;
+		var childCanvasH = childDoc.Canvas?.BaseHeight ?? 1080;
+		if ( childCanvasW <= 0 || childCanvasH <= 0 )
+		{
+			DrawSuiReferencePlaceholder( rect, "(invalid canvas)" );
+			return;
+		}
+
+		// Layout the child in its OWN canvas space, then transform every rect
+		// into the parent's logical space scaled to fit the SuiReference bounds.
+		// This is what makes "resize the reference → contents scale with it"
+		// behave like Unreal's child widget — uniformly-stretched preview.
+		var childSolver = new SuiLayoutSolver( new Vector2( childCanvasW, childCanvasH ) );
+		childSolver.Solve( childDoc );
+
+		var scaleX = rect.Width / childCanvasW;
+		var scaleY = rect.Height / childCanvasH;
+
+		// Mutate childSolver.Rects in place: map child-local (0..baseW × 0..baseH)
+		// → parent logical (rect.X + r.x*scaleX, rect.Y + r.y*scaleY, w*scaleX, h*scaleY).
+		// childSolver is throwaway, so this mutation is safe.
+		var ids = new List<string>( childSolver.Rects.Keys );
+		foreach ( var id in ids )
+		{
+			var r = childSolver.Rects[id];
+			childSolver.Rects[id] = new Rect(
+				rect.Left + r.Left * scaleX,
+				rect.Top + r.Top * scaleY,
+				r.Width * scaleX,
+				r.Height * scaleY );
+		}
+
+		// Recurse with a child renderer using the transformed solver. The child
+		// renderer respects opacity by reading each element's own Style, so we
+		// don't need to inject the outer opacity (it would multiply twice — the
+		// child elements are independently authored).
+		var childRenderer = new SuiCanvasRenderer( childSolver, _projectAssetsRoot ) { Zoom = Zoom };
+		childRenderer.Paint( childDoc );
+	}
+
+	private SuiDocument ResolveChildDoc( string sourceGuid )
+	{
+		if ( _childDocCache.TryGetValue( sourceGuid, out var cached ) ) return cached;
+
+		try
+		{
+			var registry = SuiAssetRegistryService.Instance;
+			registry.EnsureInitialized();
+			var relPath = registry.Registry.Resolve( sourceGuid );
+			if ( string.IsNullOrEmpty( relPath ) ) { _childDocCache[sourceGuid] = null; return null; }
+
+			var full = Path.Combine( registry.ProjectRoot ?? "", relPath );
+			if ( !File.Exists( full ) ) { _childDocCache[sourceGuid] = null; return null; }
+
+			var asset = JsonSerializer.Deserialize<SuiAsset>( File.ReadAllText( full ) );
+			_childDocCache[sourceGuid] = asset?.Document;
+			return asset?.Document;
+		}
+		catch ( Exception e )
+		{
+			Log.Warning( $"[SUI] canvas resolve of '{sourceGuid}' failed: {e.Message}" );
+			_childDocCache[sourceGuid] = null;
+			return null;
+		}
+	}
+
+	private static void DrawSuiReferenceBorder( Rect rect )
+	{
+		// Purple dashed border — matches the V1.5 composition accent (same hue
+		// the bind icon uses). Painted as 4 sides of short segments so it works
+		// without a dashed-line primitive.
+		var c = new Color( 167 / 255f, 139 / 255f, 250 / 255f, 0.8f );
+		Paint.SetPen( c, 1.5f );
+		const float dashLen = 6f;
+		const float gapLen = 4f;
+		DrawDashedLine( rect.Left, rect.Top, rect.Right, rect.Top, dashLen, gapLen );
+		DrawDashedLine( rect.Right, rect.Top, rect.Right, rect.Bottom, dashLen, gapLen );
+		DrawDashedLine( rect.Right, rect.Bottom, rect.Left, rect.Bottom, dashLen, gapLen );
+		DrawDashedLine( rect.Left, rect.Bottom, rect.Left, rect.Top, dashLen, gapLen );
+	}
+
+	private static void DrawDashedLine( float x1, float y1, float x2, float y2, float dashLen, float gapLen )
+	{
+		var dx = x2 - x1;
+		var dy = y2 - y1;
+		var len = MathF.Sqrt( dx * dx + dy * dy );
+		if ( len < 0.5f ) return;
+		var nx = dx / len;
+		var ny = dy / len;
+		var pos = 0f;
+		while ( pos < len )
+		{
+			var end = MathF.Min( pos + dashLen, len );
+			Paint.DrawLine(
+				new Vector2( x1 + nx * pos, y1 + ny * pos ),
+				new Vector2( x1 + nx * end, y1 + ny * end ) );
+			pos = end + gapLen;
+		}
+	}
+
+	private static void DrawSuiReferencePlaceholder( Rect rect, string label )
+	{
+		Paint.SetBrushAndPen( new Color( 0.1f, 0.1f, 0.12f, 0.4f ) );
+		Paint.DrawRect( rect, 4 );
+		Paint.SetPen( new Color( 167 / 255f, 139 / 255f, 250 / 255f ) );
+		Paint.SetDefaultFont( 11 );
+		Paint.DrawText( rect, "Sub-UI — " + label, TextFlag.Center );
 	}
 
 	private void PaintChildren( SuiElement el )
