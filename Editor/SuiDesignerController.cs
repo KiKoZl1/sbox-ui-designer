@@ -330,7 +330,7 @@ public sealed class SuiDesignerController
 		var resolved = ResolveUniqueRenameTarget( element, newName );
 		if ( resolved != newName )
 		{
-			Sandbox.Log.Warning( $"[SUI] Name '{newName}' already in use — renamed to '{resolved}' to keep names unique." );
+			Log.Warning( $"[SUI] Name '{newName}' already in use — renamed to '{resolved}' to keep names unique." );
 		}
 
 		Execute( new SuiRenameElementCommand( element.Id, resolved ) );
