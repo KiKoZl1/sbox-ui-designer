@@ -52,7 +52,9 @@ public sealed class SuiDocument
 	/// converts each entry into a public Variable on load and clears this list.
 	/// Never written back to disk after migration runs.
 	/// </summary>
+#pragma warning disable CS0618 // SuiAcceptedProp is intentionally obsolete; schema-only field.
 	public List<SuiAcceptedProp> AcceptedProps { get; set; } = new();
+#pragma warning restore CS0618
 
 	/// <summary>
 	/// Design-time preview values for Variables and AcceptedProps (PRD 19 § 3.6).
@@ -110,6 +112,7 @@ public sealed class SuiDocument
 	/// <para>Returns the count of AcceptedProps migrated, so callers can log or
 	/// surface a one-time toast.</para>
 	/// </summary>
+#pragma warning disable CS0618 // SuiAcceptedProp is intentionally obsolete; migration source.
 	public int MigrateAcceptedPropsToPublicVariables()
 	{
 		if ( AcceptedProps == null || AcceptedProps.Count == 0 ) return 0;
@@ -174,6 +177,7 @@ public sealed class SuiDocument
 
 		return migrated;
 	}
+#pragma warning restore CS0618
 
 	/// <summary>
 	/// Generate a stable id like "el_a3f9b21c" derived from a guid.
@@ -247,7 +251,9 @@ public sealed class SuiDocument
 		};
 		foreach ( var el in Elements ) clone.Elements.Add( el.Clone() );
 		foreach ( var v in Variables ) clone.Variables.Add( v.Clone() );
+#pragma warning disable CS0618
 		foreach ( var ap in AcceptedProps ) clone.AcceptedProps.Add( ap.Clone() );
+#pragma warning restore CS0618
 		foreach ( var ev in Events ) clone.Events.Add( ev.Clone() );
 		foreach ( var an in Animations ) clone.Animations.Add( an.Clone() );
 		clone.PreviewData = PreviewData?.Clone();

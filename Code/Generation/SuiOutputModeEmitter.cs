@@ -121,9 +121,12 @@ public static class SuiOutputModeEmitter
 			var target = ctx.ResolveReferencedClass( data.SourceGuid );
 			if ( target == null || string.IsNullOrEmpty( target.ClassName ) ) continue;
 
+			// global:: prefix avoids namespace collisions when the parent
+			// namespace contains a prefix of the child's (see SuiRazorGenerator
+			// comment for the same fix).
 			var childWrapperType = string.IsNullOrEmpty( target.Namespace )
 				? target.ClassName
-				: $"{target.Namespace}.{target.ClassName}";
+				: $"global::{target.Namespace}.{target.ClassName}";
 			var fieldName = SuiNameSanitizer.ToCSharpIdentifier( el.Name );
 			if ( string.IsNullOrEmpty( fieldName ) ) continue;
 

@@ -102,17 +102,23 @@ public sealed class SuiRazorGenerator
 			var fieldName = SuiNameSanitizer.ToCSharpIdentifier( entry.Element.Name );
 			if ( string.IsNullOrEmpty( fieldName ) ) continue;
 
+			// Same global:: rationale as in EmitSuiReferenceElement — avoid
+			// namespace ambiguity inside the parent's own namespace.
+			var qualifiedType = string.IsNullOrEmpty( entry.Target.Namespace )
+				? entry.Target.ClassName
+				: $"global::{entry.Target.Namespace}.{entry.Target.ClassName}";
+
 			if ( entry.IsForEach )
 			{
 				body.Append( "\t[Property, Group( \"Children\" )] public System.Collections.Generic.List<" )
-					.Append( fqType ).Append( "> " ).Append( fieldName )
+					.Append( qualifiedType ).Append( "> " ).Append( fieldName )
 					.AppendLine( " { get; set; } = new();" );
 			}
 			else
 			{
 				body.Append( "\t[Property, Group( \"Children\" )] public " )
-					.Append( fqType ).Append( ' ' ).Append( fieldName )
-					.Append( " { get; set; } = new " ).Append( fqType ).AppendLine( "();" );
+					.Append( qualifiedType ).Append( ' ' ).Append( fieldName )
+					.Append( " { get; set; } = new " ).Append( qualifiedType ).AppendLine( "();" );
 			}
 		}
 
@@ -233,9 +239,14 @@ public sealed class SuiRazorGenerator
 			return;
 		}
 
+		// `global::` prefix avoids ambiguity when the parent's namespace
+		// happens to contain a segment that matches the start of the child's
+		// namespace (e.g. parent is Game.UI.Hud and child is Game.UI.HealthBar
+		// — without the prefix C# would resolve `Game.UI.HealthBar` as
+		// `Game.UI.Game.UI.HealthBar` from inside Game.UI).
 		var childWrapperType = string.IsNullOrEmpty( target.Namespace )
 			? target.ClassName
-			: $"{target.Namespace}.{target.ClassName}";
+			: $"global::{target.Namespace}.{target.ClassName}";
 		var childPanelType = childWrapperType + "Panel";
 		var fieldName = SuiNameSanitizer.ToCSharpIdentifier( el.Name );
 
