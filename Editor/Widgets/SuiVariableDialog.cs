@@ -105,6 +105,7 @@ public sealed class SuiVariableDialog : Window
 		pubLbl.SetStyles( "color: #9ca3af; font-size: 11px;" );
 		pubRow.Layout.Add( pubLbl );
 		_isPublicToggle = new SuiToggleField( _existingIsPublic, pubRow );
+		_isPublicToggle.FixedWidth = 80;
 		pubRow.Layout.Add( _isPublicToggle );
 		pubRow.Layout.AddStretchCell();
 		Canvas.Layout.Add( pubRow );
