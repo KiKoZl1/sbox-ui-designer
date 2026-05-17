@@ -24,4 +24,15 @@ public sealed class SuiAcceptedProp
 	public bool Required { get; set; }
 	public string Description { get; set; }
 	public string Group { get; set; }
+
+	public SuiAcceptedProp Clone() => new()
+	{
+		PropId = PropId,
+		Name = Name,
+		Type = Type,
+		Default = Default?.DeepClone(),
+		Required = Required,
+		Description = Description,
+		Group = Group,
+	};
 }
