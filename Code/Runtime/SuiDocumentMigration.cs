@@ -32,18 +32,16 @@ public static class SuiDocumentMigration
 	///   <item>Ensures <see cref="SuiDocument.Variables"/> is a non-null empty list
 	///         (V1 documents had no Variables; JSON deserialise already gives <c>[]</c>,
 	///         this just guards a hand-edited <c>null</c>).</item>
-	///   <item>Forces <c>Output.Mode = Manual</c> — V1's implicit behaviour was
-	///         "developer wires everything", which is exactly Manual. A V1 document
-	///         predates the Mode field, so this is the correct conservative default.</item>
 	///   <item>Bumps <see cref="SuiDocument.SchemaVersion"/> to 2.</item>
 	/// </list>
 	/// No element fields are rewritten; V1 documents had no bindings or variables.
+	/// V1.5-M2-K6 removed the Output.Mode field entirely — wrapper class is
+	/// always generated now, so there's no mode to set.
 	/// </summary>
 	private static void MigrateV1ToV2( SuiDocument doc )
 	{
 		doc.Variables ??= new();
 		doc.Output ??= new();
-		doc.Output.Mode = SuiOutputMode.Manual;
 		doc.SchemaVersion = 2;
 	}
 

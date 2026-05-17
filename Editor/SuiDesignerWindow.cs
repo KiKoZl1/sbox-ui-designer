@@ -143,8 +143,8 @@ public class SuiDesignerWindow : DockWindow, IAssetEditor
 			_resource.Document = doc;
 		}
 
-		// Apply schema migrations (idempotent) — V1→V2 schema bump (Variables,
-		// Output.Mode) plus the legacy Text-element size-mode fix.
+		// Apply schema migrations (idempotent) — V1→V2 schema bump (Variables)
+		// plus the legacy Text-element size-mode fix.
 		SuiDocumentMigration.Apply( doc );
 
 		// Bootstrap the Asset Registry (PRD 22 § 3.6) — idempotent; the first

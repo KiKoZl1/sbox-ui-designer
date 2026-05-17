@@ -7,7 +7,7 @@ public static class SuiSchemaVersion
 {
 	/// <summary>
 	/// Current schema version emitted by this generator.
-	/// V2 (V1.5) adds Variables (with IsPublic), Output.Mode, PreviewData — see PRD 17 § 6.
+	/// V2 (V1.5) adds Variables (with IsPublic) and PreviewData — see PRD 17 § 6.
 	/// </summary>
 	public const int Current = 2;
 

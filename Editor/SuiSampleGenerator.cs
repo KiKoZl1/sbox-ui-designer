@@ -111,11 +111,10 @@ public static class SuiSampleGenerator
 	}
 
 	// ─────────────────────────────────────────────────────────────────────
-	//  instance_hud — V1.5 Instance-mode demo
-	//  A minimal HUD set to Output.Mode = Instance. Compile generates BOTH:
-	//      - InstanceHudPanel.razor (+.scss) — the renderer PanelComponent
-	//      - InstanceHud.cs — the user-facing wrapper
-	//  Then in any Component you can:
+	//  instance_hud — V1.5-M2-K6 wrapper demo
+	//  Every .sui generates the same shape: <Name>Panel.razor (renderer) +
+	//  <Name>.cs (wrapper) with Add/Show/Hide/Remove + named-instance fields.
+	//  In any Component you can:
 	//      [Property] public InstanceHud Hud { get; set; } = new();
 	//      Hud.Show(); Hud.Hide(); Hud.Remove();
 	// ─────────────────────────────────────────────────────────────────────
@@ -124,7 +123,6 @@ public static class SuiSampleGenerator
 		var doc = SuiDocument.CreateDefault( "instance_hud" );
 		doc.Output.ClassName = "InstanceHud";
 		doc.Output.Namespace = "Game.UI";
-		doc.Output.Mode = SuiOutputMode.Instance;
 
 		var root = doc.GetRoot();
 		var pad = AddChild( doc, root, SuiElementType.Panel, "Pad", absolute: true );

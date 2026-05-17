@@ -1,51 +1,20 @@
 namespace SboxUiDesigner.Runtime;
 
 /// <summary>
-/// V1.5 — what bootstrap code the generator emits beyond the PanelComponent class
-/// (PRD 17 § 5). <see cref="Manual"/> is value 0 so a V1 document (which predates
-/// this field) deserialises to the correct conservative default automatically.
-/// </summary>
-public enum SuiOutputMode
-{
-	/// <summary>Generator emits only the class + [Property] slots; the developer handles lifetime. V1 behaviour.</summary>
-	Manual,
-
-	/// <summary>Generator emits a static factory (Show/Hide) — for menus, modals, overlays.</summary>
-	Singleton,
-
-	/// <summary>
-	/// V1.5 Instance mode (PRD 22 V1.5 revised). Generator emits BOTH the
-	/// PanelComponent renderer (<c>&lt;Name&gt;Panel</c>) AND a user-facing
-	/// wrapper class <c>&lt;Name&gt; : SuiPanel&lt;&lt;Name&gt;Panel&gt;</c>
-	/// the dev declares as a <c>[Property]</c> field on their own Component
-	/// and drives via <c>Add()/Show()/Hide()/Remove()</c>.
-	/// </summary>
-	Instance,
-
-	/// <summary>
-	/// DEPRECATED — replaced by <see cref="Instance"/> in V1.5. Older docs
-	/// auto-migrate on load. Kept as an enum value so existing
-	/// <c>.sui</c> JSON deserialises cleanly; the generator routes it to
-	/// Instance emit.
-	/// </summary>
-	[System.Obsolete( "Use Instance instead — same intent, dev-controlled lifetime instead of auto-mount." )]
-	PerLocalPlayer,
-}
-
-/// <summary>
 /// Output configuration for the compile step. Stored inside the .sui so subsequent
 /// compiles do not re-prompt the user.
+///
+/// <para>V1.5-M2-K6 — <c>Mode</c> was removed. Every <c>.sui</c> now generates
+/// the same shape: a <c>&lt;Name&gt;Panel.razor</c> renderer + a
+/// <c>&lt;Name&gt;.cs</c> wrapper extending <c>SuiPanel&lt;&lt;Name&gt;Panel&gt;</c>
+/// with <c>Add()/Show()/Hide()/Remove()</c> plus named-instance fields for any
+/// embedded child SuiReferences. One concept, one generated shape, no
+/// per-document mode decision. See DEVIATIONS D-013.</para>
 /// </summary>
 public sealed class SuiOutputSettings
 {
 	/// <summary>True once the user has chosen an output folder at least once.</summary>
 	public bool Configured { get; set; } = false;
-
-	/// <summary>
-	/// V1.5 — output mode (PRD 17 § 5). Defaults to <see cref="SuiOutputMode.Manual"/>;
-	/// the V1 → V2 migration sets it explicitly for legacy documents.
-	/// </summary>
-	public SuiOutputMode Mode { get; set; } = SuiOutputMode.Manual;
 
 	/// <summary>
 	/// Project-relative output folder for generated files. e.g.
@@ -75,7 +44,6 @@ public sealed class SuiOutputSettings
 	public SuiOutputSettings Clone() => new()
 	{
 		Configured = Configured,
-		Mode = Mode,
 		RootFolder = RootFolder,
 		Namespace = Namespace,
 		ClassName = ClassName,

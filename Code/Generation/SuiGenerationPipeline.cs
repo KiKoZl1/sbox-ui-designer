@@ -44,17 +44,11 @@ public static class SuiGenerationPipeline
 			: !string.IsNullOrEmpty( doc.Output?.Namespace ) ? doc.Output.Namespace
 			: "Game.UI";
 
-		// V1.5 — Instance mode splits the generated names: the renderer becomes
-		// <Name>Panel (PanelComponent emitted from .razor), and a separate
-		// <Name>.cs file exposes the user-facing wrapper class. We rewrite
-		// ctx.ClassName here so the rest of the pipeline (razor + scss) uses
-		// the *Panel suffix, while the wrapper emitter pulls from
-		// WrapperClassName.
-#pragma warning disable CS0618 // PerLocalPlayer is obsolete; legacy auto-route.
-		var isInstance = doc.Output?.Mode == SuiOutputMode.Instance
-			|| doc.Output?.Mode == SuiOutputMode.PerLocalPlayer;
-#pragma warning restore CS0618
-		if ( isInstance && ctx.Mode == SuiGenerationMode.Final )
+		// V1.5-M2-K6 — every .sui splits the generated names: the renderer
+		// becomes <Name>Panel (PanelComponent emitted from .razor), and a
+		// separate <Name>.cs file exposes the user-facing wrapper class.
+		// Always — no per-document mode toggle.
+		if ( ctx.Mode == SuiGenerationMode.Final )
 		{
 			ctx.WrapperClassName = ctx.ClassName;
 			ctx.ClassName = ctx.ClassName + "Panel";
@@ -84,15 +78,15 @@ public static class SuiGenerationPipeline
 		if ( !string.IsNullOrEmpty( scss ) )
 			result.AddFile( SuiGeneratedFileKind.Scss, Combine( $"{ctx.ClassName}.razor.scss" ), scss );
 
-		// V1.5-M2 — Output-mode aux file (Spawner/Factory). Only Final mode writes
-		// the bootstrap aux file; Preview mode skips it (preview cache stays
+		// V1.5-M2-K6 — wrapper class is always generated alongside the
+		// PanelComponent renderer. Preview mode skips it (preview cache stays
 		// markup-only so hot-reload doesn't re-spawn Components per frame).
 		if ( ctx.Mode == SuiGenerationMode.Final )
 		{
-			var aux = SuiOutputModeEmitter.Emit( doc, ctx );
-			var auxName = SuiOutputModeEmitter.EmitFileName( doc );
-			if ( !string.IsNullOrEmpty( aux ) && !string.IsNullOrEmpty( auxName ) )
-				result.AddFile( SuiGeneratedFileKind.GeneratedCs, Combine( auxName ), aux );
+			var wrapper = SuiWrapperEmitter.Emit( doc, ctx );
+			var wrapperName = SuiWrapperEmitter.EmitFileName( doc );
+			if ( !string.IsNullOrEmpty( wrapper ) && !string.IsNullOrEmpty( wrapperName ) )
+				result.AddFile( SuiGeneratedFileKind.GeneratedCs, Combine( wrapperName ), wrapper );
 		}
 
 		return result;

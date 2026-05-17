@@ -31,9 +31,10 @@ public sealed class SuiGenerationContext
 	public string Namespace { get; set; }
 
 	/// <summary>
-	/// V1.5 — when <c>Output.Mode == Instance</c> the renderer (<see cref="ClassName"/>)
-	/// is renamed to <c>&lt;UserName&gt;Panel</c> and this field carries the
-	/// user-facing wrapper class name <c>&lt;UserName&gt;</c>. Null in other modes.
+	/// V1.5-M2-K6 — the renderer (<see cref="ClassName"/>) is always renamed to
+	/// <c>&lt;UserName&gt;Panel</c> at Final-mode pipeline entry, and this
+	/// field carries the user-facing wrapper class name <c>&lt;UserName&gt;</c>.
+	/// Null in Preview mode.
 	/// </summary>
 	public string WrapperClassName { get; set; }
 
