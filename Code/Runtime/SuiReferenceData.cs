@@ -18,7 +18,9 @@ public sealed class SuiReferenceData
 	public string SourceGuid { get; set; }
 
 	/// <summary>
-	/// Per-prop value map keyed by <see cref="SuiAcceptedProp.PropId"/>. Value is
+	/// V1.5-M2-K: per-prop value map keyed by <see cref="SuiVariable.Id"/>
+	/// (of the child doc's public Variables — those with IsPublic=true).
+	/// Value is
 	/// either a JSON literal or a binding object (<c>{ "$bind": { ... } }</c> shape,
 	/// PRD 19 § 3.4). Missing keys fall back to the child's <c>Default</c>.
 	/// </summary>

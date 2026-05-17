@@ -66,11 +66,6 @@ public static class SuiReferenceResolver
 					return null;
 				}
 
-				// Migrate legacy AcceptedProps → public Variables before reading
-				// so codegen sees the V1.5-M2-K shape regardless of when the
-				// referenced .sui was last saved.
-				doc.MigrateAcceptedPropsToPublicVariables();
-
 				var className = doc.Output?.ClassName;
 				if ( string.IsNullOrEmpty( className ) )
 				{

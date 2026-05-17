@@ -40,7 +40,7 @@ public sealed class SuiGenerationContext
 	/// <summary>
 	/// V1.5 — resolves a SuiReference SourceGuid to a
 	/// <see cref="SuiReferenceTarget"/> carrying the embedded child's generated
-	/// <c>(Namespace, ClassName, AcceptedProps)</c>. Lets the generator emit
+	/// <c>(Namespace, ClassName, PublicVariables)</c>. Lets the generator emit
 	/// the correct <c>&lt;Game.UI.InventorySlot ... /&gt;</c> tag without
 	/// touching the Asset Registry directly. Editor populates this from
 	/// <c>SuiAssetRegistryService.Instance</c> + reading each referenced doc's

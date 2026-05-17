@@ -215,7 +215,7 @@ public sealed class SuiRazorGenerator
 
 	/// <summary>
 	/// Emit a SuiReference as an embedded child component tag. Resolves the
-	/// child's namespace+class+AcceptedProps via <see cref="SuiGenerationContext.ResolveReferencedClass"/>,
+	/// child's namespace+class+PublicVariables via <see cref="SuiGenerationContext.ResolveReferencedClass"/>,
 	/// renders each <c>Props</c> entry as <c>Name=@expression</c> or <c>Name="literal"</c>,
 	/// and wraps the whole thing in <c>@foreach</c> when <c>ForEach</c> is set
 	/// (PRD 19 § 7.1 + 7.2).

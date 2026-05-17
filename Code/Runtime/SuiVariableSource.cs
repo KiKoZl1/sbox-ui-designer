@@ -14,15 +14,6 @@ public enum SuiVariableSourceKind
 
 	/// <summary>Value is computed by an ActionGraph each <c>BuildHash()</c> evaluation (PRD 18 § 3.5.3).</summary>
 	FromActionGraph,
-
-	/// <summary>
-	/// V1.5-M2-K — DEPRECATED. Variables with this source kind are migrated to
-	/// <see cref="Manual"/> on load (see
-	/// <see cref="SuiDocument.MigrateAcceptedPropsToPublicVariables"/>). The
-	/// enum value is kept only so JSON deserialise of legacy schema doesn't
-	/// throw. New documents never write this kind. See DEVIATIONS D-005.
-	/// </summary>
-	FromAcceptedProp,
 }
 
 /// <summary>
@@ -46,17 +37,11 @@ public sealed class SuiVariableSource
 	/// <summary>Project-relative path to the <c>.action</c> asset that computes the value.</summary>
 	public string ActionGraphAssetPath { get; set; }
 
-	// ---------- FromAcceptedProp ----------
-
-	/// <summary>Id of the <see cref="SuiAcceptedProp"/> this Variable mirrors (PRD 19 § 3.2).</summary>
-	public string PropId { get; set; }
-
 	public SuiVariableSource Clone() => new()
 	{
 		Kind = Kind,
 		ComponentVariableId = ComponentVariableId,
 		PropertyPath = PropertyPath,
 		ActionGraphAssetPath = ActionGraphAssetPath,
-		PropId = PropId,
 	};
 }

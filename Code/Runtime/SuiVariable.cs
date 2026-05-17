@@ -54,7 +54,7 @@ public sealed class SuiVariable
 	/// "IsVariable / Is Public" widget-property semantics.</para>
 	///
 	/// <para>This flag is the V1.5-M2-K replacement for the separate
-	/// <c>SuiAcceptedProp</c> concept (see DEVIATIONS D-005). One concept,
+	/// AcceptedProp concept (see DEVIATIONS D-005). One concept,
 	/// flag-based exposure.</para>
 	/// </summary>
 	public bool IsPublic { get; set; } = false;

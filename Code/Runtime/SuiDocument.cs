@@ -46,18 +46,7 @@ public sealed class SuiDocument
 	public List<SuiVariable> Variables { get; set; } = new();
 
 	/// <summary>
-	/// V1.5-M2-K — DEPRECATED. AcceptedProps merged into <see cref="SuiVariable.IsPublic"/>
-	/// (DEVIATIONS D-005). Kept on the schema only so JSON deserialise still works
-	/// for documents authored before the merge; <see cref="MigrateAcceptedPropsToPublicVariables"/>
-	/// converts each entry into a public Variable on load and clears this list.
-	/// Never written back to disk after migration runs.
-	/// </summary>
-#pragma warning disable CS0618 // SuiAcceptedProp is intentionally obsolete; schema-only field.
-	public List<SuiAcceptedProp> AcceptedProps { get; set; } = new();
-#pragma warning restore CS0618
-
-	/// <summary>
-	/// Design-time preview values for Variables and AcceptedProps (PRD 19 § 3.6).
+	/// Design-time preview values for Variables (PRD 19 § 3.6).
 	/// Read by the canvas renderer only; never emitted to generated code. Null
 	/// when the user hasn't authored any overrides.
 	/// </summary>
@@ -99,85 +88,6 @@ public sealed class SuiDocument
 		return null;
 	}
 
-	/// <summary>
-	/// V1.5-M2-K migration — fold each <see cref="SuiAcceptedProp"/> into a
-	/// public <see cref="SuiVariable"/> (IsPublic = true). Called on load. Idempotent:
-	/// safe to call multiple times; after the first call <see cref="AcceptedProps"/>
-	/// is empty and the method is a no-op.
-	///
-	/// <para>Existing Variables whose <c>Source.Kind == FromAcceptedProp</c> are
-	/// converted to Manual sources (the bridge alias is no longer needed because
-	/// the public Variable IS the contract now).</para>
-	///
-	/// <para>Returns the count of AcceptedProps migrated, so callers can log or
-	/// surface a one-time toast.</para>
-	/// </summary>
-#pragma warning disable CS0618 // SuiAcceptedProp is intentionally obsolete; migration source.
-	public int MigrateAcceptedPropsToPublicVariables()
-	{
-		if ( AcceptedProps == null || AcceptedProps.Count == 0 ) return 0;
-
-		var migrated = 0;
-		Variables ??= new List<SuiVariable>();
-
-		foreach ( var prop in AcceptedProps )
-		{
-			if ( prop == null || string.IsNullOrEmpty( prop.Name ) ) continue;
-
-			// Already mirrored? If a FromAcceptedProp Variable points at this
-			// PropId, upgrade it in place rather than creating a duplicate.
-			SuiVariable existingBridge = null;
-			foreach ( var v in Variables )
-			{
-				if ( v?.Source?.Kind == SuiVariableSourceKind.FromAcceptedProp
-					&& v.Source.PropId == prop.PropId )
-				{
-					existingBridge = v;
-					break;
-				}
-			}
-
-			if ( existingBridge != null )
-			{
-				existingBridge.IsPublic = true;
-				existingBridge.Type = prop.Type ?? existingBridge.Type;
-				existingBridge.Default = prop.Default?.DeepClone() ?? existingBridge.Default;
-				existingBridge.Description = string.IsNullOrEmpty( existingBridge.Description ) ? prop.Description : existingBridge.Description;
-				existingBridge.Group = string.IsNullOrEmpty( existingBridge.Group ) ? prop.Group : existingBridge.Group;
-				existingBridge.Source = new SuiVariableSource { Kind = SuiVariableSourceKind.Manual };
-			}
-			else
-			{
-				Variables.Add( new SuiVariable
-				{
-					Id = SuiVariable.NewVariableId(),
-					Name = prop.Name,
-					Type = prop.Type ?? "string",
-					Default = prop.Default?.DeepClone(),
-					Description = prop.Description,
-					Group = prop.Group,
-					IsPublic = true,
-					Source = new SuiVariableSource { Kind = SuiVariableSourceKind.Manual },
-				} );
-			}
-			migrated++;
-		}
-
-		AcceptedProps.Clear();
-
-		// Cleanup orphan FromAcceptedProp bridges that referenced PropIds NOT in
-		// the migrated list (defensive; shouldn't happen in healthy docs).
-		foreach ( var v in Variables )
-		{
-			if ( v?.Source?.Kind == SuiVariableSourceKind.FromAcceptedProp )
-			{
-				v.Source = new SuiVariableSource { Kind = SuiVariableSourceKind.Manual };
-			}
-		}
-
-		return migrated;
-	}
-#pragma warning restore CS0618
 
 	/// <summary>
 	/// Generate a stable id like "el_a3f9b21c" derived from a guid.
@@ -251,9 +161,6 @@ public sealed class SuiDocument
 		};
 		foreach ( var el in Elements ) clone.Elements.Add( el.Clone() );
 		foreach ( var v in Variables ) clone.Variables.Add( v.Clone() );
-#pragma warning disable CS0618
-		foreach ( var ap in AcceptedProps ) clone.AcceptedProps.Add( ap.Clone() );
-#pragma warning restore CS0618
 		foreach ( var ev in Events ) clone.Events.Add( ev.Clone() );
 		foreach ( var an in Animations ) clone.Animations.Add( an.Clone() );
 		clone.PreviewData = PreviewData?.Clone();

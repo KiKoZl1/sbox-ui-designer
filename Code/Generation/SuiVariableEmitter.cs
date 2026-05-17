@@ -11,10 +11,9 @@ namespace SboxUiDesigner.Generation;
 /// Razor expressions.
 ///
 /// V1.5-M2-K — every Variable is a normal [Property]. The legacy
-/// FromAcceptedProp alias path was removed alongside the AcceptedProp
-/// concept (DEVIATIONS D-005); the migration pass on SuiDocument fold those
-/// Variables to Manual sources at load time. FromComponent / FromActionGraph
-/// remain TODO for M3.
+/// AcceptedProp concept was removed entirely (DEVIATIONS D-005); IsPublic
+/// flag on Variable replaces it. FromComponent / FromActionGraph remain
+/// TODO for M3.
 /// </summary>
 public static class SuiVariableEmitter
 {

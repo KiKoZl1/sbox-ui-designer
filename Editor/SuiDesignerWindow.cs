@@ -107,14 +107,6 @@ public class SuiDesignerWindow : DockWindow, IAssetEditor
 		_resource ??= new SuiAsset();
 
 		var doc = _resource.Document;
-
-		// V1.5-M2-K migration — fold legacy AcceptedProps into public Variables.
-		// Idempotent: skips when the list is already empty.
-		var migrated = doc?.MigrateAcceptedPropsToPublicVariables() ?? 0;
-		if ( migrated > 0 )
-		{
-			Log.Info( $"[SUI] Migrated {migrated} AcceptedProp(s) to public Variables in '{asset?.Name ?? "(unsaved)"}'. Save to persist." );
-		}
 		_loadLikelyFailed = false;
 
 		if ( doc == null || doc.Elements.Count == 0 )
