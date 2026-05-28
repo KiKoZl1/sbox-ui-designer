@@ -140,9 +140,46 @@ public sealed class SuiDocument
 		root.Layout.Height = doc.Canvas.BaseHeight;
 		doc.Elements.Add( root );
 
-		doc.Output.ClassName = SuiDocumentValidator.SanitizeClassName( documentName );
+		// Use the C# identifier shape, NOT the CSS class shape. `test_hud` should
+		// become `TestHud`, not `test-hud`. (`SuiDocumentValidator.SanitizeClassName`
+		// is misnamed — it sanitizes for CSS, and was the original source of the
+		// "test-hud" class-name confusion that triggered the M2-K6 wrapper bug.)
+		doc.Output.ClassName = ToCSharpIdentifier( documentName );
 
 		return doc;
+	}
+
+	/// <summary>
+	/// Sanitize an arbitrary string into a valid PascalCase C# identifier
+	/// suitable for use as a class name. Letters and digits pass through (digits
+	/// first → prefixed with `_`); separators (`-`, `_`, space, etc.) act as
+	/// word breaks that capitalize the next letter.
+	/// </summary>
+	/// <remarks>
+	/// Mirrors <c>SboxUiDesigner.Generation.SuiNameSanitizer.ToCSharpIdentifier</c>
+	/// — duplicated here so the Runtime layer doesn't need to reference Generation.
+	/// </remarks>
+	private static string ToCSharpIdentifier( string raw )
+	{
+		if ( string.IsNullOrEmpty( raw ) ) return "_";
+		var sb = new System.Text.StringBuilder( raw.Length );
+		var capitalizeNext = true;
+		foreach ( var ch in raw )
+		{
+			if ( char.IsLetterOrDigit( ch ) )
+			{
+				sb.Append( capitalizeNext ? char.ToUpperInvariant( ch ) : ch );
+				capitalizeNext = false;
+			}
+			else
+			{
+				capitalizeNext = sb.Length > 0;
+			}
+		}
+		var s = sb.ToString();
+		if ( s.Length == 0 ) return "_";
+		if ( char.IsDigit( s[0] ) ) s = "_" + s;
+		return s;
 	}
 
 	public SuiDocument Clone()
