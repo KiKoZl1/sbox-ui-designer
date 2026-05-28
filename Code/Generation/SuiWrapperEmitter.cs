@@ -32,7 +32,14 @@ public static class SuiWrapperEmitter
 	public static string Emit( SuiDocument doc, SuiGenerationContext ctx = null )
 	{
 		if ( doc?.Output == null ) return null;
-		var className = doc.Output.ClassName;
+
+		// Use the sanitized wrapper name the pipeline already produced — falls
+		// back to a fresh sanitize of the raw Output.ClassName when ctx is null
+		// (called outside the normal pipeline). Without this, names with
+		// hyphens / underscores / spaces leak straight into C# and fail.
+		var className = !string.IsNullOrEmpty( ctx?.WrapperClassName )
+			? ctx.WrapperClassName
+			: SuiNameSanitizer.ToCSharpIdentifier( doc.Output.ClassName );
 		var ns = doc.Output.Namespace ?? "Game.UI";
 		if ( string.IsNullOrEmpty( className ) ) return null;
 
@@ -79,7 +86,9 @@ public static class SuiWrapperEmitter
 	public static string EmitFileName( SuiDocument doc )
 	{
 		var className = doc?.Output?.ClassName;
-		return string.IsNullOrEmpty( className ) ? null : className + ".cs";
+		if ( string.IsNullOrEmpty( className ) ) return null;
+		// Match what Emit() actually writes — sanitized identifier, not the raw input.
+		return SuiNameSanitizer.ToCSharpIdentifier( className ) + ".cs";
 	}
 
 	// ─────────────────────────────────────────────────────────────────────
