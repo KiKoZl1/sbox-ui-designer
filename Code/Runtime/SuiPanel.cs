@@ -75,19 +75,19 @@ public abstract class SuiPanel<TView> where TView : Panel, new()
 			return;
 		}
 
-		MountedObject = scene.CreateObject( false );
+		// V1.5-M2-K7 — create the GameObject ENABLED so OnEnabled fires on
+		// the host's PanelComponent immediately, populating Host.Panel before
+		// we try to attach the View. Original semantics ("Add creates hidden,
+		// Show makes visible") gave us a null Host.Panel because OnEnabled
+		// was waiting on Enabled=true. If the caller wants a pre-warm without
+		// visibility, they can Add() then Hide().
+		MountedObject = scene.CreateObject( true );
 		MountedObject.Name = typeof( TView ).Name + "_Mount";
 		if ( parent.IsValid() ) MountedObject.SetParent( parent );
 
 		MountedObject.Components.Create<ScreenPanel>();
 		Host = MountedObject.Components.Create<SuiHostPanelComponent>();
 
-		// SuiHostPanelComponent.Panel becomes available once OnEnabled fires.
-		// MountedObject was created disabled; enabling it (Show) will trigger
-		// OnEnabled, at which point Host.Panel exists. So we defer the actual
-		// Panel instantiation + parenting to the first Show() / RefreshView().
-		// To still let user code touch field mirrors before Show(), we keep
-		// the Panel field cached at the wrapper level (View) and lazy-create it.
 		EnsureViewAttached();
 	}
 
