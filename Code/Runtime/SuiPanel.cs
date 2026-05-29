@@ -58,14 +58,41 @@ public abstract class SuiPanel<TView> where TView : Panel, new()
 	public bool IsMounted => MountedObject.IsValid();
 
 	/// <summary>
-	/// True when mounted AND the View is currently visible. We toggle visibility
-	/// on the <see cref="View"/>'s CSS display (V1.5-M2-K7-bugfix) rather than
-	/// the GameObject's Enabled flag — disabling the GO triggers the host
-	/// PanelComponent's OnDisabled which destroys the Panel root, leaving
-	/// <see cref="View"/> orphan when Show() re-enables.
+	/// True when the wrapper considers itself "visible". For a standalone
+	/// (mounted) wrapper this drives the View's CSS display; for an embedded
+	/// wrapper (used as a SuiReference child of another wrapper) this flag is
+	/// hashed into <see cref="ContentHash"/> so the parent re-renders and the
+	/// nested tag emits <c>display: none</c> inline.
 	/// </summary>
 	[Hide, System.Text.Json.Serialization.JsonIgnore]
-	public bool IsShown => MountedObject.IsValid() && View != null && View.Style.Display != DisplayMode.None;
+	public bool IsShown => _isVisible;
+
+	[Hide, System.Text.Json.Serialization.JsonIgnore]
+	private bool _isVisible = true;
+
+	/// <summary>
+	/// True when this wrapper has been claimed as the child of another wrapper
+	/// (via the generated <c>SyncFieldsTo</c> call). Embedded wrappers don't
+	/// own a mount — their View is constructed by the parent's Razor markup —
+	/// so <see cref="Show"/> on an embedded wrapper must NOT auto-mount or
+	/// you get a phantom second copy floating in the scene (V1.5-M2-K7-bugfix:
+	/// "TestInnerHide press Slot3 spawned a duplicate HudBindtest" bug).
+	/// </summary>
+	[Hide, System.Text.Json.Serialization.JsonIgnore]
+	public bool IsEmbedded { get; private set; }
+
+	/// <summary>Generator hook — called from the parent's <c>SyncFieldsTo</c>.</summary>
+	public void MarkEmbedded() => IsEmbedded = true;
+
+	/// <summary>
+	/// Inline-style fragment emitted into the parent's Razor markup so that
+	/// an embedded wrapper's <see cref="Hide"/> takes effect on the nested
+	/// Panel without us having to escape ternary expressions inside the
+	/// generated <c>style="..."</c> attribute. Returns null when visible
+	/// (Razor swallows null → no attribute), <c>"display: none;"</c> when not.
+	/// </summary>
+	[Hide, System.Text.Json.Serialization.JsonIgnore]
+	public string HiddenStyle => _isVisible ? null : "display: none;";
 
 	/// <summary>
 	/// Mount the panel as a child of <paramref name="parent"/> (or scene root
@@ -96,21 +123,24 @@ public abstract class SuiPanel<TView> where TView : Panel, new()
 		EnsureViewAttached();
 	}
 
-	/// <summary>Mount-if-needed + visible. The common one-call entry point.</summary>
+	/// <summary>
+	/// Mark visible. For a standalone wrapper this auto-mounts (one-call
+	/// entry from gameplay code: <c>Hud.Show();</c>). For an embedded wrapper
+	/// this only flips <see cref="IsShown"/>; the parent's next render
+	/// reflects it via the nested tag's inline style.
+	/// </summary>
 	public void Show( GameObject parent = null )
 	{
-		if ( !MountedObject.IsValid() ) Add( parent );
+		_isVisible = true;
+		if ( !IsEmbedded && !MountedObject.IsValid() ) Add( parent );
 		EnsureViewAttached();
-		// V1.5-M2-K7-bugfix — toggle CSS display, NOT GameObject.Enabled.
-		// Disabling the GO destroys Host.Panel; the View then becomes orphan
-		// and a subsequent Show() can't bring it back. Style.Display on the
-		// View itself keeps the whole tree alive.
 		if ( View != null ) View.Style.Display = DisplayMode.Flex;
 	}
 
-	/// <summary>Hide without tearing down — cheaper than Remove + re-Add.</summary>
+	/// <summary>Mark hidden. Standalone: View.Style.Display = None. Embedded: flag only; parent re-renders with inline style.</summary>
 	public void Hide()
 	{
+		_isVisible = false;
 		if ( View != null ) View.Style.Display = DisplayMode.None;
 	}
 
@@ -164,4 +194,17 @@ public abstract class SuiPanel<TView> where TView : Panel, new()
 	/// <see cref="View"/> [Property]. Called on Add() / Show() / RefreshView().
 	/// </summary>
 	protected abstract void SyncFieldsTo( TView view );
+
+	/// <summary>
+	/// Aggregate hash of every field that can affect rendering — own Variables
+	/// plus the recursive <see cref="ContentHash"/> of every child wrapper.
+	/// The generated wrapper class overrides this. Used by the parent's
+	/// Razor <c>BuildHash()</c> so that a mutation at any depth
+	/// (<c>grand.parent.hud.Health -= 10</c>) bubbles up and triggers a
+	/// re-render at every level — without it, Razor only catches changes to
+	/// the direct child's PublicVariables and deeper mutations look invisible.
+	/// Base contribution is <see cref="IsShown"/> so Hide/Show on an embedded
+	/// wrapper also bubbles up.
+	/// </summary>
+	public virtual int ContentHash() => _isVisible ? 1 : 0;
 }

@@ -78,6 +78,14 @@ public static class SuiWrapperEmitter
 		EmitVariableAssignments( doc, sb, "view" );
 		EmitChildReferenceAssignments( doc, ctx, sb, "view" );
 		sb.AppendLine( "\t}" );
+
+		// V1.5-M2-K7-bugfix — recursive content hash. Without this, mutating a
+		// grandchild Variable doesn't change the grandparent Razor's BuildHash
+		// (the grandparent only sees its direct child's PublicVariables — the
+		// inner ones are invisible). Each wrapper hashes its own Manual
+		// Variables plus the recursive ContentHash() of every child wrapper.
+		EmitContentHash( doc, ctx, sb );
+
 		sb.AppendLine( "}" );
 		return sb.ToString();
 	}
@@ -164,6 +172,69 @@ public static class SuiWrapperEmitter
 		}
 	}
 
+	// ─────────────────────────────────────────────────────────────────────
+	//  ContentHash override — recursive aggregate for nested re-render
+	// ─────────────────────────────────────────────────────────────────────
+
+	private static void EmitContentHash( SuiDocument doc, SuiGenerationContext ctx, StringBuilder sb )
+	{
+		sb.AppendLine();
+		sb.AppendLine( "\tpublic override int ContentHash()" );
+		sb.AppendLine( "\t{" );
+		sb.AppendLine( "\t\tvar h = new global::System.HashCode();" );
+
+		// V1.5-M2-K7-bugfix — IsShown FIRST so Hide/Show on an embedded wrapper
+		// invalidates the parent's BuildHash and triggers a re-render that
+		// skips the @if guard around the nested tag. Without this entry the
+		// flip is silent and embedded Hide() does nothing visible.
+		sb.AppendLine( "\t\th.Add( IsShown );" );
+
+		// Own Manual Variables (every type, public or private — anything that
+		// affects rendering needs to contribute).
+		if ( doc.Variables != null )
+		{
+			foreach ( var v in doc.Variables )
+			{
+				if ( v == null || string.IsNullOrEmpty( v.Name ) ) continue;
+				if ( (v.Source?.Kind ?? SuiVariableSourceKind.Manual) != SuiVariableSourceKind.Manual ) continue;
+				sb.Append( "\t\th.Add( " ).Append( v.Name ).AppendLine( " );" );
+			}
+		}
+
+		// Recursive child wrappers — single → ContentHash(); ForEach → Count
+		// plus a per-item ContentHash() so mutations inside a list item
+		// invalidate the parent too.
+		if ( doc.Elements != null && ctx?.ResolveReferencedClass != null )
+		{
+			foreach ( var el in doc.Elements )
+			{
+				if ( el?.Type != SuiElementType.SuiReference ) continue;
+				var data = el.SuiReference;
+				if ( data == null || string.IsNullOrEmpty( data.SourceGuid ) ) continue;
+				var target = ctx.ResolveReferencedClass( data.SourceGuid );
+				if ( target == null || string.IsNullOrEmpty( target.ClassName ) ) continue;
+				var fieldName = SuiNameSanitizer.ToCSharpIdentifier( el.Name );
+				if ( string.IsNullOrEmpty( fieldName ) ) continue;
+
+				var isForEach = data.ForEach != null && !string.IsNullOrEmpty( data.ForEach.SourceVariableId );
+				if ( isForEach )
+				{
+					sb.Append( "\t\th.Add( " ).Append( fieldName ).AppendLine( "?.Count ?? 0 );" );
+					sb.Append( "\t\tif ( " ).Append( fieldName ).AppendLine( " != null )" );
+					sb.Append( "\t\t\tforeach ( var __item in " ).Append( fieldName ).AppendLine( " )" );
+					sb.AppendLine( "\t\t\t\th.Add( __item?.ContentHash() ?? 0 );" );
+				}
+				else
+				{
+					sb.Append( "\t\th.Add( " ).Append( fieldName ).AppendLine( "?.ContentHash() ?? 0 );" );
+				}
+			}
+		}
+
+		sb.AppendLine( "\t\treturn h.ToHashCode();" );
+		sb.AppendLine( "\t}" );
+	}
+
 	private static void EmitChildReferenceAssignments( SuiDocument doc, SuiGenerationContext ctx, StringBuilder sb, string varName )
 	{
 		if ( doc?.Elements == null || ctx?.ResolveReferencedClass == null ) return;
@@ -179,6 +250,22 @@ public static class SuiWrapperEmitter
 
 			sb.Append( "\t\t" ).Append( varName ).Append( '.' ).Append( fieldName )
 				.Append( " = " ).Append( fieldName ).AppendLine( ";" );
+
+			// V1.5-M2-K7-bugfix — flag the child wrapper as embedded so its
+			// Show()/Hide() don't accidentally spawn a second standalone mount
+			// (the duplicate-Hud bug seen in TestInnerHide). ForEach items each
+			// need the same flag, hence the conditional walk for lists.
+			var isForEach = data.ForEach != null && !string.IsNullOrEmpty( data.ForEach.SourceVariableId );
+			if ( isForEach )
+			{
+				sb.Append( "\t\tif ( " ).Append( fieldName ).AppendLine( " != null )" );
+				sb.Append( "\t\t\tforeach ( var __item in " ).Append( fieldName ).AppendLine( " )" );
+				sb.AppendLine( "\t\t\t\t__item?.MarkEmbedded();" );
+			}
+			else
+			{
+				sb.Append( "\t\t" ).Append( fieldName ).AppendLine( "?.MarkEmbedded();" );
+			}
 		}
 	}
 }

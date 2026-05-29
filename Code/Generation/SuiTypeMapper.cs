@@ -48,7 +48,14 @@ public static class SuiTypeMapper
 			"Resource"  => "global::Sandbox.GameResource",
 			"Sound"     => "global::Sandbox.SoundEvent",
 			"Material"  => "global::Sandbox.Material",
-			_           => "object",
+			// V1.5-M2-K7 — unknown TypeRef is taken as a C# type identifier in
+			// scope at the call site (e.g. another SUI-generated wrapper class
+			// like `Slot` that resolves via `@namespace Game.UI` on the parent
+			// Razor file). Falling back to `object` silently broke `List<Slot>`
+			// in TestForEach — the parent's `Items` ended up `List<object>` and
+			// callers couldn't do `Items.Count`. Empty stays `object` because
+			// there's literally no name to reference.
+			_           => typeRef,
 		};
 	}
 

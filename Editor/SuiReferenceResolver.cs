@@ -81,11 +81,28 @@ public static class SuiReferenceResolver
 						if ( v != null && v.IsPublic ) publics.Add( v );
 				}
 
+				// Sanitized names of the target's own SuiReference elements.
+				// The Razor parent forwards its grandchild wrappers via these
+				// field names so depth-2+ stays connected to the user state
+				// (the "TestGrand Slot1/Slot2 don't propagate" bug).
+				var childRefNames = new System.Collections.Generic.List<string>();
+				if ( doc.Elements != null )
+				{
+					foreach ( var childEl in doc.Elements )
+					{
+						if ( childEl?.Type != SuiElementType.SuiReference ) continue;
+						var fname = SuiNameSanitizer.ToCSharpIdentifier( childEl.Name );
+						if ( string.IsNullOrEmpty( fname ) ) continue;
+						childRefNames.Add( fname );
+					}
+				}
+
 				var target = new SuiReferenceTarget
 				{
 					Namespace = doc.Output?.Namespace,
 					ClassName = className,
 					PublicVariables = publics,
+					ChildReferenceFieldNames = childRefNames,
 				};
 				cache[guid] = target;
 				return target;

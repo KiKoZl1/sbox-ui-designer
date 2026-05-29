@@ -23,4 +23,15 @@ public sealed class SuiReferenceTarget
 	/// <c>SuiReferenceData.Props</c> map.
 	/// </summary>
 	public IList<SuiVariable> PublicVariables { get; set; }
+
+	/// <summary>
+	/// Sanitized field names of every <see cref="SuiElementType.SuiReference"/>
+	/// element inside the target doc. The Razor parent needs these so it can
+	/// pass its own grandchild wrapper references INTO the nested
+	/// <c>&lt;ChildPanel ChildField=@(field?.ChildField) /&gt;</c> tag —
+	/// without that, the freshly Razor-constructed child Panel starts with
+	/// default child wrappers and never reflects the grandparent's state
+	/// (the "TestGrand Slot1/Slot2 don't propagate" bug).
+	/// </summary>
+	public IList<string> ChildReferenceFieldNames { get; set; }
 }

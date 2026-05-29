@@ -123,6 +123,8 @@ public sealed class SuiRazorGenerator
 					.Append( qualifiedType ).Append( "> " ).Append( fieldName )
 					.AppendLine( " { get; set; } = new();" );
 				// ForEach hash: count is the cheap signal (re-render on add/remove).
+				// Per-item ContentHash() also contributes via the body line below,
+				// but Count goes in first as the cheapest invariant.
 				childHashExprs.Add( fieldName + "?.Count ?? 0" );
 			}
 			else
@@ -131,16 +133,13 @@ public sealed class SuiRazorGenerator
 					.Append( qualifiedType ).Append( ' ' ).Append( fieldName )
 					.Append( " { get; set; } = new " ).Append( qualifiedType ).AppendLine( "();" );
 
-				// Per-Variable hash entries so the parent re-renders when the
-				// user mutates child fields directly (Hud.MyHud.Health -= 10).
-				if ( entry.Target.PublicVariables != null )
-				{
-					foreach ( var v in entry.Target.PublicVariables )
-					{
-						if ( v == null || string.IsNullOrEmpty( v.Name ) ) continue;
-						childHashExprs.Add( fieldName + "?." + v.Name );
-					}
-				}
+				// V1.5-M2-K7-bugfix — use the wrapper's recursive ContentHash()
+				// instead of listing each PublicVariable. This way mutations at
+				// ANY depth (e.g. grand.parent.hud.Health) propagate up the
+				// chain. Listing only direct PublicVariables broke 3+ level
+				// composition because the middle wrapper might have zero
+				// PublicVariables itself (its job is purely structural).
+				childHashExprs.Add( fieldName + "?.ContentHash() ?? 0" );
 			}
 		}
 
@@ -289,29 +288,57 @@ public sealed class SuiRazorGenerator
 		// User code does `parent.FieldName.VarName = X` and the next render
 		// picks it up because the field is shared by reference between the
 		// wrapper (Instance mode) and the panel.
+		// V1.5-M2-K7-bugfix — the SuiReference element has its own user class
+		// (Style.ClassName) and a stable unique class (sui-<id>). The SCSS
+		// generator emits position/size rules under the UNIQUE class, but the
+		// markup tag must carry both classes for those rules to apply —
+		// otherwise the child Panel falls back to default flex sizing and
+		// stacks at top-left of the parent (the "twins on top of each other"
+		// bug). Build the class string here and forward to EmitNamedChildTag.
+		var userClass = SuiNameSanitizer.ToCssClass( el.Style?.ClassName ?? el.Type.ToString() );
+		var uniqueClass = ElementUniqueClass( el );
+		var combinedClass = userClass == uniqueClass ? userClass : $"{userClass} {uniqueClass}";
+
 		if ( isForEach )
 		{
 			_sb.Append( indent ).Append( "@if ( " ).Append( fieldName ).AppendLine( " != null )" );
 			_sb.Append( indent ).AppendLine( "{" );
 			_sb.Append( indent ).Append( "  @foreach ( var __item in " ).Append( fieldName ).AppendLine( " )" );
 			_sb.Append( indent ).AppendLine( "  {" );
-			EmitNamedChildTag( childPanelType, target.PublicVariables, "__item", indent + "    " );
+			// V1.5-M2-K7-bugfix — guard each iteration on the item's IsShown.
+			_sb.Append( indent ).AppendLine( "    @if ( __item == null || __item.IsShown )" );
+			_sb.Append( indent ).AppendLine( "    {" );
+			EmitNamedChildTag( childPanelType, target.PublicVariables, target.ChildReferenceFieldNames, "__item", indent + "      ", combinedClass );
+			_sb.Append( indent ).AppendLine( "    }" );
 			_sb.Append( indent ).AppendLine( "  }" );
 			_sb.Append( indent ).AppendLine( "}" );
 		}
 		else
 		{
-			EmitNamedChildTag( childPanelType, target.PublicVariables, fieldName, indent );
+			// V1.5-M2-K7-bugfix — guard the tag on the wrapper's IsShown so
+			// Hide()/Show() on an embedded wrapper actually hides the nested
+			// Panel via skip-rendering on the next BuildHash invalidation.
+			// Inline `style="..."` proved fragile (Razor swallowed the whole
+			// markup when the expression returned null in some configurations).
+			_sb.Append( indent ).Append( "@if ( " ).Append( fieldName )
+				.Append( " == null || " ).Append( fieldName ).AppendLine( ".IsShown )" );
+			_sb.Append( indent ).AppendLine( "{" );
+			EmitNamedChildTag( childPanelType, target.PublicVariables, target.ChildReferenceFieldNames, fieldName, indent + "  ", combinedClass );
+			_sb.Append( indent ).AppendLine( "}" );
 		}
 	}
 
 	private void EmitNamedChildTag(
 		string childPanelType,
 		System.Collections.Generic.IList<SuiVariable> targetVars,
+		System.Collections.Generic.IList<string> targetChildRefFields,
 		string accessorExpr,
-		string indent )
+		string indent,
+		string cssClass )
 	{
 		_sb.Append( indent ).Append( "<" ).Append( childPanelType );
+		if ( !string.IsNullOrEmpty( cssClass ) )
+			_sb.Append( " class=\"" ).Append( cssClass ).Append( "\"" );
 
 		if ( targetVars != null )
 		{
@@ -322,6 +349,20 @@ public sealed class SuiRazorGenerator
 				_sb.Append( " " ).Append( v.Name )
 					.Append( "=@(" ).Append( accessorExpr ).Append( '?' ).Append( '.' ).Append( v.Name )
 					.Append( " ?? " ).Append( def ).Append( ")" );
+			}
+		}
+
+		// V1.5-M2-K7-bugfix — also forward the child wrapper's own SuiReference
+		// fields so depth-2+ stays connected to user state. Without this, the
+		// freshly Razor-constructed grandchild panel starts with default child
+		// wrappers and grandchild mutations look invisible.
+		if ( targetChildRefFields != null )
+		{
+			foreach ( var name in targetChildRefFields )
+			{
+				if ( string.IsNullOrEmpty( name ) ) continue;
+				_sb.Append( " " ).Append( name )
+					.Append( "=@(" ).Append( accessorExpr ).Append( '?' ).Append( '.' ).Append( name ).Append( ")" );
 			}
 		}
 
