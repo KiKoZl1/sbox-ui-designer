@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Editor;
 using Sandbox;
 using SboxUiDesigner.EditorUi.Canvas;
@@ -1079,35 +1080,75 @@ public class SuiDesignerWindow : DockWindow, IAssetEditor
 			// Save first so the on-disk .sui matches what the generator sees.
 			Save();
 
-			var outputFolderAbs = ResolveOutputFolderAbsolute( Document.Output.RootFolder );
+			// V1.5-pre-M3 — cascade compile (UE5 WidgetBlueprint pattern).
+			// Walk the SuiReference graph post-order so every child .sui is
+			// compiled BEFORE the parent that depends on it. Without this the
+			// user has to remember to recompile each leaf manually before
+			// touching a parent — the C# build otherwise fails on missing
+			// child type references.
+			var orderedDocs = SuiCompileCascade.EnumerateInCompileOrder( Document );
+			var resolver = SuiReferenceResolver.Build();
+			var perDocReports = new List<(SuiDocument doc, SuiGenerationResult generation, SuiCompileResult compile)>();
 
-			var ctx = new SuiGenerationContext
+			foreach ( var doc in orderedDocs )
 			{
-				Document = Document,
-				Mode = SuiGenerationMode.Final,
-				// Don't prefix file.Path with the output folder — the writer
-				// joins paths against outputFolderAbs itself, so doubling
-				// the prefix here yields `<output>/<output>/file.razor` on
-				// disk (CS0111 nightmare).
-				OutputFolder = "",
-				ClassName = Document.Output.ClassName,
-				Namespace = Document.Output.Namespace,
-				ResolveReferencedClass = SuiReferenceResolver.Build(),
-			};
+				if ( doc?.Output == null || string.IsNullOrEmpty( doc.Output.RootFolder ) )
+				{
+					Log.Warning( $"[Sui] Cascade skipped '{doc?.Name ?? doc?.DocumentId ?? "?"}' — no Output.RootFolder configured." );
+					continue;
+				}
 
-			var generation = SuiGenerationPipeline.Run( ctx );
-			var compile = SuiCompileWriter.Run( generation, Document, outputFolderAbs );
+				var docOutputAbs = ResolveOutputFolderAbsolute( doc.Output.RootFolder );
+
+				var ctx = new SuiGenerationContext
+				{
+					Document = doc,
+					Mode = SuiGenerationMode.Final,
+					// Don't prefix file.Path with the output folder — the writer
+					// joins paths against outputFolderAbs itself, so doubling
+					// the prefix here yields `<output>/<output>/file.razor` on
+					// disk (CS0111 nightmare).
+					OutputFolder = "",
+					ClassName = doc.Output.ClassName,
+					Namespace = doc.Output.Namespace,
+					ResolveReferencedClass = resolver,
+				};
+
+				var genStep = SuiGenerationPipeline.Run( ctx );
+				var compileStep = SuiCompileWriter.Run( genStep, doc, docOutputAbs );
+				perDocReports.Add( (doc, genStep, compileStep) );
+			}
+
+			// The root doc is always last (post-order). Surface its report as
+			// the "primary" result so the existing banner/dock UX still works,
+			// then log a one-line cascade summary covering the dependencies.
+			var rootReport = perDocReports.Count > 0 ? perDocReports[perDocReports.Count - 1] : default;
+			var generation = rootReport.generation;
+			var compile = rootReport.compile;
 
 			_bottomTabs?.DisplayCompileResult( generation, compile );
 			SetCompileBanner( compile );
 
-			if ( compile.Ok )
+			// Cascade summary log — list every doc compiled, in the order
+			// they ran (folha → raiz). Saves the user from hunting through
+			// per-file Compile Results to see "did the children build OK?".
+			if ( perDocReports.Count > 1 )
+			{
+				Log.Info( $"[Sui] Cascade compiled {perDocReports.Count} docs in dependency order:" );
+				foreach ( var (d, _, c) in perDocReports )
+				{
+					var tag = c.Ok ? "✓" : "✗";
+					Log.Info( $"[Sui]   {tag} {d.Name ?? d.DocumentId} — Generated {c.Generated.Count}, Skipped {c.Skipped.Count}, Preserved {c.Preserved.Count}, Obsolete {c.Obsolete.Count}" );
+				}
+			}
+
+			if ( compile != null && compile.Ok )
 			{
 				Log.Info( $"[Sui] Compile OK — Generated {compile.Generated.Count}, Skipped {compile.Skipped.Count}, Preserved {compile.Preserved.Count}, Obsolete {compile.Obsolete.Count}. Folder: {compile.OutputFolder}" );
 				if ( compile.BackupFolder != null )
 					Log.Info( $"[Sui] backup of overwritten files: {compile.BackupFolder}" );
 			}
-			else
+			else if ( compile != null )
 			{
 				foreach ( var e in compile.Errors ) Log.Error( $"[Sui] {e}" );
 				foreach ( var c in compile.Conflicts )
