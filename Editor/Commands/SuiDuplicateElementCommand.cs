@@ -114,6 +114,21 @@ public sealed class SuiDuplicateElementCommand : ISuiCommand
 		var clone = source.Clone();
 		clone.Id = SuiDocument.NewElementId();
 		clone.Children = new List<string>();
+
+		// V1.5 post-M2 bugfix — SuiBinding.Clone copies the source's bind Id
+		// literally, so without this loop the duplicated element ships with
+		// stale bind_XXXX ids that collide with the original's bindings.
+		// Two elements sharing a binding Id confuses any downstream UI or
+		// codegen that keys by Id and shows up to the user as "the duplicate's
+		// binding still points at the original's name". Mint fresh ids here.
+		if ( clone.Bindings != null )
+		{
+			foreach ( var b in clone.Bindings )
+			{
+				if ( b != null ) b.Id = SuiBinding.NewBindingId();
+			}
+		}
+
 		output.Add( clone );
 
 		foreach ( var childId in source.Children )
