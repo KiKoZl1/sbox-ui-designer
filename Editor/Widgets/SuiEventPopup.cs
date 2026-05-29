@@ -31,12 +31,20 @@ public sealed class SuiEventPopup : Window
 	private SuiEventMode _mode = SuiEventMode.Code;
 	private string _handler = "";
 	private string _dooProperty = "";
+	// WBP-like Doo storage — schema-side Doo Body authored inside the popup
+	// via inline BlockTree + DooEditorWidget popup. Persists into the .sui
+	// when OK is pressed (SuiEventBinding.DooBody).
+	private Sandbox.Doo _dooBody;
 
 	private Button _elementBtn;
 	private Button _eventBtn;
 	private SuiDropdownField _modeDd;
 	private LineEdit _handlerEdit;
 	private Label _error;
+	// Doo-mode-only widgets — created lazily, hidden when Mode == Code.
+	private Widget _dooSection;
+	private Editor.DooEditor.BlockTree _dooTree;
+	private Label _dooStatus;
 
 	public SuiEventPopup(
 		SuiDocument doc,
@@ -55,12 +63,13 @@ public sealed class SuiEventPopup : Window
 			_mode = existing.Mode;
 			_handler = existing.Handler ?? "";
 			_dooProperty = existing.DooPropertyName ?? "";
+			_dooBody = existing.DooBody;
 		}
 
 		Title = existing != null ? "Edit Event" : "Bind Event";
 		WindowTitle = Title;
-		Size = new Vector2( 460, 260 );
-		MinimumSize = new Vector2( 460, 260 );
+		Size = new Vector2( 520, 460 );
+		MinimumSize = new Vector2( 520, 460 );
 		SetWindowIcon( "flash_on" );
 		DeleteOnClose = true;
 
@@ -114,6 +123,9 @@ public sealed class SuiEventPopup : Window
 		_error = new Label( "", Canvas );
 		_error.SetStyles( "color: #ef4444; font-size: 11px;" );
 		Canvas.Layout.Add( _error );
+
+		BuildDooSection();
+		Canvas.Layout.Add( _dooSection, 1 );
 
 		Canvas.Layout.AddStretchCell();
 
@@ -188,6 +200,93 @@ public sealed class SuiEventPopup : Window
 	{
 		_handlerEdit.Text = _mode == SuiEventMode.Code ? _handler : _dooProperty;
 		_handlerEdit.PlaceholderText = _mode == SuiEventMode.Code ? "OnFooClick" : "DooPropertyName";
+		RefreshDooSection();
+	}
+
+	/// <summary>
+	/// Build the Doo section once. Visibility flips with the Mode dropdown.
+	/// Contains a status line + "Open Full Editor" button + inline BlockTree
+	/// preview that mirrors the engine's BlockTree widget — same rebuild
+	/// path on every <c>[EditorEvent.Frame]</c> tick.
+	/// </summary>
+	private void BuildDooSection()
+	{
+		_dooSection = new Widget( Canvas );
+		_dooSection.Layout = Layout.Column();
+		_dooSection.Layout.Spacing = 6;
+		_dooSection.Layout.Margin = new Sandbox.UI.Margin( 0, 6, 0, 0 );
+		_dooSection.SetStyles(
+			"background-color: rgb(28,28,27);" +
+			"border: 1px solid rgba(255,255,255,0.06);" +
+			"border-radius: 4px;" );
+
+		var header = new Widget( _dooSection );
+		header.Layout = Layout.Row();
+		header.Layout.Spacing = 6;
+		header.Layout.Margin = new Sandbox.UI.Margin( 8, 6, 8, 0 );
+		header.FixedHeight = 30;
+
+		_dooStatus = new Label( "Empty", header );
+		_dooStatus.SetStyles( "color: #c4b5fd; font-size: 11px; font-weight: 600;" );
+		header.Layout.Add( _dooStatus, 1 );
+
+		var openBtn = new Button( "Open Full Editor", "rebase_edit", header );
+		openBtn.Clicked = OpenDooEditor;
+		header.Layout.Add( openBtn );
+
+		_dooSection.Layout.Add( header );
+
+		// BlockTree gets a parent right away so its [EditorEvent.Frame]
+		// rebuild path resolves cleanly. When _dooBody is null we still
+		// host an empty BlockTree(null) — the engine guards against null
+		// _doo in its ContentHash + BuildNodes.
+		EnsureDooBody();
+		_dooTree = new Editor.DooEditor.BlockTree( _dooBody );
+		_dooTree.MinimumHeight = 180;
+		_dooSection.Layout.Add( _dooTree, 1 );
+	}
+
+	private void RefreshDooSection()
+	{
+		if ( _dooSection == null ) return;
+		_dooSection.Visible = _mode == SuiEventMode.Doo;
+		UpdateDooStatus();
+	}
+
+	private void UpdateDooStatus()
+	{
+		if ( _dooStatus == null ) return;
+		if ( _dooBody == null || _dooBody.IsEmpty() )
+			_dooStatus.Text = "Empty — click Open Full Editor to author blocks";
+		else
+			_dooStatus.Text = _dooBody.GetLabel();
+	}
+
+	private void EnsureDooBody()
+	{
+		_dooBody ??= new Sandbox.Doo();
+	}
+
+	/// <summary>
+	/// Pop the engine's <see cref="Editor.DooEditor.DooEditorWidget"/> as a
+	/// floating tool window targeted at our in-memory <see cref="_dooBody"/>.
+	/// Edits inside the popup mutate the Doo reference in-place, so on close
+	/// our OK button captures the final body without an explicit sync.
+	/// </summary>
+	private void OpenDooEditor()
+	{
+		EnsureDooBody();
+		var so = EditorTypeLibrary.GetSerializedObject( _dooBody );
+		if ( so == null )
+		{
+			_error.Text = "Could not open Doo Editor — failed to build SerializedObject.";
+			return;
+		}
+		var title = _element != null && !string.IsNullOrEmpty( _eventName )
+			? $"{_element.Name}.{_eventName}"
+			: "Doo";
+		Editor.DooEditor.DooEditorWidget.Open( so, title );
+		UpdateDooStatus();
 	}
 
 	private void OnOk()
@@ -213,6 +312,11 @@ public sealed class SuiEventPopup : Window
 				return;
 			}
 			binding.DooPropertyName = _dooProperty;
+			// Persist the authored Body. Null + empty Body are both legal
+			// (an empty Doo means "slot exists, nothing wired yet") so we
+			// drop the field only when the user never opened the editor.
+			if ( _dooBody != null && !_dooBody.IsEmpty() )
+				binding.DooBody = _dooBody;
 		}
 
 		OnAccept?.Invoke( _element.Id, _eventName, binding );

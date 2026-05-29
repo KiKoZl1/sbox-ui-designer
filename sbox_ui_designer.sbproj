@@ -7,7 +7,9 @@
   "IncludeSourceFiles": false,
   "Resources": null,
   "PackageReferences": [],
-  "EditorReferences": null,
+  "EditorReferences": [
+    "local.dooeditor"
+  ],
   "Mounts": null,
   "IsStandaloneOnly": false,
   "Metadata": {

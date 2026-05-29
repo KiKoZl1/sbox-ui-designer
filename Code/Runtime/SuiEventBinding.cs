@@ -33,10 +33,32 @@ public sealed class SuiEventBinding
 	/// </summary>
 	public string DooPropertyName { get; set; }
 
+	/// <summary>
+	/// WBP-like Doo storage (PRD 20 spike result, 2026-05-29). When
+	/// <see cref="Mode"/> is <see cref="SuiEventMode.Doo"/>, the Designer
+	/// authors the Doo's <c>Body</c> directly inside the <c>.sui</c> via the
+	/// embedded BlockTree + DooEditorWidget popup. The codegen wrapper
+	/// initializes the runtime <c>Doo</c> property from this serialized body,
+	/// so 1 <c>.sui</c> = 1 default Doo per slot — exactly how UE5
+	/// WidgetBlueprint stores its Graph inside the widget class. Inspector
+	/// override per-instance still works (engine-native behavior on Doo
+	/// <c>[Property]</c>).
+	///
+	/// <para>Null when <see cref="Mode"/> is Code or when the user hasn't
+	/// touched the Doo yet. Sandbox.Json serializes <c>Doo : IJsonConvert</c>
+	/// natively into the <c>.sui</c> file (key shape: <c>{"body": [...]}</c>).</para>
+	/// </summary>
+	public Sandbox.Doo DooBody { get; set; }
+
 	public SuiEventBinding Clone() => new()
 	{
 		Mode = Mode,
 		Handler = Handler,
 		DooPropertyName = DooPropertyName,
+		// Doo has no native Clone; deep-copy via JSON round-trip so undo /
+		// duplicate-element flows don't share the same Body reference and
+		// edits leak across the two slots.
+		DooBody = DooBody == null ? null
+			: Sandbox.Json.Deserialize<Sandbox.Doo>( Sandbox.Json.Serialize( DooBody ) ),
 	};
 }
