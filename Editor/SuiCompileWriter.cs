@@ -191,10 +191,6 @@ public static class SuiCompileWriter
 		// edits flow into the cascade without touching the generated file.
 		EmitUserScssSidecars( generation, outputFolderAbs, result );
 
-		// V1.5 M3 — also write `<WrapperName>.partial.cs` once. Holds one
-		// empty stub per Code-mode event handler. User owns it from then on.
-		EmitPartialSidecar( document, outputFolderAbs, result );
-
 		// Detect obsolete: anything in the old manifest that's not in the new one.
 		foreach ( var oldEntry in oldManifest.GeneratedFiles )
 		{
@@ -334,30 +330,6 @@ public static class SuiCompileWriter
 			}
 			result.UserOwned.Add( entry );
 		}
-	}
-
-	/// <summary>
-	/// V1.5 M3 — delegate to <see cref="SuiPartialSidecarWriter"/> for the
-	/// <c>&lt;WrapperName&gt;.partial.cs</c> file. Records it on
-	/// <see cref="SuiCompileResult.UserOwned"/> so the UI reports it like the
-	/// .User.scss sidecar.
-	/// </summary>
-	private static void EmitPartialSidecar(
-		SuiDocument document, string outputFolderAbs, SuiCompileResult result )
-	{
-		var wrapperClassName = SuiNameSanitizer.ToCSharpIdentifier( document?.Output?.ClassName );
-		if ( string.IsNullOrEmpty( wrapperClassName ) ) return;
-
-		var ns = document?.Output?.Namespace ?? "Game.UI";
-		var abs = SuiPartialSidecarWriter.EnsureSidecar( document, ns, wrapperClassName, outputFolderAbs );
-		if ( string.IsNullOrEmpty( abs ) ) return; // no Code-mode handlers OR write failed (warning already logged)
-
-		var relative = wrapperClassName + ".partial.cs";
-		result.UserOwned.Add( new SuiCompileFileEntry
-		{
-			AbsolutePath = abs,
-			RelativePath = relative,
-		} );
 	}
 
 	// ─────────────────────────────────────────────────────────────────────

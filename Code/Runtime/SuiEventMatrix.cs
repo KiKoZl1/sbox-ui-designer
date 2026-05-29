@@ -76,14 +76,20 @@ public static class SuiEventMatrix
 	// InventorySlot get clicks. Input widgets (TextEntry/Slider/Toggle/DropDown)
 	// land in M4 but the matrix already declares their events so the codegen
 	// path is uniform when those element types light up.
-	private static readonly Entry OnHover    = new() { Name = "OnHover",    RazorAttribute = "onhover",    CodeDelegate = null, ParameterName = "" };
-	private static readonly Entry OnUnhover  = new() { Name = "OnUnhover",  RazorAttribute = "onunhover",  CodeDelegate = null, ParameterName = "" };
-	private static readonly Entry OnClick    = new() { Name = "OnClick",    RazorAttribute = "onclick",    CodeDelegate = null, ParameterName = "" };
-	private static readonly Entry OnRClick   = new() { Name = "OnRightClick", RazorAttribute = "onrightclick", CodeDelegate = null, ParameterName = "" };
-	private static readonly Entry OnDblClick = new() { Name = "OnDoubleClick", RazorAttribute = "ondoubleclick", CodeDelegate = null, ParameterName = "" };
-
+	//
+	// Entries are inlined inside Build() (not declared as static fields) to
+	// avoid the C# static field initialization order trap — declaring them as
+	// `private static readonly` AFTER `_matrix = Build()` (textual order) meant
+	// Build() read them before they were populated, producing the validator
+	// false-positive "Button does not surface OnClick".
 	private static Dictionary<SuiElementType, Entry[]> Build()
 	{
+		var OnHover    = new Entry { Name = "OnHover",       RazorAttribute = "onhover",       CodeDelegate = null, ParameterName = "" };
+		var OnUnhover  = new Entry { Name = "OnUnhover",     RazorAttribute = "onunhover",     CodeDelegate = null, ParameterName = "" };
+		var OnClick    = new Entry { Name = "OnClick",       RazorAttribute = "onclick",       CodeDelegate = null, ParameterName = "" };
+		var OnRClick   = new Entry { Name = "OnRightClick",  RazorAttribute = "onrightclick",  CodeDelegate = null, ParameterName = "" };
+		var OnDblClick = new Entry { Name = "OnDoubleClick", RazorAttribute = "ondoubleclick", CodeDelegate = null, ParameterName = "" };
+
 		var panelLike = new[] { OnHover, OnUnhover, OnClick, OnRClick };
 		var button    = new[] { OnClick, OnHover, OnUnhover };
 		var slot      = new[] { OnClick, OnRClick, OnDblClick, OnHover };

@@ -8,16 +8,20 @@ namespace SboxUiDesigner.Generation;
 /// V1.5 M3 — emits the event-related code fragments for a <see cref="SuiElement"/>
 /// that has entries in <see cref="SuiElement.Events"/> (PRD 20 § 3.3 / 3.4).
 ///
-/// <para>Three surfaces produce code per event slot:
+/// <para>Four surfaces produce code per event slot:
 /// <list type="bullet">
 ///   <item>Razor markup attribute (<c>onclick=@OnFireClick</c>) — inserted onto the tag.</item>
 ///   <item>Wrapper [Property] field (<c>[Property] public Action OnFireClick</c>) — declared on the wrapper class.</item>
 ///   <item>Renderer @code mirror (<c>public Action OnFireClick { get; set; }</c>) — declared on the renderer Panel.</item>
 ///   <item>Wrapper SyncFieldsTo assignment (<c>view.OnFireClick = OnFireClick;</c>) — forwards the delegate to the renderer.</item>
-///   <item>Partial sidecar stub (<c>void OnFireClick() { /* TODO */ }</c>) — written once by SuiPartialSidecarWriter.</item>
 /// </list>
-/// Doo mode is fully wired in M3 Phase 3 — for now Code mode is exhaustive and
-/// Doo entries fall back to no-op emit (the slot exists in the schema but
+/// The dev assigns the handler to the wrapper's Action property from their
+/// Component (<c>Hud.OnFireClick = HandleFire;</c>), the same place they read
+/// Variables and call Show/Hide. No <c>.partial.cs</c> sidecar is auto-emitted —
+/// the dev creates a partial class manually if they prefer that style.
+///
+/// <para>Doo mode is fully wired in M3 Phase 3 — for now Code mode is exhaustive
+/// and Doo entries fall back to no-op emit (the slot exists in the schema but
 /// produces nothing in the generated code). The fallback keeps Phase 1 safe to
 /// ship without the Doo runtime resolved.</para>
 /// </summary>
@@ -132,70 +136,4 @@ public static class SuiEventEmitter
 		}
 	}
 
-	/// <summary>
-	/// Build the body of the <c>&lt;Name&gt;.partial.cs</c> sidecar — one empty
-	/// method per Code-mode event handler. Written once by
-	/// <c>SuiPartialSidecarWriter</c>; subsequent compiles never touch it.
-	/// </summary>
-	public static string EmitPartialSidecarStub( SuiDocument doc, string wrapperNamespace, string wrapperClassName )
-	{
-		if ( doc?.Elements == null ) return null;
-
-		var bodies = new StringBuilder();
-		var handlersSeen = new HashSet<string>();
-
-		foreach ( var el in doc.Elements )
-		{
-			if ( el?.Events == null || el.Events.Count == 0 ) continue;
-			foreach ( var kv in el.Events )
-			{
-				var binding = kv.Value;
-				if ( binding == null || binding.Mode != SuiEventMode.Code ) continue;
-				if ( string.IsNullOrEmpty( binding.Handler ) ) continue;
-				if ( !handlersSeen.Add( binding.Handler ) ) continue;
-				if ( !SuiEventMatrix.TryGet( el.Type, kv.Key, out var entry ) ) continue;
-
-				var param = string.IsNullOrEmpty( entry.CodeDelegate )
-					? ""
-					: ExtractGenericArg( entry.CodeDelegate ) + " " + ( string.IsNullOrEmpty( entry.ParameterName ) ? "arg" : entry.ParameterName );
-
-				bodies.Append( "\tvoid " ).Append( binding.Handler ).Append( "( " ).Append( param ).AppendLine( " )" );
-				bodies.AppendLine( "\t{" );
-				bodies.AppendLine( "\t\t// TODO: your code here" );
-				bodies.AppendLine( "\t}" );
-				bodies.AppendLine();
-			}
-		}
-
-		// No Code-mode handlers → no sidecar to write. Caller checks for null.
-		if ( bodies.Length == 0 ) return null;
-
-		var sb = new StringBuilder();
-		sb.AppendLine( "// User-owned partial — created once on first compile, never overwritten." );
-		sb.AppendLine( "// Add your event handlers here. New events added in the Designer after the" );
-		sb.AppendLine( "// initial compile won't auto-append stubs (V2 Roslyn polish); add them by hand." );
-		sb.AppendLine();
-		sb.AppendLine( "using Sandbox;" );
-		sb.AppendLine();
-		sb.Append( "namespace " ).Append( wrapperNamespace ).AppendLine( ";" );
-		sb.AppendLine();
-		sb.Append( "public partial class " ).AppendLine( wrapperClassName );
-		sb.AppendLine( "{" );
-		sb.Append( bodies );
-		sb.AppendLine( "}" );
-		return sb.ToString();
-	}
-
-	/// <summary>
-	/// "Action&lt;float&gt;" → "float". Returns empty for plain "Action".
-	/// Used only for the partial-stub parameter-name generation.
-	/// </summary>
-	private static string ExtractGenericArg( string delegateType )
-	{
-		if ( string.IsNullOrEmpty( delegateType ) ) return "";
-		var lt = delegateType.IndexOf( '<' );
-		var gt = delegateType.LastIndexOf( '>' );
-		if ( lt < 0 || gt < 0 || gt <= lt + 1 ) return "";
-		return delegateType.Substring( lt + 1, gt - lt - 1 );
-	}
 }
