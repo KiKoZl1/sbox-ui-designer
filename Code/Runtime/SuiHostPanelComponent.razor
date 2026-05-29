@@ -3,8 +3,11 @@
 @using Sandbox.UI;
 @inherits PanelComponent
 
-@* Generic host PanelComponent — empty root.
-   SuiPanel<TView> adds the rendered Panel as a child of this.Panel at runtime.
-   Has no markup of its own and never appears in the Asset Browser. *@
+@* Generic host PanelComponent. SuiPanel<TView> adds the rendered Panel as a
+   child of this.Panel at runtime. The temporary red background lets us
+   verify the host is actually painting; we'll remove the swatch once
+   M2-K7 composition is confirmed working end-to-end. *@
 
-<root></root>
+<root style="background-color: rgba(255, 0, 0, 0.25); width: 100%; height: 100%;">
+    <label style="color: yellow; font-size: 24px;">SUI HOST — if you see this, host renders</label>
+</root>

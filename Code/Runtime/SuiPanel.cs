@@ -149,9 +149,13 @@ public abstract class SuiPanel<TView> where TView : Panel, new()
 
 		if ( View == null )
 		{
-			View = new TView();
-			Host.Panel.AddChild( View );
-			Log.Info( $"[SUI] {GetType().Name}.EnsureViewAttached() — created+attached new View ({typeof(TView).FullName})" );
+			// Use the Sandbox.UI `Add.Panel<T>()` factory instead of `new T()`
+			// because Razor-derived Panel classes only run their generated
+			// BuildRenderTree (which populates children from the .razor markup)
+			// when constructed through that factory path. Plain `new()` leaves
+			// the Panel empty even though it's attached.
+			View = Host.Panel.AddChild<TView>();
+			Log.Info( $"[SUI] {GetType().Name}.EnsureViewAttached() — Add.Panel<{typeof(TView).Name}>() created+attached" );
 		}
 		else if ( View.Parent != Host.Panel )
 		{
