@@ -56,8 +56,14 @@ public abstract class SuiPanel<TView> where TView : Panel, new()
 	/// <summary>True while a mount exists (Add/Show called, Remove not yet).</summary>
 	public bool IsMounted => MountedObject.IsValid();
 
-	/// <summary>True when mounted and currently visible.</summary>
-	public bool IsShown => MountedObject.IsValid() && MountedObject.Enabled;
+	/// <summary>
+	/// True when mounted AND the View is currently visible. We toggle visibility
+	/// on the <see cref="View"/>'s CSS display (V1.5-M2-K7-bugfix) rather than
+	/// the GameObject's Enabled flag — disabling the GO triggers the host
+	/// PanelComponent's OnDisabled which destroys the Panel root, leaving
+	/// <see cref="View"/> orphan when Show() re-enables.
+	/// </summary>
+	public bool IsShown => MountedObject.IsValid() && View != null && View.Style.Display != DisplayMode.None;
 
 	/// <summary>
 	/// Mount the panel as a child of <paramref name="parent"/> (or scene root
@@ -98,17 +104,18 @@ public abstract class SuiPanel<TView> where TView : Panel, new()
 	public void Show( GameObject parent = null )
 	{
 		if ( !MountedObject.IsValid() ) Add( parent );
-		if ( MountedObject.IsValid() )
-		{
-			MountedObject.Enabled = true;
-			EnsureViewAttached();
-		}
+		EnsureViewAttached();
+		// V1.5-M2-K7-bugfix — toggle CSS display, NOT GameObject.Enabled.
+		// Disabling the GO destroys Host.Panel; the View then becomes orphan
+		// and a subsequent Show() can't bring it back. Style.Display on the
+		// View itself keeps the whole tree alive.
+		if ( View != null ) View.Style.Display = DisplayMode.Flex;
 	}
 
 	/// <summary>Hide without tearing down — cheaper than Remove + re-Add.</summary>
 	public void Hide()
 	{
-		if ( MountedObject.IsValid() ) MountedObject.Enabled = false;
+		if ( View != null ) View.Style.Display = DisplayMode.None;
 	}
 
 	/// <summary>Destroy the mount entirely. A subsequent Show()/Add() spawns a fresh one.</summary>

@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Text;
+using Sandbox;
 using SboxUiDesigner.Runtime;
 
 namespace SboxUiDesigner.Generation;
@@ -90,6 +91,12 @@ public sealed class SuiRazorGenerator
 		var body = new System.Text.StringBuilder();
 		SuiVariableEmitter.EmitProperties( _doc.Variables, body );
 
+		// V1.5-M2-K7-bugfix — also collect expressions that need to feed the
+		// parent's BuildHash so that mutations on a child instance
+		// (e.g. parent.MyHud.Health -= 10) trigger a parent re-render and
+		// the embedded child tag picks up the new attribute values.
+		var childHashExprs = new System.Collections.Generic.List<string>();
+
 		// V1.5-M2-K4 — named-instance fields for every SuiReference. Single
 		// instance → [Property] FieldType FieldName = new(); ForEach → List<>.
 		// Parent code reads/writes parent.FieldName.VarName; the Razor markup
@@ -97,9 +104,6 @@ public sealed class SuiRazorGenerator
 		// and panel stay in sync by reference.
 		foreach ( var entry in childRefs )
 		{
-			var fqType = string.IsNullOrEmpty( entry.Target.Namespace )
-				? entry.Target.ClassName
-				: $"{entry.Target.Namespace}.{entry.Target.ClassName}";
 			var fieldName = SuiNameSanitizer.ToCSharpIdentifier( entry.Element.Name );
 			if ( string.IsNullOrEmpty( fieldName ) ) continue;
 
@@ -118,16 +122,29 @@ public sealed class SuiRazorGenerator
 				body.Append( "\tpublic System.Collections.Generic.List<" )
 					.Append( qualifiedType ).Append( "> " ).Append( fieldName )
 					.AppendLine( " { get; set; } = new();" );
+				// ForEach hash: count is the cheap signal (re-render on add/remove).
+				childHashExprs.Add( fieldName + "?.Count ?? 0" );
 			}
 			else
 			{
 				body.Append( "\tpublic " )
 					.Append( qualifiedType ).Append( ' ' ).Append( fieldName )
 					.Append( " { get; set; } = new " ).Append( qualifiedType ).AppendLine( "();" );
+
+				// Per-Variable hash entries so the parent re-renders when the
+				// user mutates child fields directly (Hud.MyHud.Health -= 10).
+				if ( entry.Target.PublicVariables != null )
+				{
+					foreach ( var v in entry.Target.PublicVariables )
+					{
+						if ( v == null || string.IsNullOrEmpty( v.Name ) ) continue;
+						childHashExprs.Add( fieldName + "?." + v.Name );
+					}
+				}
 			}
 		}
 
-		SuiBuildHashEmitter.EmitBuildHash( _doc.Variables, _doc.Elements, body );
+		SuiBuildHashEmitter.EmitBuildHash( _doc.Variables, _doc.Elements, childHashExprs, body );
 
 		if ( body.Length == 0 ) return;
 
@@ -244,18 +261,16 @@ public sealed class SuiRazorGenerator
 			return;
 		}
 
-		// `global::` prefix avoids ambiguity when the parent's namespace
-		// happens to contain a segment that matches the start of the child's
-		// namespace (e.g. parent is Game.UI.Hud and child is Game.UI.HealthBar
-		// — without the prefix C# would resolve `Game.UI.HealthBar` as
-		// `Game.UI.Game.UI.HealthBar` from inside Game.UI).
-		// V1.5-M2-K7 — child's renderer (Panel subclass) is <Name>Panel and
-		// IS nestable via <Game.UI.<Name>Panel />. The wrapper <Name>
-		// (Component-friendly) is for standalone mounting only.
-		var childWrapperType = string.IsNullOrEmpty( target.Namespace )
-			? target.ClassName
-			: $"global::{target.Namespace}.{target.ClassName}";
-		var childPanelType = childWrapperType + "Panel";
+		// V1.5-M2-K7-bugfix — s&box Razor markup tags are resolved by
+		// CLASS NAME only (matches the ui-razor.md skill: `<HealthBar />`).
+		// A tag with dots like `<Game.UI.HealthBar />` is treated as a
+		// literal HTML tag and renders nothing — that was the embed bug
+		// where TestparentPanel painted its own elements but the nested
+		// `<Game.UI.HudBindtestPanel />` produced empty output.
+		// Parent + child share the same namespace by default (Game.UI), so
+		// the short tag resolves naturally inside the parent's @code class
+		// without needing an extra @using directive.
+		var childPanelType = target.ClassName + "Panel";
 		var fieldName = SuiNameSanitizer.ToCSharpIdentifier( el.Name );
 
 		if ( string.IsNullOrEmpty( fieldName ) )
