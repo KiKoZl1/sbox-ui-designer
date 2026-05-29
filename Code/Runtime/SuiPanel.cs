@@ -77,18 +77,21 @@ public abstract class SuiPanel<TView> where TView : Panel, new()
 
 		// V1.5-M2-K7 — create the GameObject ENABLED so OnEnabled fires on
 		// the host's PanelComponent immediately, populating Host.Panel before
-		// we try to attach the View. Original semantics ("Add creates hidden,
-		// Show makes visible") gave us a null Host.Panel because OnEnabled
-		// was waiting on Enabled=true. If the caller wants a pre-warm without
-		// visibility, they can Add() then Hide().
+		// we try to attach the View.
 		MountedObject = scene.CreateObject( true );
 		MountedObject.Name = typeof( TView ).Name + "_Mount";
 		if ( parent.IsValid() ) MountedObject.SetParent( parent );
 
+		Log.Info( $"[SUI] {GetType().Name}.Add() — created GO '{MountedObject.Name}' enabled={MountedObject.Enabled}" );
+
 		MountedObject.Components.Create<ScreenPanel>();
 		Host = MountedObject.Components.Create<SuiHostPanelComponent>();
 
+		Log.Info( $"[SUI] {GetType().Name}.Add() — Host valid={Host.IsValid()}, Host.Panel null? {Host?.Panel == null}" );
+
 		EnsureViewAttached();
+
+		Log.Info( $"[SUI] {GetType().Name}.Add() — done. View valid? {View != null}, View.Parent == Host.Panel? {View?.Parent == Host?.Panel}" );
 	}
 
 	/// <summary>Mount-if-needed + visible. The common one-call entry point.</summary>
@@ -133,17 +136,27 @@ public abstract class SuiPanel<TView> where TView : Panel, new()
 	/// </summary>
 	private void EnsureViewAttached()
 	{
-		if ( Host == null || !Host.IsValid() ) return;
-		if ( Host.Panel == null ) return; // OnEnabled hasn't fired yet
+		if ( Host == null || !Host.IsValid() )
+		{
+			Log.Info( $"[SUI] {GetType().Name}.EnsureViewAttached() — Host invalid, bail." );
+			return;
+		}
+		if ( Host.Panel == null )
+		{
+			Log.Info( $"[SUI] {GetType().Name}.EnsureViewAttached() — Host.Panel is null (OnEnabled not fired yet?), bail." );
+			return;
+		}
 
 		if ( View == null )
 		{
 			View = new TView();
 			Host.Panel.AddChild( View );
+			Log.Info( $"[SUI] {GetType().Name}.EnsureViewAttached() — created+attached new View ({typeof(TView).FullName})" );
 		}
 		else if ( View.Parent != Host.Panel )
 		{
 			Host.Panel.AddChild( View );
+			Log.Info( $"[SUI] {GetType().Name}.EnsureViewAttached() — re-attached existing View" );
 		}
 
 		SyncFieldsTo( View );

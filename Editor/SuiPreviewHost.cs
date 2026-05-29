@@ -230,6 +230,38 @@ public sealed class SuiPreviewHost
 					_panelComponent = null;
 				}
 
+				// V1.5-M2-K7 — generated classes are now Sandbox.UI.Panel subclasses
+				// (not PanelComponent). Components.Create can't instantiate them.
+				// Spawn a SuiHostPanelComponent + add the Panel as a child of its
+				// root. Same pattern SuiPanel<TView>.Add() uses in runtime.
+				var targetType = typeDesc.TargetType;
+				if ( targetType != null && typeof( Sandbox.UI.Panel ).IsAssignableFrom( targetType )
+					&& !typeof( Component ).IsAssignableFrom( targetType ) )
+				{
+					Log.Info( $"[Sui preview] '{fullName}' is a Panel — mounting via SuiHostPanelComponent" );
+
+					var host = _uiHost.Components.Create<SboxUiDesigner.Runtime.SuiHostPanelComponent>();
+					if ( host?.Panel == null )
+					{
+						Log.Warning( $"[Sui preview] SuiHostPanelComponent.Panel is null — OnEnabled may not have fired yet." );
+						return false;
+					}
+
+					var instance = typeDesc.Create<object>();
+					if ( instance is not Sandbox.UI.Panel renderedPanel )
+					{
+						Log.Warning( $"[Sui preview] TypeLibrary.Create returned non-Panel for {fullName} (got {instance?.GetType().FullName ?? "null"})" );
+						return false;
+					}
+
+					host.Panel.AddChild( renderedPanel );
+					_panelComponent = host; // remember the host as the component to teardown next time
+					_panelComponentTypeName = fullName;
+					WirePanelComponentLifecycle();
+					Log.Info( $"[Sui preview] MountByDescriptor: success, mounted Panel '{fullName}' inside SuiHostPanelComponent" );
+					return true;
+				}
+
 				Log.Info( $"[Sui preview] calling Components.Create for '{fullName}'" );
 				var created = _uiHost.Components.Create( typeDesc );
 				Log.Info( $"[Sui preview] Components.Create returned: {(created == null ? "null" : created.GetType().FullName)}" );
@@ -243,7 +275,7 @@ public sealed class SuiPreviewHost
 
 				_panelComponentTypeName = fullName;
 				WirePanelComponentLifecycle();
-				Log.Info( $"[Sui preview] MountByDescriptor: success, mounted '{fullName}'" );
+				Log.Info( $"[Sui preview] MountByDescriptor: success, mounted Component '{fullName}'" );
 				return true;
 			}
 		}
