@@ -40,10 +40,12 @@ public static class SuiVariableEmitter
 			var csType = SuiTypeMapper.ToCSharp( v.Type );
 			var def = SuiTypeMapper.DefaultLiteral( v.Type, v.Default );
 
-			sb.Append( "\t[Property" );
-			if ( !string.IsNullOrEmpty( v.Group ) )
-				sb.Append( ", Group( \"" ).Append( v.Group.Replace( "\"", "\\\"" ) ).Append( "\" )" );
-			sb.Append( "] public " ).Append( csType ).Append( ' ' ).Append( v.Name )
+			// V1.5-M2-K7 — Variables are emitted as plain public properties (no
+			// [Property] attribute). The generated class inherits from Panel,
+			// not Component — [Property] is a Component-only attribute. The
+			// user-facing inspector lives on the wrapper class instead, which
+			// stays a Component-friendly type and DOES use [Property].
+			sb.Append( "\tpublic " ).Append( csType ).Append( ' ' ).Append( v.Name )
 				.Append( " { get; set; } = " ).Append( def ).AppendLine( ";" );
 		}
 	}

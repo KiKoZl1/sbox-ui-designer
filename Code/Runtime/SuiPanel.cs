@@ -4,33 +4,46 @@ using Sandbox.UI;
 namespace SboxUiDesigner.Runtime;
 
 /// <summary>
-/// Base for the user-facing wrapper class the Instance-mode generator emits
-/// for each <c>.sui</c> (PRD 19 / 22 V1.5 revised). The dev declares a field
+/// Base for the user-facing wrapper class the generator emits for each
+/// <c>.sui</c> (V1.5-M2-K7 — see DEVIATIONS D-014). The dev declares a field
 /// on their own Component (<c>[Property] public WdgSelectJob Widget = new();</c>)
 /// and controls the panel's lifetime from gameplay code:
 ///
 /// <code>
-///   Widget.Add();      // mount (hidden) — creates child GO + ScreenPanel + Panel Component
+///   Widget.Add();      // mount (hidden) — creates child GO + ScreenPanel + SuiHostPanelComponent + the Panel
 ///   Widget.Show();     // mount-if-needed + visible
 ///   Widget.Hide();     // hide (keeps the mount around)
 ///   Widget.Remove();   // tear down the mount entirely
 ///   Widget.Health = 75; // edit any [Property] mirror; call RefreshView() to push
 /// </code>
 ///
-/// <para><see cref="TView"/> is the generated <c>PanelComponent</c> that
-/// actually renders the markup — internal-ish, the dev rarely names it.</para>
+/// <para><see cref="TView"/> is the generated <c>Panel</c> subclass that
+/// actually renders the markup. Each <c>.sui</c> compiles to <c>&lt;Name&gt; : Panel</c>
+/// (NOT a PanelComponent) because s&amp;box Razor only allows <c>Panel</c>
+/// subclasses to be nested via <c>&lt;Game.UI.Foo /&gt;</c> markup. Composition
+/// (parent embedding child via SuiReference) requires nestable subtypes.
+/// Standalone mounting wraps the <c>Panel</c> in a generic host PanelComponent
+/// (see <see cref="SuiHostPanelComponent"/>) so it has a ScreenPanel root.</para>
 ///
 /// <para>V1.5 ships single-mount semantics: one Add() per instance. The
 /// per-Connection variant (UMG/UEFN-style <c>UIMap[player]</c>) is V1.6
 /// polish on top of this class via a manager wrapper.</para>
 /// </summary>
-public abstract class SuiPanel<TView> where TView : PanelComponent, new()
+public abstract class SuiPanel<TView> where TView : Panel, new()
 {
 	/// <summary>The mounted host GameObject; null until <see cref="Add"/> runs.</summary>
 	protected GameObject MountedObject { get; private set; }
 
-	/// <summary>The live PanelComponent doing the rendering; null until mounted.</summary>
-	protected TView View { get; private set; }
+	/// <summary>The internal host PanelComponent that hosts the ScreenPanel; null until mounted.</summary>
+	protected SuiHostPanelComponent Host { get; private set; }
+
+	/// <summary>
+	/// The live Panel doing the rendering; null until mounted. Public so the
+	/// parent wrapper's <c>SyncFieldsTo</c> can attach this Panel to its
+	/// renderer when this wrapper is embedded as a named child of another
+	/// <c>.sui</c>.
+	/// </summary>
+	public TView View { get; private set; }
 
 	/// <summary>True while a mount exists (Add/Show called, Remove not yet).</summary>
 	public bool IsMounted => MountedObject.IsValid();
@@ -59,16 +72,26 @@ public abstract class SuiPanel<TView> where TView : PanelComponent, new()
 		if ( parent.IsValid() ) MountedObject.SetParent( parent );
 
 		MountedObject.Components.Create<ScreenPanel>();
-		View = MountedObject.Components.Create<TView>();
+		Host = MountedObject.Components.Create<SuiHostPanelComponent>();
 
-		SyncFieldsTo( View );
+		// SuiHostPanelComponent.Panel becomes available once OnEnabled fires.
+		// MountedObject was created disabled; enabling it (Show) will trigger
+		// OnEnabled, at which point Host.Panel exists. So we defer the actual
+		// Panel instantiation + parenting to the first Show() / RefreshView().
+		// To still let user code touch field mirrors before Show(), we keep
+		// the Panel field cached at the wrapper level (View) and lazy-create it.
+		EnsureViewAttached();
 	}
 
 	/// <summary>Mount-if-needed + visible. The common one-call entry point.</summary>
 	public void Show( GameObject parent = null )
 	{
 		if ( !MountedObject.IsValid() ) Add( parent );
-		if ( MountedObject.IsValid() ) MountedObject.Enabled = true;
+		if ( MountedObject.IsValid() )
+		{
+			MountedObject.Enabled = true;
+			EnsureViewAttached();
+		}
 	}
 
 	/// <summary>Hide without tearing down — cheaper than Remove + re-Add.</summary>
@@ -82,6 +105,7 @@ public abstract class SuiPanel<TView> where TView : PanelComponent, new()
 	{
 		MountedObject?.Destroy();
 		MountedObject = null;
+		Host = null;
 		View = null;
 	}
 
@@ -92,12 +116,34 @@ public abstract class SuiPanel<TView> where TView : PanelComponent, new()
 	/// </summary>
 	public void RefreshView()
 	{
-		if ( View.IsValid() ) SyncFieldsTo( View );
+		if ( View != null ) SyncFieldsTo( View );
+	}
+
+	/// <summary>
+	/// Lazy-create the View Panel and parent it under the Host's root Panel.
+	/// Idempotent. Called from Add() / Show() / RefreshView().
+	/// </summary>
+	private void EnsureViewAttached()
+	{
+		if ( Host == null || !Host.IsValid() ) return;
+		if ( Host.Panel == null ) return; // OnEnabled hasn't fired yet
+
+		if ( View == null )
+		{
+			View = new TView();
+			Host.Panel.AddChild( View );
+		}
+		else if ( View.Parent != Host.Panel )
+		{
+			Host.Panel.AddChild( View );
+		}
+
+		SyncFieldsTo( View );
 	}
 
 	/// <summary>
 	/// Generator override: copy each wrapper [Property] into the matching
-	/// <see cref="View"/> [Property]. Called on Add() and on RefreshView().
+	/// <see cref="View"/> [Property]. Called on Add() / Show() / RefreshView().
 	/// </summary>
 	protected abstract void SyncFieldsTo( TView view );
 }

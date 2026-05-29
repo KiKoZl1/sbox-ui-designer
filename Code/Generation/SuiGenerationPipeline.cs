@@ -44,10 +44,10 @@ public static class SuiGenerationPipeline
 			: !string.IsNullOrEmpty( doc.Output?.Namespace ) ? doc.Output.Namespace
 			: "Game.UI";
 
-		// V1.5-M2-K6 — every .sui splits the generated names: the renderer
-		// becomes <Name>Panel (PanelComponent emitted from .razor), and a
-		// separate <Name>.cs file exposes the user-facing wrapper class.
-		// Always — no per-document mode toggle.
+		// V1.5-M2-K7 — splits names: renderer is <Name>Panel : Panel (nestable
+		// in other .sui markup via <Game.UI.<Name>Panel />) and the wrapper
+		// is <Name> : SuiPanel<<Name>Panel> (Component-friendly with
+		// [Property] mirrors). Both classes coexist in the same namespace.
 		if ( ctx.Mode == SuiGenerationMode.Final )
 		{
 			ctx.WrapperClassName = ctx.ClassName;

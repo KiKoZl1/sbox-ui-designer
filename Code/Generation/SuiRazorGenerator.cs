@@ -51,15 +51,16 @@ public sealed class SuiRazorGenerator
 		_sb.Append( SuiHeaderEmitter.EmitRazorHeader( _doc ) );
 		_sb.Append( '\n' );
 
-		// Standard preamble. @inherits PanelComponent makes this the root of
-		// a runtime UI tree (used inside ScreenPanel or WorldPanel).
-		// @namespace places the generated type under ctx.Namespace so the
-		// preview/runtime can find it deterministically via TypeLibrary.
+		// V1.5-M2-K7 — @inherits Panel (NOT PanelComponent) so the generated
+		// class can be nested inside other .sui markup via <Game.UI.<Name> />.
+		// Standalone mounting goes through SuiPanel<TView>.Add() which spawns
+		// a SuiHostPanelComponent + ScreenPanel and attaches the Panel as a
+		// child. See DEVIATIONS D-014.
 		if ( !string.IsNullOrEmpty( ctx.Namespace ) )
 			_sb.AppendLine( $"@namespace {ctx.Namespace}" );
 		_sb.AppendLine( "@using Sandbox;" );
 		_sb.AppendLine( "@using Sandbox.UI;" );
-		_sb.AppendLine( "@inherits PanelComponent" );
+		_sb.AppendLine( "@inherits Panel" );
 		_sb.AppendLine();
 
 		// Markup tree.
@@ -108,15 +109,19 @@ public sealed class SuiRazorGenerator
 				? entry.Target.ClassName
 				: $"global::{entry.Target.Namespace}.{entry.Target.ClassName}";
 
+			// V1.5-M2-K7 — plain public, no [Property] (Panel base class).
+			// The wrapper class (which IS a Component-friendly class) carries
+			// the matching [Property] field so the inspector still shows
+			// these for instance editing.
 			if ( entry.IsForEach )
 			{
-				body.Append( "\t[Property, Group( \"Children\" )] public System.Collections.Generic.List<" )
+				body.Append( "\tpublic System.Collections.Generic.List<" )
 					.Append( qualifiedType ).Append( "> " ).Append( fieldName )
 					.AppendLine( " { get; set; } = new();" );
 			}
 			else
 			{
-				body.Append( "\t[Property, Group( \"Children\" )] public " )
+				body.Append( "\tpublic " )
 					.Append( qualifiedType ).Append( ' ' ).Append( fieldName )
 					.Append( " { get; set; } = new " ).Append( qualifiedType ).AppendLine( "();" );
 			}
@@ -244,6 +249,9 @@ public sealed class SuiRazorGenerator
 		// namespace (e.g. parent is Game.UI.Hud and child is Game.UI.HealthBar
 		// — without the prefix C# would resolve `Game.UI.HealthBar` as
 		// `Game.UI.Game.UI.HealthBar` from inside Game.UI).
+		// V1.5-M2-K7 — child's renderer (Panel subclass) is <Name>Panel and
+		// IS nestable via <Game.UI.<Name>Panel />. The wrapper <Name>
+		// (Component-friendly) is for standalone mounting only.
 		var childWrapperType = string.IsNullOrEmpty( target.Namespace )
 			? target.ClassName
 			: $"global::{target.Namespace}.{target.ClassName}";
