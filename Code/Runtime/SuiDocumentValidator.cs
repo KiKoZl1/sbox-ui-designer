@@ -135,7 +135,29 @@ public static class SuiDocumentValidator
 		ValidateEvents( doc, r );
 		ValidateExposedElements( doc, r );
 
+		// V1.5 M3 (PRD 20 § 8.2) — cross-paradigm collision detection.
+		// Single pass that catches every name that is claimed by more than
+		// one source (Variable / SuiReference field / Code handler / Doo
+		// property / @ref). Without this the dev compiles, gets a CS0102,
+		// fixes one offender, recompiles, gets another. Detect all at once.
+		ValidateNameConflicts( doc, r );
+
 		return r;
+	}
+
+	private static void ValidateNameConflicts( SuiDocument doc, Result r )
+	{
+		var groups = SuiNameConflictDetector.Detect( doc );
+		foreach ( var kv in groups )
+		{
+			var labels = new System.Text.StringBuilder();
+			for ( int i = 0; i < kv.Value.Count; i++ )
+			{
+				if ( i > 0 ) labels.Append( " vs " );
+				labels.Append( kv.Value[i].Where );
+			}
+			r.Errors.Add( $"name collision on '{kv.Key}': {labels}" );
+		}
 	}
 
 	private static void ValidateEvents( SuiDocument doc, Result r )
@@ -182,32 +204,8 @@ public static class SuiDocumentValidator
 	{
 		if ( doc?.Elements == null ) return;
 
-		// Collect every identifier that's already taken on the generated wrapper
-		// / renderer surface so the @ref field can't shadow one of them.
-		var taken = new HashSet<string>( System.StringComparer.Ordinal );
-		if ( doc.Variables != null )
-		{
-			foreach ( var v in doc.Variables )
-				if ( v != null && !string.IsNullOrEmpty( v.Name ) ) taken.Add( v.Name );
-		}
-		foreach ( var el in doc.Elements )
-		{
-			if ( el?.Type == SuiElementType.SuiReference && !string.IsNullOrEmpty( el.Name ) )
-				taken.Add( el.Name );
-			if ( el?.Events != null )
-			{
-				foreach ( var kv in el.Events )
-				{
-					if ( kv.Value?.Mode == SuiEventMode.Code && !string.IsNullOrEmpty( kv.Value.Handler ) )
-						taken.Add( kv.Value.Handler );
-					if ( kv.Value?.Mode == SuiEventMode.Doo && !string.IsNullOrEmpty( kv.Value.DooPropertyName ) )
-						taken.Add( kv.Value.DooPropertyName );
-				}
-			}
-		}
-
-		// Now check exposed-element field names for collisions + duplicates.
-		var exposedSeen = new HashSet<string>( System.StringComparer.Ordinal );
+		// Only shape checks here — collision detection moved to the unified
+		// SuiNameConflictDetector pass so every paradigm shares one report.
 		foreach ( var el in doc.Elements )
 		{
 			if ( el?.Flags == null || !el.Flags.ExposeAsVariable ) continue;
@@ -218,17 +216,7 @@ public static class SuiDocumentValidator
 				continue;
 			}
 			if ( !IsLegalIdentifier( field ) )
-			{
 				r.Errors.Add( $"exposed element '{field}' is not a legal C# identifier" );
-				continue;
-			}
-			if ( !exposedSeen.Add( field ) )
-			{
-				r.Errors.Add( $"two elements are exposed with the same name '{field}'" );
-				continue;
-			}
-			if ( taken.Contains( field ) )
-				r.Errors.Add( $"exposed element name '{field}' collides with a Variable / SuiReference / event handler" );
 		}
 	}
 
