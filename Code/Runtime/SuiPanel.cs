@@ -54,6 +54,7 @@ public abstract class SuiPanel<TView> where TView : Panel, new()
 	public TView View { get; private set; }
 
 	/// <summary>True while a mount exists (Add/Show called, Remove not yet).</summary>
+	[Hide, System.Text.Json.Serialization.JsonIgnore]
 	public bool IsMounted => MountedObject.IsValid();
 
 	/// <summary>
@@ -63,6 +64,7 @@ public abstract class SuiPanel<TView> where TView : Panel, new()
 	/// PanelComponent's OnDisabled which destroys the Panel root, leaving
 	/// <see cref="View"/> orphan when Show() re-enables.
 	/// </summary>
+	[Hide, System.Text.Json.Serialization.JsonIgnore]
 	public bool IsShown => MountedObject.IsValid() && View != null && View.Style.Display != DisplayMode.None;
 
 	/// <summary>
@@ -88,16 +90,10 @@ public abstract class SuiPanel<TView> where TView : Panel, new()
 		MountedObject.Name = typeof( TView ).Name + "_Mount";
 		if ( parent.IsValid() ) MountedObject.SetParent( parent );
 
-		Log.Info( $"[SUI] {GetType().Name}.Add() — created GO '{MountedObject.Name}' enabled={MountedObject.Enabled}" );
-
 		MountedObject.Components.Create<ScreenPanel>();
 		Host = MountedObject.Components.Create<SuiHostPanelComponent>();
 
-		Log.Info( $"[SUI] {GetType().Name}.Add() — Host valid={Host.IsValid()}, Host.Panel null? {Host?.Panel == null}" );
-
 		EnsureViewAttached();
-
-		Log.Info( $"[SUI] {GetType().Name}.Add() — done. View valid? {View != null}, View.Parent == Host.Panel? {View?.Parent == Host?.Panel}" );
 	}
 
 	/// <summary>Mount-if-needed + visible. The common one-call entry point.</summary>
@@ -143,31 +139,21 @@ public abstract class SuiPanel<TView> where TView : Panel, new()
 	/// </summary>
 	private void EnsureViewAttached()
 	{
-		if ( Host == null || !Host.IsValid() )
-		{
-			Log.Info( $"[SUI] {GetType().Name}.EnsureViewAttached() — Host invalid, bail." );
-			return;
-		}
-		if ( Host.Panel == null )
-		{
-			Log.Info( $"[SUI] {GetType().Name}.EnsureViewAttached() — Host.Panel is null (OnEnabled not fired yet?), bail." );
-			return;
-		}
+		if ( Host == null || !Host.IsValid() ) return;
+		if ( Host.Panel == null ) return;
 
 		if ( View == null )
 		{
-			// Use the Sandbox.UI `Add.Panel<T>()` factory instead of `new T()`
+			// Use the Sandbox.UI `Panel.AddChild<T>()` factory instead of `new T()`
 			// because Razor-derived Panel classes only run their generated
 			// BuildRenderTree (which populates children from the .razor markup)
 			// when constructed through that factory path. Plain `new()` leaves
 			// the Panel empty even though it's attached.
 			View = Host.Panel.AddChild<TView>();
-			Log.Info( $"[SUI] {GetType().Name}.EnsureViewAttached() — Add.Panel<{typeof(TView).Name}>() created+attached" );
 		}
 		else if ( View.Parent != Host.Panel )
 		{
 			Host.Panel.AddChild( View );
-			Log.Info( $"[SUI] {GetType().Name}.EnsureViewAttached() — re-attached existing View" );
 		}
 
 		SyncFieldsTo( View );
