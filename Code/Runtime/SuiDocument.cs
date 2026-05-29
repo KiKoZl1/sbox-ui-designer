@@ -54,7 +54,10 @@ public sealed class SuiDocument
 
 	// ---------- Reserved (V1.5+) ----------
 
-	public List<SuiEventBinding> Events { get; set; } = new();
+	// V1.0 reserved a Document-level List<SuiEventBinding>, but M3 moved events
+	// onto each SuiElement (see SuiElement.Events Dictionary). Doc-level list
+	// removed pre-M3 (a32c52d cleanup family).
+
 	public List<SuiAnimationData> Animations { get; set; } = new();
 
 	// ---------- Output & manifest ----------
@@ -195,7 +198,6 @@ public sealed class SuiDocument
 		};
 		foreach ( var el in Elements ) clone.Elements.Add( el.Clone() );
 		foreach ( var v in Variables ) clone.Variables.Add( v.Clone() );
-		foreach ( var ev in Events ) clone.Events.Add( ev.Clone() );
 		foreach ( var an in Animations ) clone.Animations.Add( an.Clone() );
 		clone.PreviewData = PreviewData?.Clone();
 		return clone;

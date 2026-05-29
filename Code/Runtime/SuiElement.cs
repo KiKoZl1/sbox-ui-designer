@@ -43,6 +43,13 @@ public sealed class SuiElement
 	/// </summary>
 	public SuiReferenceData SuiReference { get; set; }
 
+	/// <summary>
+	/// V1.5 M3 — event slots on this element keyed by event name (PRD 20 § 3.2).
+	/// Names come from the closed-set matrix <see cref="SuiEventMatrix"/> ("OnClick",
+	/// "OnHover", "OnValueChanged"…). Elements with no entries here are non-interactive.
+	/// </summary>
+	public Dictionary<string, SuiEventBinding> Events { get; set; } = new();
+
 	/// <summary>Optional designer-only notes attached to the element.</summary>
 	public string Notes { get; set; }
 
@@ -87,6 +94,12 @@ public sealed class SuiElement
 			StyleRef = StyleRef,
 		};
 		foreach ( var b in Bindings ) clone.Bindings.Add( b?.Clone() );
+		if ( Events != null )
+		{
+			clone.Events = new Dictionary<string, SuiEventBinding>( Events.Count );
+			foreach ( var kv in Events )
+				if ( kv.Value != null ) clone.Events[kv.Key] = kv.Value.Clone();
+		}
 		return clone;
 	}
 

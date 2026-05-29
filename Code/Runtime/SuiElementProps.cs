@@ -129,9 +129,18 @@ public sealed class SuiElementFlags
 	/// <summary>Hidden in the designer canvas/preview (still in document).</summary>
 	public bool HiddenInDesigner { get; set; } = false;
 
+	/// <summary>
+	/// V1.5 M3 (PRD 20 § 5) — emit a Razor <c>@ref="&lt;ElementName&gt;"</c> on this
+	/// element and declare a typed field on the generated renderer Panel class so
+	/// the user's <c>&lt;Name&gt;.partial.cs</c> can poke the live element imperatively.
+	/// Field name = sanitized element <see cref="SuiElement.Name"/>.
+	/// </summary>
+	public bool ExposeAsVariable { get; set; } = false;
+
 	public SuiElementFlags Clone() => new()
 	{
 		Locked = Locked,
 		HiddenInDesigner = HiddenInDesigner,
+		ExposeAsVariable = ExposeAsVariable,
 	};
 }

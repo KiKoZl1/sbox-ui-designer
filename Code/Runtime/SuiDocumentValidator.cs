@@ -131,7 +131,114 @@ public static class SuiDocumentValidator
 		ValidateVariables( doc, r );
 		ValidateBindings( doc, r );
 
+		// V1.5 M3 — Events (PRD 20 § 3.6) and Element references (§ 5.5).
+		ValidateEvents( doc, r );
+		ValidateExposedElements( doc, r );
+
 		return r;
+	}
+
+	private static void ValidateEvents( SuiDocument doc, Result r )
+	{
+		if ( doc?.Elements == null ) return;
+
+		foreach ( var el in doc.Elements )
+		{
+			if ( el?.Events == null || el.Events.Count == 0 ) continue;
+
+			foreach ( var kv in el.Events )
+			{
+				var name = kv.Key;
+				var binding = kv.Value;
+				if ( binding == null ) continue;
+
+				// Closed-set check — element type must surface this event.
+				if ( !SuiEventMatrix.Supports( el.Type, name ) )
+				{
+					r.Errors.Add( $"element '{el.Name ?? el.Id}' has event '{name}' but {el.Type} does not surface it" );
+					continue;
+				}
+
+				switch ( binding.Mode )
+				{
+					case SuiEventMode.Code:
+						if ( string.IsNullOrEmpty( binding.Handler ) )
+							r.Errors.Add( $"event '{el.Name ?? el.Id}.{name}' in Code mode has empty Handler" );
+						else if ( !IsLegalIdentifier( binding.Handler ) )
+							r.Errors.Add( $"event '{el.Name ?? el.Id}.{name}' Handler '{binding.Handler}' is not a legal C# identifier" );
+						break;
+					case SuiEventMode.Doo:
+						if ( string.IsNullOrEmpty( binding.DooPropertyName ) )
+							r.Errors.Add( $"event '{el.Name ?? el.Id}.{name}' in Doo mode has empty DooPropertyName" );
+						else if ( !IsLegalIdentifier( binding.DooPropertyName ) )
+							r.Errors.Add( $"event '{el.Name ?? el.Id}.{name}' DooPropertyName '{binding.DooPropertyName}' is not a legal C# identifier" );
+						break;
+				}
+			}
+		}
+	}
+
+	private static void ValidateExposedElements( SuiDocument doc, Result r )
+	{
+		if ( doc?.Elements == null ) return;
+
+		// Collect every identifier that's already taken on the generated wrapper
+		// / renderer surface so the @ref field can't shadow one of them.
+		var taken = new HashSet<string>( System.StringComparer.Ordinal );
+		if ( doc.Variables != null )
+		{
+			foreach ( var v in doc.Variables )
+				if ( v != null && !string.IsNullOrEmpty( v.Name ) ) taken.Add( v.Name );
+		}
+		foreach ( var el in doc.Elements )
+		{
+			if ( el?.Type == SuiElementType.SuiReference && !string.IsNullOrEmpty( el.Name ) )
+				taken.Add( el.Name );
+			if ( el?.Events != null )
+			{
+				foreach ( var kv in el.Events )
+				{
+					if ( kv.Value?.Mode == SuiEventMode.Code && !string.IsNullOrEmpty( kv.Value.Handler ) )
+						taken.Add( kv.Value.Handler );
+					if ( kv.Value?.Mode == SuiEventMode.Doo && !string.IsNullOrEmpty( kv.Value.DooPropertyName ) )
+						taken.Add( kv.Value.DooPropertyName );
+				}
+			}
+		}
+
+		// Now check exposed-element field names for collisions + duplicates.
+		var exposedSeen = new HashSet<string>( System.StringComparer.Ordinal );
+		foreach ( var el in doc.Elements )
+		{
+			if ( el?.Flags == null || !el.Flags.ExposeAsVariable ) continue;
+			var field = el.Name;
+			if ( string.IsNullOrEmpty( field ) )
+			{
+				r.Errors.Add( $"element '{el.Id}' is exposed but has no Name to generate a field from" );
+				continue;
+			}
+			if ( !IsLegalIdentifier( field ) )
+			{
+				r.Errors.Add( $"exposed element '{field}' is not a legal C# identifier" );
+				continue;
+			}
+			if ( !exposedSeen.Add( field ) )
+			{
+				r.Errors.Add( $"two elements are exposed with the same name '{field}'" );
+				continue;
+			}
+			if ( taken.Contains( field ) )
+				r.Errors.Add( $"exposed element name '{field}' collides with a Variable / SuiReference / event handler" );
+		}
+	}
+
+	private static bool IsLegalIdentifier( string s )
+	{
+		if ( string.IsNullOrEmpty( s ) ) return false;
+		if ( !char.IsLetter( s[0] ) && s[0] != '_' ) return false;
+		for ( int i = 1; i < s.Length; i++ )
+			if ( !char.IsLetterOrDigit( s[i] ) && s[i] != '_' ) return false;
+		return true;
 	}
 
 	private static bool HasCycle( SuiElement start, Dictionary<string, SuiElement> byId )

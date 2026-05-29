@@ -59,6 +59,7 @@ public sealed class SuiRazorGenerator
 		// child. See DEVIATIONS D-014.
 		if ( !string.IsNullOrEmpty( ctx.Namespace ) )
 			_sb.AppendLine( $"@namespace {ctx.Namespace}" );
+		_sb.AppendLine( "@using System;" );
 		_sb.AppendLine( "@using Sandbox;" );
 		_sb.AppendLine( "@using Sandbox.UI;" );
 		_sb.AppendLine( "@inherits Panel" );
@@ -86,10 +87,17 @@ public sealed class SuiRazorGenerator
 		var hasVars = _doc.Variables != null && _doc.Variables.Count > 0;
 		var childRefs = CollectChildReferences();
 		var hasChildren = childRefs.Count > 0;
-		if ( !hasVars && !hasChildren ) return;
+		var hasEvents = HasAnyEventsOrRefs( _doc );
+		if ( !hasVars && !hasChildren && !hasEvents ) return;
 
 		var body = new System.Text.StringBuilder();
 		SuiVariableEmitter.EmitProperties( _doc.Variables, body );
+
+		// V1.5 M3 — renderer-side mirrors for Code-mode event handlers (the
+		// wrapper assigns these in SyncFieldsTo) and typed fields captured
+		// by `@ref` on exposed elements (Razor populates these at render time).
+		SuiEventEmitter.EmitRendererFields( _doc, body );
+		SuiElementRefEmitter.EmitRendererFields( _doc, body );
 
 		// V1.5-M2-K7-bugfix — also collect expressions that need to feed the
 		// parent's BuildHash so that mutations on a child instance
@@ -186,6 +194,31 @@ public sealed class SuiRazorGenerator
 			list.Add( new ChildRefEntry( el, target, isForEach ) );
 		}
 		return list;
+	}
+
+	/// <summary>
+	/// True when any element in the doc has at least one Code-mode event slot
+	/// or the <see cref="SuiElementFlags.ExposeAsVariable"/> flag set. Used to
+	/// decide whether the @code block needs an emit pass even when the doc
+	/// has no Variables and no SuiReference children.
+	/// </summary>
+	private static bool HasAnyEventsOrRefs( SuiDocument doc )
+	{
+		if ( doc?.Elements == null ) return false;
+		foreach ( var el in doc.Elements )
+		{
+			if ( el == null ) continue;
+			if ( el.Flags != null && el.Flags.ExposeAsVariable ) return true;
+			if ( el.Events != null )
+			{
+				foreach ( var kv in el.Events )
+				{
+					if ( kv.Value != null && kv.Value.Mode == SuiEventMode.Code
+						&& !string.IsNullOrEmpty( kv.Value.Handler ) ) return true;
+				}
+			}
+		}
+		return false;
 	}
 
 	// ─────────────────────────────────────────────────────────────────────
@@ -457,6 +490,11 @@ public sealed class SuiRazorGenerator
 			.Append( dataAttrs );
 		if ( styleBody.Length > 0 )
 			_sb.Append( " style=\"" ).Append( styleBody ).Append( "\"" );
+		// V1.5 M3 — `@ref="X"` for exposed elements + `onclick=@Handler` etc.
+		// for every Code-mode event slot. Both emitters are no-ops when the
+		// element has neither, so the tag stays clean for static UIs.
+		SuiElementRefEmitter.EmitRazorRef( el, _sb );
+		SuiEventEmitter.EmitRazorAttributes( el, _sb );
 
 		// Self-closing if no children and no intrinsic content (e.g. Button label).
 		if ( !hasChildren && !HasIntrinsicContent( el ) )

@@ -57,6 +57,7 @@ public static class SuiWrapperEmitter
 		sb.AppendLine( "//     Widget.SomeVar = 42;                 // edit a public Variable" );
 		sb.AppendLine( "//     Widget.ChildName.NestedVar = \"x\";  // address a SuiReference by name" );
 		sb.AppendLine();
+		sb.AppendLine( "using System;" );
 		sb.AppendLine( "using Sandbox;" );
 		sb.AppendLine( "using SboxUiDesigner.Runtime;" );
 		sb.AppendLine();
@@ -71,12 +72,17 @@ public static class SuiWrapperEmitter
 		// wrapper flow into the live view automatically on next render.
 		EmitVariableProperties( doc, sb );
 		EmitChildReferenceProperties( doc, ctx, sb );
+		// V1.5 M3 — Code-mode event slots become wrapper [Property] Action
+		// fields that the user assigns (typically via the .partial.cs handler
+		// reference). Doo mode lands in Phase 3.
+		SuiEventEmitter.EmitWrapperProperties( doc, sb );
 
 		sb.AppendLine();
 		sb.AppendLine( $"\tprotected override void SyncFieldsTo( {className}Panel view )" );
 		sb.AppendLine( "\t{" );
 		EmitVariableAssignments( doc, sb, "view" );
 		EmitChildReferenceAssignments( doc, ctx, sb, "view" );
+		SuiEventEmitter.EmitWrapperSyncAssignments( doc, sb, "view" );
 		sb.AppendLine( "\t}" );
 
 		// V1.5-M2-K7-bugfix — recursive content hash. Without this, mutating a

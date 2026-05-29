@@ -239,13 +239,18 @@ public enum SuiGeneratedFileKind
 	CustomScss,
 }
 
-/// <summary>Event binding mode (V1.5+). Reserved for future use.</summary>
+/// <summary>
+/// Event slot mode (V1.5 M3, PRD 20 § 3.2). The two real modes are
+/// <see cref="Code"/> (stub in <c>&lt;Name&gt;.partial.cs</c>) and
+/// <see cref="Doo"/> (typed Doo property on the wrapper). <see cref="None"/>
+/// is the implicit default for an element that has no entry in
+/// <see cref="SuiElement.Events"/>; the schema stores no row for it.
+/// </summary>
 public enum SuiEventMode
 {
 	None,
 	Code,
-	Graph,
-	CodeAndGraph,
+	Doo,
 }
 
 /// <summary>Animation easing curves (V2). Reserved for future use.</summary>
