@@ -5,6 +5,7 @@ using Editor;
 using Sandbox;
 using SboxUiDesigner.EditorUi;
 using SboxUiDesigner.EditorUi.Commands;
+using SboxUiDesigner.Generation;
 using SboxUiDesigner.Runtime;
 
 namespace SboxUiDesigner.EditorUi.Widgets;
@@ -198,6 +199,8 @@ public class SuiDetailsWidget : Widget
 		BuildPropsSection( el );
 		if ( el.Type == SuiElementType.SuiReference )
 			BuildSuiReferenceSection( el );
+		// V1.5 M3 — events live in the bottom Events tab (+ Add Event popup).
+		// Details stays clean — props/layout/style only.
 	}
 
 	private void BuildSuiReferenceSection( SuiElement el )
@@ -411,6 +414,13 @@ public class SuiDetailsWidget : Widget
 		Container().Layout.Add( row );
 	}
 
+	// V1.5 M3 — Events section was originally hosted here (one row per
+	// matrix event, "Not bound" rows showed for every supported event even
+	// when nothing was wired). User feedback: too much chrome in Details
+	// for a feature that's better as a curated list. Refactored to a
+	// "+ Add Event" popup driven from the Events bottom tab, matching the
+	// Bindings tab UX. See SuiEventsWidget + SuiEventPopup.
+
 	// BuildNotesSection / BuildDesignerSection removed — Notes was clutter
 	// per user request, and the Designer section (Locked / Hidden in designer /
 	// Is Variable) had its toggles already accessible elsewhere: lock + eye
@@ -424,6 +434,13 @@ public class SuiDetailsWidget : Widget
 			v => { if ( !string.IsNullOrEmpty( v ) ) _controller?.RenameElement( el, v ); } );
 		AddTextRow( "Tooltip Text", el.TooltipText ?? "",
 			v => SetProp( el, e => e.TooltipText, ( e, v2 ) => e.TooltipText = v2, v, "Set tooltip" ) );
+
+		// V1.5 M3 (PRD 20 § 5.6) — flip this on and the generator emits
+		// @ref="<Name>" on the element so `View.<Name>` is reachable from
+		// the Controller's gameplay code via `Hud.View?.<Name>?.AddClass(...)`.
+		var flags = el.Flags ?? new SuiElementFlags();
+		AddBoolRow( "Expose as Variable", flags.ExposeAsVariable,
+			v => _controller?.Execute( new Commands.SuiSetExposeCommand( el.Id, v ) ) );
 
 		// Removed:
 		//   Is Visible — duplicated Visibility=Collapsed in Appearance

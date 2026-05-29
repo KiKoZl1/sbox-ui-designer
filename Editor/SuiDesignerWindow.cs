@@ -779,6 +779,33 @@ public class SuiDesignerWindow : DockWindow, IAssetEditor
 		_controller.Execute( new SuiClearBindingCommand( elementId, binding ) );
 	}
 
+	// V1.5 M3 — Events panel handlers. Same shape as the Bindings ones above.
+
+	private void OnAddEventRequested()
+	{
+		if ( Document == null ) return;
+		// Pre-fill with selection so the user doesn't hunt through the element
+		// dropdown if they were already focused on the right button.
+		var selectedId = _controller.Selected?.Id;
+		var popup = new SuiEventPopup( Document, selectedId );
+		popup.OnAccept = ( elementId, eventName, binding ) =>
+			_controller.Execute( new SuiSetEventCommand( elementId, eventName, binding ) );
+	}
+
+	private void OnEditEventRequested( string elementId, string eventName, SuiEventBinding existing )
+	{
+		if ( Document == null || existing == null ) return;
+		var popup = new SuiEventPopup( Document, elementId, eventName, existing );
+		popup.OnAccept = ( eid, evName, edited ) =>
+			_controller.Execute( new SuiSetEventCommand( eid, evName, edited ) );
+	}
+
+	private void OnDeleteEventRequested( string elementId, string eventName )
+	{
+		if ( Document == null || string.IsNullOrEmpty( eventName ) ) return;
+		_controller.Execute( new SuiClearEventCommand( elementId, eventName ) );
+	}
+
 	private void OpenSuiReferencePicker()
 	{
 		if ( Document == null ) return;
@@ -946,6 +973,17 @@ public class SuiDesignerWindow : DockWindow, IAssetEditor
 		_bottomTabs.Bindings.AddBindingRequested += OnAddBindingRequested;
 		_bottomTabs.Bindings.EditBindingRequested += OnEditBindingRequested;
 		_bottomTabs.Bindings.DeleteBindingRequested += OnDeleteBindingRequested;
+
+		// V1.5 M3 — Events tab (PRD 20 § 4.3): + Add / Edit / Delete via
+		// SuiEventPopup, row click jumps controller selection to the element.
+		_bottomTabs.Events.JumpToElementRequested += elementId =>
+		{
+			var el = Document?.GetElement( elementId );
+			if ( el != null ) _controller.SetSelected( el );
+		};
+		_bottomTabs.Events.AddEventRequested += OnAddEventRequested;
+		_bottomTabs.Events.EditEventRequested += OnEditEventRequested;
+		_bottomTabs.Events.DeleteEventRequested += OnDeleteEventRequested;
 
 		// Wire mini-toolbar (dropdowns + view-toggle buttons + fit) inside the center widget.
 		_centerTabs.WireMiniToolbar(

@@ -791,8 +791,13 @@ public sealed class SuiTreeRow : Widget
 
 		// Name label — leaves room for the right icons. Suppressed while the
 		// inline-rename LineEdit overlay is active; the editor paints itself.
+		// V1.5 M3 (PRD 20 § 5.6) — exposed elements render in a slightly
+		// brighter weight so the user can scan and see what's reachable
+		// from `.partial.cs` / Controller code via @ref.
 		if ( !_isEditing )
 		{
+			var exposed = Element?.Flags != null && Element.Flags.ExposeAsVariable;
+			Paint.SetDefaultFont( 11, exposed ? 700 : 400 );
 			Paint.SetPen( textColor );
 			var labelRect = new Rect( x, 0, _eyeRect.Left - x - 4, Height );
 			Paint.DrawText( labelRect, Element.Name ?? "(unnamed)", TextFlag.LeftCenter );

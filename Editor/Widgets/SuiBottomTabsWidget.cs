@@ -27,11 +27,13 @@ public sealed class SuiBottomTabsWidget : Widget
 
 	private SuiAnimationsWidget _animations;
 	private SuiBindingsWidget _bindings;
+	private SuiEventsWidget _events;
 	private SuiCompileResultsWidget _compileResults;
 	private SuiLogsWidget _logs;
 
 	public SuiAnimationsWidget Animations => _animations;
 	public SuiBindingsWidget Bindings => _bindings;
+	public SuiEventsWidget Events => _events;
 	public SuiCompileResultsWidget CompileResults => _compileResults;
 	public SuiLogsWidget Logs => _logs;
 
@@ -51,6 +53,7 @@ public sealed class SuiBottomTabsWidget : Widget
 		_tabs = new SuiBottomTabStrip( this );
 		_tabs.AddTab( "Animations" );
 		_tabs.AddTab( "Bindings" );
+		_tabs.AddTab( "Events" );
 		_tabs.AddTab( "Compile Results" );
 		_tabs.AddTab( "Logs" );
 		_tabs.FinishLeftAligned();
@@ -66,19 +69,21 @@ public sealed class SuiBottomTabsWidget : Widget
 
 		_animations = new SuiAnimationsWidget( _stack );
 		_bindings = new SuiBindingsWidget( _stack );
+		_events = new SuiEventsWidget( _stack );
 		_compileResults = new SuiCompileResultsWidget( _stack );
 		_logs = new SuiLogsWidget( _stack );
 
-		// Make all four children fill the stack so the panel height stays
+		// Make all five children fill the stack so the panel height stays
 		// constant when switching tabs. Without these the stack collapses
 		// to the natural size of whichever child is visible.
-		foreach ( var w in new Widget[] { _animations, _bindings, _compileResults, _logs } )
+		foreach ( var w in new Widget[] { _animations, _bindings, _events, _compileResults, _logs } )
 		{
 			w.SetSizeMode( SizeMode.CanGrow, SizeMode.CanGrow );
 		}
 
 		_stack.Layout.Add( _animations, 1 );
 		_stack.Layout.Add( _bindings, 1 );
+		_stack.Layout.Add( _events, 1 );
 		_stack.Layout.Add( _compileResults, 1 );
 		_stack.Layout.Add( _logs, 1 );
 
@@ -92,20 +97,22 @@ public sealed class SuiBottomTabsWidget : Widget
 		var idx = _tabs.ActiveIndex;
 		if ( _animations.IsValid() )     _animations.Visible     = idx == 0;
 		if ( _bindings.IsValid() )       _bindings.Visible       = idx == 1;
-		if ( _compileResults.IsValid() ) _compileResults.Visible = idx == 2;
-		if ( _logs.IsValid() )           _logs.Visible           = idx == 3;
+		if ( _events.IsValid() )         _events.Visible         = idx == 2;
+		if ( _compileResults.IsValid() ) _compileResults.Visible = idx == 3;
+		if ( _logs.IsValid() )           _logs.Visible           = idx == 4;
 	}
 
 	public void DisplayCompileResult( SuiGenerationResult generation, SboxUiDesigner.EditorUi.SuiCompileResult compile )
 	{
 		_compileResults?.DisplayCompileResult( generation, compile );
 		// Auto-switch to Compile Results tab when a compile finishes.
-		_tabs.ActiveIndex = 2;
+		_tabs.ActiveIndex = 3;
 	}
 
 	public void SetDocument( SboxUiDesigner.Runtime.SuiDocument doc )
 	{
 		_bindings?.SetDocument( doc );
+		_events?.SetDocument( doc );
 	}
 }
 
