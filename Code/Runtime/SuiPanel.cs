@@ -31,18 +31,26 @@ namespace SboxUiDesigner.Runtime;
 /// </summary>
 public abstract class SuiPanel<TView> where TView : Panel, new()
 {
-	/// <summary>The mounted host GameObject; null until <see cref="Add"/> runs.</summary>
-	protected GameObject MountedObject { get; private set; }
+	/// <summary>
+	/// The mounted host GameObject; null until <see cref="Add"/> runs.
+	/// <c>[Hide]</c> + <c>[JsonIgnore]</c> stop the s&amp;box reflection-based
+	/// inspector and serializer from walking into runtime types (Panel has
+	/// non-serializable members like <c>PanelCreator</c>).
+	/// </summary>
+	[Hide, System.Text.Json.Serialization.JsonIgnore]
+	public GameObject MountedObject { get; private set; }
 
-	/// <summary>The internal host PanelComponent that hosts the ScreenPanel; null until mounted.</summary>
-	protected SuiHostPanelComponent Host { get; private set; }
+	/// <summary>The internal host PanelComponent. Same hide reason as <see cref="MountedObject"/>.</summary>
+	[Hide, System.Text.Json.Serialization.JsonIgnore]
+	public SuiHostPanelComponent Host { get; private set; }
 
 	/// <summary>
-	/// The live Panel doing the rendering; null until mounted. Public so the
-	/// parent wrapper's <c>SyncFieldsTo</c> can attach this Panel to its
-	/// renderer when this wrapper is embedded as a named child of another
-	/// <c>.sui</c>.
+	/// The live Panel doing the rendering; null until mounted. Public so a
+	/// parent wrapper can reference this child wrapper's View from its own
+	/// renderer when embedded as a named SuiReference. Hidden from
+	/// inspector + serializer for the same Panel-non-serializable reason.
 	/// </summary>
+	[Hide, System.Text.Json.Serialization.JsonIgnore]
 	public TView View { get; private set; }
 
 	/// <summary>True while a mount exists (Add/Show called, Remove not yet).</summary>
