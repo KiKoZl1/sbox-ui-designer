@@ -7,9 +7,10 @@ namespace SboxUiDesigner.EditorUi.Widgets;
 
 /// <summary>
 /// Bindings panel — a document-wide table of every property binding (PRD 18 § 4.8).
-/// Rebuilt in M1-C for the V1.5 <see cref="SuiBinding"/> model (previously the V1
-/// <c>SuiPropertyBinding</c> table). Each row: Element · Property ← Source Variable
-/// · Mode, with edit / delete buttons.
+/// V1.5 model uses <see cref="SuiBinding"/> on each element. The legacy V1.0
+/// <c>SuiPropertyBinding</c> table on the document was removed pre-M3 (it was
+/// stub code that never wired into codegen). Each row: Element · Property ←
+/// Source Variable · Mode, with edit / delete buttons.
 ///
 /// The "+ Add Binding" button and the per-row edit/delete fire request events;
 /// <see cref="SuiDesignerWindow"/> turns them into undoable commands via the

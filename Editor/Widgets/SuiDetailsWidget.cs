@@ -198,7 +198,6 @@ public class SuiDetailsWidget : Widget
 		BuildPropsSection( el );
 		if ( el.Type == SuiElementType.SuiReference )
 			BuildSuiReferenceSection( el );
-		BuildBindingSection( el );
 	}
 
 	private void BuildSuiReferenceSection( SuiElement el )
@@ -397,56 +396,6 @@ public class SuiDetailsWidget : Widget
 			}
 			_controller?.Execute( new SuiSetReferenceDataCommand( el.Id, data, nextData ) );
 		} );
-	}
-
-	private void BuildBindingSection( SuiElement el )
-	{
-		BeginSection( "Binding", defaultExpanded: false );
-		if ( el.Flags == null ) el.Flags = new SuiElementFlags();
-
-		// "Is Variable" — flags this element as a code-exposed handle for
-		// the generated PanelComponent. Lives here because it's only
-		// meaningful in a binding context (V1.5 hookup).
-		AddBoolRow( "Is Variable", el.Flags.IsVariable,
-			v => SetProp( el, e => e.Flags.IsVariable, ( e, v2 ) => e.Flags.IsVariable = v2, v, "Set is-variable" ) );
-
-		if ( _document?.Bindings == null )
-		{
-			AddNote( "(no document)" );
-			return;
-		}
-
-		// Find the first binding targeting this element. The full binding
-		// list lives in the Bottom Panel → Bindings tab; this section only
-		// surfaces the primary binding for quick edit.
-		SuiPropertyBinding b = null;
-		foreach ( var x in _document.Bindings )
-		{
-			if ( x.TargetElementId == el.Id ) { b = x; break; }
-		}
-
-		AddBoolRow( "IsBound", b != null, on =>
-		{
-			if ( on && b == null )
-			{
-				_document.Bindings.Add( new SuiPropertyBinding { TargetElementId = el.Id, Property = "Value", Mode = "OneWay" } );
-			}
-			else if ( !on && b != null )
-			{
-				_document.Bindings.Remove( b );
-			}
-			Refresh();
-		} );
-
-		if ( b != null )
-		{
-			AddTextRow( "Binding Source", b.Source ?? "", v => { b.Source = v; } );
-			AddDropdownStringRow( "Binding Mode", b.Mode ?? "OneWay",
-				new[] { "OneWay", "TwoWay", "OneTime" },
-				v => { b.Mode = v; } );
-			AddTextRow( "Binding Path", b.Path ?? "", v => { b.Path = v; } );
-			AddTextRow( "Property", b.Property ?? "Value", v => { b.Property = v; } );
-		}
 	}
 
 	private void AddDropdownStringRow( string label, string current, string[] options, Action<string> onCommit )

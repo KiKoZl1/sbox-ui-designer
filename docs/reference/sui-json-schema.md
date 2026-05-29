@@ -151,7 +151,6 @@ See [Element types reference]({% link reference/element-types.md %}) for what ea
 
 ```jsonc
 {
-  "IsVariable": false,
   "Locked": false,
   "HiddenInDesigner": false
 }
@@ -159,9 +158,10 @@ See [Element types reference]({% link reference/element-types.md %}) for what ea
 
 | Field | Type | Default | Notes |
 |---|---|---|---|
-| `IsVariable` | bool | false | V1.5+ — expose as `[Property]` in generated C# |
 | `Locked` | bool | false | Can't be moved/resized in canvas |
 | `HiddenInDesigner` | bool | false | Hidden in canvas; still in doc + generated |
+
+> **Removed 2026-05-29 (pre-M3 cleanup):** `IsVariable` was a V1.5 stub that never wired into codegen. Existing `.sui` files with `"IsVariable": false` still load — the deserializer ignores the field. The M3 `ExposeAsVariable` flag (PRD 20 § 5.2) takes over the "expose to C#" role.
 
 ## `Layout` block
 

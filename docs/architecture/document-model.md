@@ -39,7 +39,9 @@ public sealed class SuiDocument
     // Reserved for V1.5+
     public List<SuiEventBinding> Events { get; set; }
     public List<SuiAnimationData> Animations { get; set; }
-    public List<SuiPropertyBinding> Bindings { get; set; }
+    // Document.Bindings (List<SuiPropertyBinding>) was removed pre-M3 — it was
+    // a V1.0 stub that never wired into codegen. The real binding model is
+    // per-element (SuiElement.Bindings of List<SuiBinding>).
 }
 ```
 
@@ -122,9 +124,10 @@ Every element carries 4 nested data blocks:
 ```csharp
 public sealed class SuiElementFlags
 {
-    public bool IsVariable;       // V1.5 — expose as [Property] in generated C#
     public bool Locked;           // can't move/resize in canvas
     public bool HiddenInDesigner; // hidden in canvas (still in doc + generated)
+    // IsVariable was removed pre-M3 — was a V1.0 stub never wired into codegen.
+    // The M3 ExposeAsVariable flag (PRD 20 § 5.2) takes over the role.
 }
 ```
 

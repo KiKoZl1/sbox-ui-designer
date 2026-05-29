@@ -123,9 +123,6 @@ public sealed class SuiElementProps
 /// </summary>
 public sealed class SuiElementFlags
 {
-	/// <summary>V1.5 — expose this element to the generated C# class as a [Property].</summary>
-	public bool IsVariable { get; set; } = false;
-
 	/// <summary>Locked elements cannot be moved/edited in the canvas (still selectable).</summary>
 	public bool Locked { get; set; } = false;
 
@@ -134,7 +131,6 @@ public sealed class SuiElementFlags
 
 	public SuiElementFlags Clone() => new()
 	{
-		IsVariable = IsVariable,
 		Locked = Locked,
 		HiddenInDesigner = HiddenInDesigner,
 	};
