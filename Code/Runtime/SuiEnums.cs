@@ -253,6 +253,25 @@ public enum SuiEventMode
 	Doo,
 }
 
+/// <summary>
+/// Runtime input mode for a mounted SUI panel — controls whether the cursor
+/// becomes visible and whether the UI captures focus. Mirrors UEFN's
+/// <c>ui_input_mode</c> values so devs coming from there land on familiar
+/// names. Pass via <see cref="SuiPanel{TView}.Show"/> or set later with
+/// <see cref="SuiPanel{TView}.SetInputMode"/>.
+/// </summary>
+public enum SuiInputMode
+{
+	/// <summary>UI renders but never touches the cursor — gameplay input is unaffected. Default.</summary>
+	Passive,
+
+	/// <summary>Show the cursor so the user can click panels with <c>pointer-events: all</c>. Gameplay still receives keyboard.</summary>
+	MouseOnly,
+
+	/// <summary>Show the cursor AND let the panel capture focus so it receives keyboard input (text inputs, navigation).</summary>
+	All,
+}
+
 /// <summary>Animation easing curves (V2). Reserved for future use.</summary>
 public enum SuiAnimationEasing
 {

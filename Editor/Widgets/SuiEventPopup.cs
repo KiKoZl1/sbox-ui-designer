@@ -272,21 +272,45 @@ public sealed class SuiEventPopup : Window
 	/// floating tool window targeted at our in-memory <see cref="_dooBody"/>.
 	/// Edits inside the popup mutate the Doo reference in-place, so on close
 	/// our OK button captures the final body without an explicit sync.
+	///
+	/// <para>Doo standalone <c>SerializedObject</c>s leave <c>ParentProperty</c>
+	/// null, which crashes the engine's <c>DooEditorWidget.RebuildUI</c> when
+	/// it tries to iterate the (also null) argument hints. To work around
+	/// that we wrap the Doo in a holder class that has a real <c>[Property]
+	/// Doo Body</c> field, build the SerializedObject from the holder, then
+	/// open the editor against the Body property's nested object — same shape
+	/// the engine's own <c>DooControlWidget</c> uses.</para>
 	/// </summary>
 	private void OpenDooEditor()
 	{
 		EnsureDooBody();
-		var so = EditorTypeLibrary.GetSerializedObject( _dooBody );
-		if ( so == null )
+
+		var holder = new DooEditorHolder { Body = _dooBody };
+		var holderSo = EditorTypeLibrary.GetSerializedObject( holder );
+		var bodyProp = holderSo?.GetProperty( nameof( DooEditorHolder.Body ) );
+		if ( bodyProp == null || !bodyProp.TryGetAsObject( out var dooSo ) || dooSo == null )
 		{
 			_error.Text = "Could not open Doo Editor — failed to build SerializedObject.";
 			return;
 		}
+
 		var title = _element != null && !string.IsNullOrEmpty( _eventName )
 			? $"{_element.Name}.{_eventName}"
 			: "Doo";
-		Editor.DooEditor.DooEditorWidget.Open( so, title );
+
+		Editor.DooEditor.DooEditorWidget.Open( dooSo, title );
 		UpdateDooStatus();
+	}
+
+	/// <summary>
+	/// Wrapper class — exists only to give the standalone Doo a real
+	/// <see cref="SerializedProperty"/> the engine's DooEditor can derive
+	/// ArgumentHints from. Without this, the editor RebuildUI NREs on a null
+	/// ParentProperty path.
+	/// </summary>
+	private class DooEditorHolder
+	{
+		[Property] public Sandbox.Doo Body { get; set; }
 	}
 
 	private void OnOk()

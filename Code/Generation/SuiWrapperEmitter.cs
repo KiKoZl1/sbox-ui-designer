@@ -120,10 +120,29 @@ public static class SuiWrapperEmitter
 			var csType = SuiTypeMapper.ToCSharp( v.Type );
 			var def = SuiTypeMapper.DefaultLiteral( v.Type, v.Default );
 			var group = v.Group ?? ( v.IsPublic ? "Public" : "Internal" );
+			var backing = "_" + char.ToLowerInvariant( v.Name[0] ) + v.Name.Substring( 1 );
+
+			// Backing field + property with a setter that pushes the new value
+			// into the live View if we're mounted. Without this push, the dev
+			// would have to remember to call Hud.RefreshView() after every
+			// mutation — `Hud.Health -= 10` would change the wrapper but the
+			// renderer's BuildHash() still saw the old value and skipped a
+			// re-render. The auto-push keeps the API expectation that simple
+			// property writes "just work" while keeping SyncFieldsTo authoritative
+			// for the cold-start path (Add() / Show() / RefreshView()).
+			sb.Append( "\tprivate " ).Append( csType ).Append( ' ' ).Append( backing )
+				.Append( " = " ).Append( def ).AppendLine( ";" );
 
 			sb.Append( "\t[Property, Group( \"" ).Append( group.Replace( "\"", "\\\"" ) ).Append( "\" )] public " )
-				.Append( csType ).Append( ' ' ).Append( v.Name )
-				.Append( " { get; set; } = " ).Append( def ).AppendLine( ";" );
+				.Append( csType ).Append( ' ' ).Append( v.Name ).AppendLine();
+			sb.AppendLine( "\t{" );
+			sb.Append( "\t\tget => " ).Append( backing ).AppendLine( ";" );
+			sb.AppendLine( "\t\tset" );
+			sb.AppendLine( "\t\t{" );
+			sb.Append( "\t\t\t" ).Append( backing ).AppendLine( " = value;" );
+			sb.Append( "\t\t\tif ( View != null ) View." ).Append( v.Name ).AppendLine( " = value;" );
+			sb.AppendLine( "\t\t}" );
+			sb.AppendLine( "\t}" );
 		}
 	}
 

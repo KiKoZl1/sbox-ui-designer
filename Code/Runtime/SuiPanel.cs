@@ -84,6 +84,87 @@ public abstract class SuiPanel<TView> where TView : Panel, new()
 	/// <summary>Generator hook — called from the parent's <c>SyncFieldsTo</c>.</summary>
 	public void MarkEmbedded() => IsEmbedded = true;
 
+	[Hide, System.Text.Json.Serialization.JsonIgnore]
+	private SuiInputMode _inputMode = SuiInputMode.Passive;
+
+	[Hide, System.Text.Json.Serialization.JsonIgnore]
+	private bool _capturedCursor = false;
+
+	/// <summary>
+	/// Current input mode (PRD 20 § 14.5 — UEFN-like input control). Drives
+	/// <c>Mouse.Visible</c> and the host panel's focus posture while the
+	/// wrapper is shown. <see cref="SetInputMode"/> applies it; Hide/Remove
+	/// restores whatever the cursor visibility was BEFORE this wrapper
+	/// captured it, so two HUDs that overlap don't fight over the cursor.
+	/// </summary>
+	[Hide, System.Text.Json.Serialization.JsonIgnore]
+	public SuiInputMode InputMode => _inputMode;
+
+	/// <summary>
+	/// Change the input posture while shown. Idempotent. Effect:
+	/// <list type="bullet">
+	///   <item><see cref="SuiInputMode.Passive"/> — release the cursor if we held it; gameplay unaffected.</item>
+	///   <item><see cref="SuiInputMode.MouseOnly"/> — show the cursor; gameplay still reads keyboard.</item>
+	///   <item><see cref="SuiInputMode.All"/> — show the cursor + the host panel accepts focus so panels can receive keyboard.</item>
+	/// </list>
+	/// </summary>
+	public void SetInputMode( SuiInputMode mode )
+	{
+		_inputMode = mode;
+		ApplyInputMode();
+	}
+
+	private void ApplyInputMode()
+	{
+		// Don't manipulate cursor visibility while the wrapper is hidden —
+		// otherwise Hide() would leak a visible cursor into the gameplay
+		// layer until the next Show().
+		if ( !_isVisible || !MountedObject.IsValid() )
+		{
+			ReleaseCursorIfNeeded();
+			return;
+		}
+
+		switch ( _inputMode )
+		{
+			case SuiInputMode.Passive:
+				ReleaseCursorIfNeeded();
+				break;
+
+			case SuiInputMode.MouseOnly:
+			case SuiInputMode.All:
+				if ( !_capturedCursor )
+				{
+					// MouseVisibility.Visible — cursor always on, can click
+					// any UI panel that has `pointer-events: all`.
+					// (Visible is the engine-recommended replacement for the
+					// deprecated Mouse.Visible bool. Auto would only show the
+					// cursor while a clickable panel is hovered, which is
+					// confusing when you Show() a HUD and expect the cursor
+					// to appear immediately.)
+					Sandbox.Mouse.Visibility = Sandbox.MouseVisibility.Visible;
+					_capturedCursor = true;
+				}
+				if ( Host?.Panel != null )
+					Host.Panel.AcceptsFocus = _inputMode == SuiInputMode.All;
+				break;
+		}
+	}
+
+	private void ReleaseCursorIfNeeded()
+	{
+		if ( !_capturedCursor ) return;
+		// Drop back to Auto rather than forcing Hidden — Auto keeps the
+		// cursor visible while ANY other UI panel with `pointer-events: all`
+		// is on screen, so a second HUD that's still shown won't lose its
+		// cursor just because this one hid. The gameplay loop is expected
+		// to flip to Hidden explicitly when nothing UI-driven owns it.
+		Sandbox.Mouse.Visibility = Sandbox.MouseVisibility.Auto;
+		_capturedCursor = false;
+		if ( Host?.Panel != null )
+			Host.Panel.AcceptsFocus = false;
+	}
+
 	/// <summary>
 	/// Inline-style fragment emitted into the parent's Razor markup so that
 	/// an embedded wrapper's <see cref="Hide"/> takes effect on the nested
@@ -135,18 +216,42 @@ public abstract class SuiPanel<TView> where TView : Panel, new()
 		if ( !IsEmbedded && !MountedObject.IsValid() ) Add( parent );
 		EnsureViewAttached();
 		if ( View != null ) View.Style.Display = DisplayMode.Flex;
+		ApplyInputMode();
 	}
+
+	/// <summary>
+	/// One-shot convenience that calls <see cref="Show"/> and then
+	/// <see cref="SetInputMode"/>. Mirrors UEFN's
+	/// <c>PlayerUI.AddWidget(widget, player_ui_slot{ InputMode := ... })</c>
+	/// shorthand so the dev doesn't need two lines for the common
+	/// "show + enable input" path.
+	/// </summary>
+	public void Show( GameObject parent, SuiInputMode mode )
+	{
+		_inputMode = mode;
+		Show( parent );
+	}
+
+	/// <summary>
+	/// Same one-call helper for the most common case (mount at scene root +
+	/// pick input mode). The keyword-argument shape lets you write
+	/// <c>Hud.Show( mode: SuiInputMode.MouseOnly );</c> without thinking about
+	/// the parent argument.
+	/// </summary>
+	public void Show( SuiInputMode mode ) => Show( null, mode );
 
 	/// <summary>Mark hidden. Standalone: View.Style.Display = None. Embedded: flag only; parent re-renders with inline style.</summary>
 	public void Hide()
 	{
 		_isVisible = false;
 		if ( View != null ) View.Style.Display = DisplayMode.None;
+		ReleaseCursorIfNeeded();
 	}
 
 	/// <summary>Destroy the mount entirely. A subsequent Show()/Add() spawns a fresh one.</summary>
 	public void Remove()
 	{
+		ReleaseCursorIfNeeded();
 		MountedObject?.Destroy();
 		MountedObject = null;
 		Host = null;
