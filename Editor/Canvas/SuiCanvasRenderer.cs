@@ -426,10 +426,14 @@ public sealed class SuiCanvasRenderer
 		var border = ParseColor( s.BorderColor );
 		var hasBg = bg.HasValue && bg.Value.a > 0;
 		var hasBorder = border.HasValue && border.Value.a > 0 && s.BorderWidth > 0;
+		var hasBgImage = !string.IsNullOrEmpty( s.BackgroundImage );
 
-		if ( !hasBg && !hasBorder ) return;
+		if ( !hasBg && !hasBorder && !hasBgImage ) return;
 
-		var radius = MathF.Max( 0, s.BorderRadius );
+		// V1.5 M3.5 (PRD 25) — Shape preset drives the radius for interactive
+		// types. Mirror the SCSS generator's ResolveBorderRadius logic so the
+		// canvas paint matches what the runtime engine renders.
+		var radius = ResolveCanvasRadius( el, rect );
 
 		if ( hasBg )
 		{
@@ -438,12 +442,89 @@ public sealed class SuiCanvasRenderer
 			DrawRect( rect, radius );
 		}
 
+		// V1.5 M3.5 — Normal-state background image. Honor Style.BackgroundSize
+		// for visual parity with SCSS (Cover/Contain/Stretch/Custom).
+		if ( hasBgImage )
+		{
+			var abs = ResolveProjectPath( s.BackgroundImage );
+			if ( !string.IsNullOrEmpty( abs ) )
+			{
+				Pixmap pm = null;
+				try { pm = Editor.Paint.LoadImage( abs ); }
+				catch { }
+				if ( pm != null && pm.Width > 1 && pm.Height > 1 )
+				{
+					var imgSize = new Vector2( pm.Width, pm.Height );
+					var fitMode = MapBackgroundSize( s.BackgroundSize );
+					Rect fitRect;
+					if ( s.BackgroundSize == SuiBackgroundSize.Custom
+						&& (s.BackgroundWidth > 0f || s.BackgroundHeight > 0f) )
+					{
+						// Honor explicit px W/H; center within element rect.
+						var w = s.BackgroundWidth > 0f ? s.BackgroundWidth : pm.Width;
+						var h = s.BackgroundHeight > 0f ? s.BackgroundHeight : pm.Height;
+						var cx = rect.Left + rect.Width * 0.5f - w * 0.5f;
+						var cy = rect.Top + rect.Height * 0.5f - h * 0.5f;
+						fitRect = new Rect( cx, cy, w, h );
+					}
+					else
+					{
+						fitRect = ApplyFitMode( rect, imgSize, fitMode, SuiBackgroundPosition.Center );
+					}
+					if ( fitRect.Width >= 1 && fitRect.Height >= 1 )
+						DrawPixmapInRect( pm, abs, fitRect, opacity, radius );
+				}
+			}
+		}
+
 		if ( hasBorder )
 		{
 			Editor.Paint.SetPen( border.Value.WithAlpha( border.Value.a * opacity ), s.BorderWidth );
 			Editor.Paint.ClearBrush();
 			DrawRect( rect, radius );
 		}
+	}
+
+	/// <summary>
+	/// Translate <see cref="SuiBackgroundSize"/> to the <see cref="SuiImageFitMode"/>
+	/// the canvas helper <c>ApplyFitMode</c> already understands. Custom is
+	/// handled separately in the caller (explicit px W/H).
+	/// </summary>
+	private static SuiImageFitMode MapBackgroundSize( SuiBackgroundSize size ) => size switch
+	{
+		SuiBackgroundSize.Cover => SuiImageFitMode.Cover,
+		SuiBackgroundSize.Stretch => SuiImageFitMode.Stretch,
+		SuiBackgroundSize.Custom => SuiImageFitMode.Contain, // fallback when W/H both 0
+		_ => SuiImageFitMode.Contain,
+	};
+
+	/// <summary>
+	/// Resolve canvas paint radius from element shape preset (interactive
+	/// types) or Style.BorderRadius. Round/Pill collapse to half the smaller
+	/// dimension — Qt's drawRect radius clamps to that anyway, this keeps the
+	/// visual identical to what background-radius: 50%/9999px produces.
+	/// </summary>
+	private static float ResolveCanvasRadius( SuiElement el, Rect rect )
+	{
+		var s = el?.Style;
+		if ( s == null ) return 0f;
+
+		if ( el.Props != null
+			&& (el.Type == SuiElementType.Button
+				|| el.Type == SuiElementType.InventorySlot
+				|| el.Type == SuiElementType.ItemIcon) )
+		{
+			switch ( el.Props.ButtonShape )
+			{
+				case SuiButtonShape.Square: return 0f;
+				case SuiButtonShape.Round:
+				case SuiButtonShape.Pill:
+					return MathF.Min( rect.Width, rect.Height ) * 0.5f;
+				// Rectangle + Custom fall through to Style.BorderRadius.
+			}
+		}
+
+		return MathF.Max( 0f, s.BorderRadius );
 	}
 
 	private static void DrawRect( Rect rect, float radius )

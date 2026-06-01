@@ -109,6 +109,13 @@ public sealed class SuiScssGenerator
 		// Type-specific props that turn into CSS
 		EmitTypeProps( el, depth + 1 );
 
+		// V1.5 M3.5 (PRD 25) — interactive state CSS. Emit transition,
+		// cursor, and pseudo-class blocks for Button / InventorySlot /
+		// ItemIcon. Order matters: :hover < :focus < :active < .disabled
+		// so the disabled class wins specificity-wise when the user
+		// authors overlapping properties (decision logged in PRD 25 § 6).
+		EmitInteractiveStates( el, depth + 1 );
+
 		// Recurse into children — pass THIS element's mode so children know
 		// whether their parent flows them or positions them.
 		// Grid/InventoryGrid/Hotbar are flex containers via EmitTypeProps even
@@ -355,6 +362,18 @@ public sealed class SuiScssGenerator
 
 		if ( !string.IsNullOrEmpty( s.BackgroundColor ) ) Emit( depth, "background-color", s.BackgroundColor );
 
+		// V1.5 M3.5 — Normal-state background image (PRD 25). Pseudo-class
+		// blocks for Hover/Pressed/etc handle their own background-image; this
+		// covers the Normal layer. background-size driven by Style.BackgroundSize
+		// (Cover/Contain/Stretch/Custom). Custom emits explicit px W/H.
+		if ( !string.IsNullOrEmpty( s.BackgroundImage ) )
+		{
+			Emit( depth, "background-image", $"url(\"{s.BackgroundImage}\")" );
+			Emit( depth, "background-repeat", "no-repeat" );
+			Emit( depth, "background-size", BackgroundSizeCss( s ) );
+			Emit( depth, "background-position", "center" );
+		}
+
 		// Border: emit BOTH width and color, or NEITHER. Emitting width alone
 		// makes s&box's CSS parser fall back to a white border (canvas paint
 		// skips the stroke entirely when color is empty), causing a Preview vs
@@ -366,7 +385,14 @@ public sealed class SuiScssGenerator
 			Emit( depth, "border-color", s.BorderColor );
 			Emit( depth, "border-width", Px( s.BorderWidth ) );
 		}
-		if ( s.BorderRadius > 0f ) Emit( depth, "border-radius", Px( s.BorderRadius ) );
+
+		// V1.5 M3.5 — border-radius driven by ButtonShape preset when this is
+		// an interactive element. Rectangle/Custom fall back to Style.BorderRadius;
+		// Square/Round/Pill force their derived radius. For non-interactive
+		// types the cascade is unchanged.
+		var radius = ResolveBorderRadius( el );
+		if ( !string.IsNullOrEmpty( radius ) )
+			Emit( depth, "border-radius", radius );
 
 		// Opacity: only emit if hidden (visibility=Hidden) OR explicitly < 1.
 		if ( s.Visibility == SuiVisibility.Hidden )
@@ -549,6 +575,190 @@ public sealed class SuiScssGenerator
 				// — V1 will. Just ensures the bar shape exists.
 				break;
 		}
+	}
+
+	// ─────────────────────────────────────────────────────────────────────
+	//  V1.5 M3.5 — Interactive states (PRD 25 § 6)
+	//  Emit transition + cursor on the root selector, then nested pseudo-
+	//  class / class rules for the four override states. Empty state styles
+	//  emit nothing (the element inherits Normal cascade).
+	// ─────────────────────────────────────────────────────────────────────
+
+	private static bool IsInteractiveType( SuiElementType type ) =>
+		type == SuiElementType.Button
+		|| type == SuiElementType.InventorySlot
+		|| type == SuiElementType.ItemIcon;
+
+	/// <summary>
+	/// V1.5 M3.5 — translate <see cref="SuiBackgroundSize"/> + Custom dimensions
+	/// into the CSS <c>background-size</c> value. Custom with both dimensions = 0
+	/// degrades to Contain so the user doesn't get an invisible image.
+	/// </summary>
+	private static string BackgroundSizeCss( SuiStyleData s )
+	{
+		switch ( s.BackgroundSize )
+		{
+			case SuiBackgroundSize.Cover: return "cover";
+			case SuiBackgroundSize.Stretch: return "100% 100%";
+			case SuiBackgroundSize.Custom:
+				if ( s.BackgroundWidth <= 0f && s.BackgroundHeight <= 0f )
+					return "contain";
+				return $"{Px( s.BackgroundWidth )} {Px( s.BackgroundHeight )}";
+			case SuiBackgroundSize.Contain:
+			default: return "contain";
+		}
+	}
+
+	/// <summary>
+	/// Resolve the effective border-radius CSS value for an element. Interactive
+	/// types route through ButtonShape: Square→0, Round→50%, Pill→9999px,
+	/// Rectangle/Custom fall back to Style.BorderRadius. Non-interactive types
+	/// also use Style.BorderRadius. Returns null/empty when no rule should emit.
+	/// </summary>
+	private static string ResolveBorderRadius( SuiElement el )
+	{
+		var s = el.Style;
+		if ( s == null ) return null;
+
+		if ( IsInteractiveType( el.Type ) && el.Props != null )
+		{
+			switch ( el.Props.ButtonShape )
+			{
+				case SuiButtonShape.Square: return "0";
+				case SuiButtonShape.Round: return "50%";
+				case SuiButtonShape.Pill: return "9999px";
+				// Rectangle + Custom fall through to Style.BorderRadius.
+			}
+		}
+
+		return s.BorderRadius > 0f ? Px( s.BorderRadius ) : null;
+	}
+
+	private void EmitInteractiveStates( SuiElement el, int depth )
+	{
+		if ( !IsInteractiveType( el.Type ) ) return;
+		var p = el.Props;
+		if ( p == null ) return;
+
+		// Cursor (CSS property — engine supports a limited set per anti-patterns
+		// doc, but "pointer" / "not-allowed" are confirmed). Empty = no emit so
+		// the element inherits whatever the cascade hands it.
+		if ( !string.IsNullOrEmpty( p.Cursor ) )
+			Emit( depth, "cursor", p.Cursor );
+
+		// Transition — once enabled, every property animates over Duration.
+		// "all" + "ease" matches the skill reference pattern; emitting only
+		// when at least one override exists would be slightly cheaper but
+		// risks a stuttery feel if the user later adds Hover and doesn't
+		// know transitions need re-enabling. Default ON is safer UX.
+		if ( p.TransitionEnabled && p.TransitionDuration > 0f )
+		{
+			var dur = p.TransitionDuration.ToString( "0.###", System.Globalization.CultureInfo.InvariantCulture );
+			Emit( depth, "transition", $"all {dur}s ease" );
+		}
+
+		// Pseudo-class blocks. Order matters when specificity ties (e.g.
+		// :hover vs :active both single-pseudo) — the later rule wins.
+		// We also restrict :hover to ":not(:active)" so the press state
+		// fully overrides hover during a click instead of cascading on top
+		// of it (PRD 25 § 6.2 — author expectation Pressed > Hover > Normal).
+		EmitStateBlock( depth, "&:hover:not(:active)", p.HoverStyle, p.HoverSound );
+		EmitStateBlock( depth, "&:focus", p.FocusedStyle, null );
+		EmitStateBlock( depth, "&:active", p.PressedStyle, p.PressSound );
+		// `.disabled` always emits at least `pointer-events: none` so the
+		// class actually suppresses input — the user's DisabledStyle override
+		// stacks on top via EmitStateBlock when authored.
+		EmitDisabledBlock( depth, p.DisabledStyle );
+	}
+
+	/// <summary>
+	/// V1.5 M3.5 (PRD 25) — `.disabled` always emits `pointer-events: none`
+	/// (the whole point of disabling), even when the user didn't author any
+	/// visual override. Authored fields stack on top via the same body that
+	/// <see cref="EmitStateBlock"/> writes.
+	/// </summary>
+	private void EmitDisabledBlock( int depth, SuiInteractiveStateStyle style )
+	{
+		var indent = new string( ' ', depth * 2 );
+		_sb.Append( indent ).AppendLine( "&.disabled {" );
+		Emit( depth + 1, "pointer-events", "none" );
+
+		if ( style != null && !style.IsEmpty() )
+		{
+			if ( !string.IsNullOrEmpty( style.BackgroundImage ) )
+				Emit( depth + 1, "background-image", $"url(\"{style.BackgroundImage}\")" );
+			if ( !string.IsNullOrEmpty( style.BackgroundColor ) )
+				Emit( depth + 1, "background-color", style.BackgroundColor );
+			if ( !string.IsNullOrEmpty( style.BorderColor ) )
+				Emit( depth + 1, "border-color", style.BorderColor );
+			if ( style.BorderWidth >= 0f )
+				Emit( depth + 1, "border-width", Px( style.BorderWidth ) );
+			if ( style.BorderRadius >= 0f )
+				Emit( depth + 1, "border-radius", Px( style.BorderRadius ) );
+			if ( !string.IsNullOrEmpty( style.TextColor ) )
+				Emit( depth + 1, "color", style.TextColor );
+			if ( style.Scale != 1f && style.Scale > 0f )
+			{
+				var sc = style.Scale.ToString( "0.###", System.Globalization.CultureInfo.InvariantCulture );
+				Emit( depth + 1, "transform", $"scale({sc})" );
+			}
+			if ( style.Opacity >= 0f )
+			{
+				var o = style.Opacity.ToString( "0.###", System.Globalization.CultureInfo.InvariantCulture );
+				Emit( depth + 1, "opacity", o );
+			}
+		}
+
+		_sb.Append( indent ).AppendLine( "}" );
+	}
+
+	/// <summary>
+	/// Emit a <c>&amp;:hover { ... }</c>-style nested rule for one override
+	/// state. Returns silently when both <paramref name="style"/> is null/empty
+	/// and <paramref name="sound"/> is empty — nothing to write.
+	/// </summary>
+	private void EmitStateBlock( int depth, string selector, SuiInteractiveStateStyle style, string sound )
+	{
+		var hasStyle = style != null && !style.IsEmpty();
+		var hasSound = !string.IsNullOrEmpty( sound );
+		if ( !hasStyle && !hasSound ) return;
+
+		var indent = new string( ' ', depth * 2 );
+		_sb.Append( indent ).Append( selector ).AppendLine( " {" );
+
+		if ( hasStyle )
+		{
+			if ( !string.IsNullOrEmpty( style.BackgroundImage ) )
+				Emit( depth + 1, "background-image", $"url(\"{style.BackgroundImage}\")" );
+			if ( !string.IsNullOrEmpty( style.BackgroundColor ) )
+				Emit( depth + 1, "background-color", style.BackgroundColor );
+			if ( !string.IsNullOrEmpty( style.BorderColor ) )
+				Emit( depth + 1, "border-color", style.BorderColor );
+			if ( style.BorderWidth >= 0f )
+				Emit( depth + 1, "border-width", Px( style.BorderWidth ) );
+			if ( style.BorderRadius >= 0f )
+				Emit( depth + 1, "border-radius", Px( style.BorderRadius ) );
+			if ( !string.IsNullOrEmpty( style.TextColor ) )
+				Emit( depth + 1, "color", style.TextColor );
+			if ( style.Scale != 1f && style.Scale > 0f )
+			{
+				var s = style.Scale.ToString( "0.###", System.Globalization.CultureInfo.InvariantCulture );
+				Emit( depth + 1, "transform", $"scale({s})" );
+			}
+			if ( style.Opacity >= 0f )
+			{
+				var o = style.Opacity.ToString( "0.###", System.Globalization.CultureInfo.InvariantCulture );
+				Emit( depth + 1, "opacity", o );
+			}
+		}
+
+		// Sound on state ingress. SCSS-level engine feature — fires once per
+		// state entry, no C# round-trip needed (confirmed in ui-razor.md and
+		// engine UI/Input/PanelInput.cs).
+		if ( hasSound )
+			Emit( depth + 1, "sound-in", $"\"{sound}\"" );
+
+		_sb.Append( indent ).AppendLine( "}" );
 	}
 
 	// ─────────────────────────────────────────────────────────────────────

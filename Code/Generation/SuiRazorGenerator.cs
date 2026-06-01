@@ -99,6 +99,13 @@ public sealed class SuiRazorGenerator
 		SuiEventEmitter.EmitRendererFields( _doc, body );
 		SuiElementRefEmitter.EmitRendererFields( _doc, body );
 
+		// V1.5 M3.5 (PRD 25) — interactive elements ship a runtime-toggleable
+		// `<elName>Disabled` bool. The markup wraps it into the class string
+		// to add the `.disabled` CSS class, and SCSS `.disabled` carries
+		// `pointer-events: none` so onclick is suppressed automatically.
+		// Authoring-time default comes from SuiElementProps.IsDisabled.
+		var disabledHashExprs = EmitInteractiveDisabledFields( body );
+
 		// V1.5-M2-K7-bugfix — also collect expressions that need to feed the
 		// parent's BuildHash so that mutations on a child instance
 		// (e.g. parent.MyHud.Health -= 10) trigger a parent re-render and
@@ -151,6 +158,11 @@ public sealed class SuiRazorGenerator
 			}
 		}
 
+		// Append interactive disabled fields to childHashExprs so a runtime
+		// toggle invalidates BuildHash and re-renders the class string.
+		foreach ( var expr in disabledHashExprs )
+			childHashExprs.Add( expr );
+
 		SuiBuildHashEmitter.EmitBuildHash( _doc.Variables, _doc.Elements, childHashExprs, body );
 
 		if ( body.Length == 0 ) return;
@@ -202,6 +214,36 @@ public sealed class SuiRazorGenerator
 	/// decide whether the @code block needs an emit pass even when the doc
 	/// has no Variables and no SuiReference children.
 	/// </summary>
+	/// <summary>
+	/// V1.5 M3.5 (PRD 25) — emit one <c>public bool &lt;Name&gt;Disabled</c>
+	/// field per Button / InventorySlot / ItemIcon in the document. The
+	/// authoring-time default lives in SuiElementProps.IsDisabled. Returns
+	/// the list of hash expressions to push into BuildHash so a runtime
+	/// flip re-renders the class string with/without the `.disabled` class.
+	/// </summary>
+	private System.Collections.Generic.List<string> EmitInteractiveDisabledFields( System.Text.StringBuilder body )
+	{
+		var hashes = new System.Collections.Generic.List<string>();
+		if ( _doc?.Elements == null ) return hashes;
+
+		foreach ( var el in _doc.Elements )
+		{
+			if ( el == null ) continue;
+			if ( el.Type != SuiElementType.Button
+				&& el.Type != SuiElementType.InventorySlot
+				&& el.Type != SuiElementType.ItemIcon ) continue;
+
+			var fieldName = SuiNameSanitizer.ToCSharpIdentifier( ( el.Name ?? el.Id ) + "Disabled" );
+			if ( string.IsNullOrEmpty( fieldName ) ) continue;
+
+			var defaultLit = (el.Props?.IsDisabled ?? false) ? "true" : "false";
+			body.Append( "\tpublic bool " ).Append( fieldName )
+				.Append( " { get; set; } = " ).Append( defaultLit ).AppendLine( ";" );
+			hashes.Add( fieldName );
+		}
+		return hashes;
+	}
+
 	private static bool HasAnyEventsOrRefs( SuiDocument doc )
 	{
 		if ( doc?.Elements == null ) return false;
@@ -486,8 +528,27 @@ public sealed class SuiRazorGenerator
 				+ ( styleBody.Length > 0 ? " " + styleBody : "" );
 		}
 
-		_sb.Append( indent ).Append( "<div class=\"" ).Append( className ).Append( "\"" )
-			.Append( dataAttrs );
+		// V1.5 M3.5 (PRD 25) — interactive types ship a runtime-toggleable
+		// IsDisabled bool. Class string gains "disabled" when the field is
+		// true; tabindex="0" makes <div> tab-focusable so :focus actually
+		// fires for keyboard / controller nav.
+		var isInteractive = el.Type == SuiElementType.Button
+			|| el.Type == SuiElementType.InventorySlot
+			|| el.Type == SuiElementType.ItemIcon;
+		var disabledFieldName = isInteractive ? SuiNameSanitizer.ToCSharpIdentifier( ( el.Name ?? el.Id ) + "Disabled" ) : null;
+
+		if ( isInteractive )
+		{
+			_sb.Append( indent ).Append( "<div class=@($\"" ).Append( className )
+				.Append( "{(" ).Append( disabledFieldName ).Append( " ? \\\" disabled\\\" : \\\"\\\")}\")" )
+				.Append( " tabindex=\"0\"" )
+				.Append( dataAttrs );
+		}
+		else
+		{
+			_sb.Append( indent ).Append( "<div class=\"" ).Append( className ).Append( "\"" )
+				.Append( dataAttrs );
+		}
 		if ( styleBody.Length > 0 )
 			_sb.Append( " style=\"" ).Append( styleBody ).Append( "\"" );
 		// V1.5 M3 — `@ref="X"` for exposed elements + `onclick=@Handler` etc.

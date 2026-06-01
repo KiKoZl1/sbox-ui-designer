@@ -207,6 +207,32 @@ public enum SuiImageFitMode
 	None,
 }
 
+/// <summary>
+/// V1.5 M3.5 (PRD 25) — button shape preset that controls border-radius.
+/// Custom exposes the manual BorderRadius field in the inspector;
+/// Square/Round/Pill all force a derived radius and warn if W ≠ H.
+/// </summary>
+public enum SuiButtonShape
+{
+	Rectangle,
+	Square,
+	Round,
+	Pill,
+	Custom,
+}
+
+/// <summary>
+/// V1.5 M3.5 — how the Normal-state background image is sized inside the
+/// element's rectangle. Maps to CSS background-size emit.
+/// </summary>
+public enum SuiBackgroundSize
+{
+	Cover,
+	Contain,
+	Stretch,
+	Custom,
+}
+
 public enum SuiBackgroundPosition
 {
 	Center,

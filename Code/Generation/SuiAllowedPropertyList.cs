@@ -52,6 +52,13 @@ public static class SuiAllowedPropertyList
 		// s&box-specific
 		"pointer-events",
 		"sound-in", "sound-out",
+
+		// V1.5 M3.5 (PRD 25) — cursor is in the engine CSS subset per
+		// anti-patterns doc § 2 ("Limited set; check before relying on it").
+		// Confirmed against game/addons/base/code/Styles/base.scss
+		// (`cursor: pointer;`) — common values work; custom names quoted
+		// (e.g. `"bug-hover"` per sbox-battlebugs) are project-specific.
+		"cursor",
 	};
 
 	/// <summary>Hard-blocked properties that web tutorials suggest but the engine doesn't support.</summary>

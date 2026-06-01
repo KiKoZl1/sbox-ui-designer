@@ -462,6 +462,15 @@ public static class SuiDocumentValidator
 		if ( p.TransitionDuration > 5f )
 			r.Warnings.Add( $"element '{elName}' transitionDuration={p.TransitionDuration}s is unusually long" );
 
+		// V1.5 M3.5 — Square/Round look correct only with equal width and
+		// height. Don't enforce, just warn so the author sees the issue.
+		if ( (p.ButtonShape == SuiButtonShape.Square || p.ButtonShape == SuiButtonShape.Round)
+			&& el.Layout != null
+			&& System.MathF.Abs( el.Layout.Width - el.Layout.Height ) > 0.5f )
+		{
+			r.Warnings.Add( $"element '{elName}' shape={p.ButtonShape} but width ({el.Layout.Width}) ≠ height ({el.Layout.Height})" );
+		}
+
 		ValidateStateStyle( elName, "HoverStyle", p.HoverStyle, r );
 		ValidateStateStyle( elName, "PressedStyle", p.PressedStyle, r );
 		ValidateStateStyle( elName, "DisabledStyle", p.DisabledStyle, r );

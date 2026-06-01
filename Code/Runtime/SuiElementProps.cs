@@ -58,6 +58,14 @@ public sealed class SuiElementProps
 
 	public string ButtonText { get; set; } = "";
 
+	/// <summary>
+	/// V1.5 M3.5 (PRD 25) — shape preset overriding the BorderRadius cascade.
+	/// Rectangle = no override (use Style.BorderRadius); Custom = same as
+	/// Rectangle but the inspector exposes the field; Square/Round/Pill
+	/// force a derived radius.
+	/// </summary>
+	public SuiButtonShape ButtonShape { get; set; } = SuiButtonShape.Rectangle;
+
 	// ---------- Interactive states (V1.5 M3.5 — PRD 25)
 	// Applies to: Button, InventorySlot, ItemIcon. Each per-state override is
 	// optional — null means the state inherits the element's Normal visuals
@@ -138,6 +146,7 @@ public sealed class SuiElementProps
 		AutoFill = AutoFill,
 		GridStrategy = GridStrategy,
 		ButtonText = ButtonText,
+		ButtonShape = ButtonShape,
 		HoverStyle = HoverStyle?.Clone(),
 		PressedStyle = PressedStyle?.Clone(),
 		DisabledStyle = DisabledStyle?.Clone(),

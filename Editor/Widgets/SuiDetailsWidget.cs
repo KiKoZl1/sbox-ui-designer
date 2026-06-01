@@ -33,17 +33,11 @@ public class SuiDetailsWidget : Widget
 	// otherwise. Reset to _bodyHost on every Refresh.
 	private Widget _activeBody;
 
-	// V1.5 M3.5 (PRD 25) — which override state tab the user has open inside
-	// the Button States section. Persisted across Refresh() rebuilds so the
-	// active tab survives every edit. Default = "Hover" (the most common
-	// first-author state).
-	private string _activeStateTab = "Hover";
-
-	// V1.5 M3.5 — which state the canvas renders for the selected Button.
-	// "Normal" by default; switching to e.g. "Hover" lets the designer see the
-	// authored hover overrides without playtesting. Per-element to avoid
-	// cluttering the doc-wide canvas settings. Reset when selection changes.
-	private string _previewState = "Normal";
+	// V1.5 M3.5 (PRD 25) — interactive Button/Slot/Icon authoring used to
+	// live behind a tab strip + a "Preview State" dropdown. P2.5 collapsed
+	// both into five collapsible dropdowns (Normal / Hover / Pressed /
+	// Disabled / Focused) inside the Appearance section — no in-widget state
+	// needed any more; everything rebuilds from the document on Refresh.
 
 	private LineEdit _search;
 	private string _searchFilter = "";
@@ -572,6 +566,16 @@ public class SuiDetailsWidget : Widget
 		if ( el.Style == null ) el.Style = new SuiStyleData();
 		var s = el.Style;
 
+		// V1.5 M3.5 (PRD 25) — interactive element types render a richer
+		// Appearance with five collapsible state dropdowns (Normal / Hover /
+		// Pressed / Disabled / Focused) plus an embedded Transition section.
+		// Non-interactive types keep the flat list.
+		if ( IsInteractiveElementType( el.Type ) )
+		{
+			BuildInteractiveAppearanceSection( el );
+			return;
+		}
+
 		BeginSection( "Appearance" );
 		// "Class Name" was here too — removed because it duplicates the
 		// "Name" row in the Common section conceptually for the user. The
@@ -600,6 +604,11 @@ public class SuiDetailsWidget : Widget
 		AddEnumRow<SuiOverflow>( "Overflow", s.Overflow,
 			v => SetProp( el, e => e.Style.Overflow, ( e, v2 ) => e.Style.Overflow = v2, v, "Set overflow" ) );
 	}
+
+	private static bool IsInteractiveElementType( SuiElementType type ) =>
+		type == SuiElementType.Button
+		|| type == SuiElementType.InventorySlot
+		|| type == SuiElementType.ItemIcon;
 
 	private static float ClampOpacity( float v ) => v < 0f ? 0f : ( v > 1f ? 1f : v );
 
@@ -1360,15 +1369,201 @@ public class SuiDetailsWidget : Widget
 			v => SetProp( el, e => e.Props.Cursor, ( e, v2 ) => e.Props.Cursor = v2, v, "Set cursor" ) );
 		AddNote( "Cursor: 'pointer' (default for buttons), 'not-allowed', or any CSS cursor name. Empty = no override." );
 
-		// ── States (with preview dropdown + tabs) ─────────────────────
-		BeginSection( "States" );
-		AddNote( "Normal lives in the Appearance / Layout sections above. The four tabs below override individual properties on hover, press, when disabled, or when focused (controller / keyboard nav)." );
+		// States / Transition were folded into the Appearance section's
+		// five state dropdowns + Transition sub-section (PRD 25 § 5 — P2.5
+		// refactor). Only Sound stays separate as it's audio, not visual.
 
-		AddStatePreviewRow( el );
-		BuildStateTabs( el );
+		// ── Sound ─────────────────────────────────────────────────────
+		BeginSection( "Sound", defaultExpanded: false );
+		AddSoundAssetRow( "Hover Sound", p.HoverSound ?? "",
+			v => SetProp( el, e => e.Props.HoverSound, ( e, v2 ) => e.Props.HoverSound = v2, v, "Set hover sound" ) );
+		AddSoundAssetRow( "Press Sound", p.PressSound ?? "",
+			v => SetProp( el, e => e.Props.PressSound, ( e, v2 ) => e.Props.PressSound = v2, v, "Set press sound" ) );
+		AddNote( "Emitted as SCSS sound-in on :hover / :active. Asset path is the .sound resource (e.g. sounds/ui/click.sound)." );
+	}
 
-		// ── Transition ────────────────────────────────────────────────
-		BeginSection( "Transition", defaultExpanded: false );
+	/// <summary>
+	/// V1.5 M3.5 P2.5 — Builds the Appearance section for an interactive
+	/// element (Button / InventorySlot / ItemIcon). Five collapsible state
+	/// dropdowns + an embedded Transition sub-section. Default closed so the
+	/// vertical space stays tight; the user opens the state they want to author.
+	/// </summary>
+	private void BuildInteractiveAppearanceSection( SuiElement el )
+	{
+		BeginSection( "Appearance" );
+
+		// Shape preset — top of the section because it affects how the per-
+		// state Border Radius cascades. Triggers a Refresh so the Normal
+		// dropdown's conditional Border Radius row appears/disappears
+		// (only when Shape == Rectangle or Custom).
+		AddEnumRow<SuiButtonShape>( "Shape", el.Props.ButtonShape,
+			v =>
+			{
+				SetProp( el, e => e.Props.ButtonShape, ( e, v2 ) => e.Props.ButtonShape = v2, v, "Set button shape" );
+				Refresh();
+			} );
+		if ( (el.Props.ButtonShape == SuiButtonShape.Square || el.Props.ButtonShape == SuiButtonShape.Round)
+			&& el.Layout != null && el.Layout.Width != el.Layout.Height )
+		{
+			AddNote( $"⚠ Width ({el.Layout.Width}) ≠ Height ({el.Layout.Height}) — {el.Props.ButtonShape} shapes look correct only when W = H." );
+		}
+
+		// Five state dropdowns — Normal first, then the four override states.
+		AddNormalStateDropdown( el );
+		AddOverrideStateDropdown( el, "Hover" );
+		AddOverrideStateDropdown( el, "Pressed" );
+		AddOverrideStateDropdown( el, "Disabled" );
+		AddOverrideStateDropdown( el, "Focused" );
+
+		// Transition lives inside Appearance because it controls how states
+		// animate between each other.
+		AddTransitionDropdown( el );
+	}
+
+	private void AddNormalStateDropdown( SuiElement el )
+	{
+		var host = Container();
+		var sub = new SuiDetailsSection( "Normal", host, expanded: false );
+		host.Layout.Add( sub );
+
+		var savedActiveBody = _activeBody;
+		_activeBody = sub.Body;
+
+		// Normal-state fields write to the element's existing Style + Props
+		// (not to SuiInteractiveStateStyle) — keeps a single source of truth
+		// per property.
+		var s = el.Style;
+		var p = el.Props;
+
+		// Background Image + Snap-to-Aspect helper.
+		AddImageAssetRow( "Background Image", s.BackgroundImage ?? "",
+			v => SetProp( el, e => e.Style.BackgroundImage, ( e, v2 ) => e.Style.BackgroundImage = v2, v ?? "", "Set background image" ),
+			bindingProperty: "BackgroundImage" );
+
+		if ( !string.IsNullOrEmpty( s.BackgroundImage ) )
+		{
+			// Snap-to-image-aspect row — adjusts Height so the button matches
+			// the image's aspect ratio (Width preserved). Helpful for image-
+			// only buttons where the author already laid out width.
+			var snapRow = MakeRow();
+			AddRowLabel( snapRow, "" );
+			var snapBtn = new Button( "Snap H to image aspect", "crop_free", snapRow );
+			snapBtn.FixedHeight = 22;
+			snapBtn.Clicked += () => SnapHeightToImageAspect( el );
+			snapRow.Layout.Add( snapBtn, 1 );
+			Container().Layout.Add( snapRow );
+
+			// Background Size mode.
+			AddEnumRow<SuiBackgroundSize>( "Bg Size", s.BackgroundSize,
+				v =>
+				{
+					SetProp( el, e => e.Style.BackgroundSize, ( e, v2 ) => e.Style.BackgroundSize = v2, v, "Set bg size mode" );
+					Refresh();
+				} );
+			if ( s.BackgroundSize == SuiBackgroundSize.Custom )
+			{
+				AddFloatRow( "  Width (px)", s.BackgroundWidth,
+					v => SetProp( el, e => e.Style.BackgroundWidth, ( e, v2 ) => e.Style.BackgroundWidth = v2, v, "Set bg width" ) );
+				AddFloatRow( "  Height (px)", s.BackgroundHeight,
+					v => SetProp( el, e => e.Style.BackgroundHeight, ( e, v2 ) => e.Style.BackgroundHeight = v2, v, "Set bg height" ) );
+			}
+		}
+
+		AddColorRow( "Background Color", s.BackgroundColor ?? "",
+			v => SetProp( el, e => e.Style.BackgroundColor, ( e, v2 ) => e.Style.BackgroundColor = v2, v, "Set bg color" ),
+			bindingProperty: "BackgroundColor" );
+		AddColorRow( "Border Color", s.BorderColor ?? "",
+			v => SetProp( el, e => e.Style.BorderColor, ( e, v2 ) => e.Style.BorderColor = v2, v, "Set border color" ),
+			bindingProperty: "BorderColor" );
+		AddFloatRow( "Border Width", s.BorderWidth,
+			v => SetProp( el, e => e.Style.BorderWidth, ( e, v2 ) => e.Style.BorderWidth = v2, v, "Set border width" ),
+			bindingProperty: "BorderWidth" );
+
+		// Border Radius only appears when Shape is Rectangle (no preset) or
+		// Custom (preset bypassed). Square/Round/Pill derive the radius from
+		// the shape, so showing the field would be misleading.
+		var shape = p.ButtonShape;
+		if ( shape == SuiButtonShape.Rectangle || shape == SuiButtonShape.Custom )
+		{
+			AddFloatRow( "Border Radius", s.BorderRadius,
+				v => SetProp( el, e => e.Style.BorderRadius, ( e, v2 ) => e.Style.BorderRadius = v2, v, "Set border radius" ),
+				bindingProperty: "BorderRadius" );
+		}
+
+		// "Text Color" for buttons writes to Props.Color (the label uses it via
+		// the nested .label rule emitted by SCSS generator).
+		AddColorRow( "Text Color", p.Color ?? "",
+			v => SetProp( el, e => e.Props.Color, ( e, v2 ) => e.Props.Color = v2, v, "Set text color" ),
+			bindingProperty: "Color" );
+		AddFloatRow( "Opacity", s.Opacity,
+			v => SetProp( el, e => e.Style.Opacity, ( e, v2 ) => e.Style.Opacity = v2, ClampOpacity( v ), "Set opacity" ),
+			bindingProperty: "Opacity" );
+		AddNote( "Normal is the resting visual — what the user sees with no input. The four override states below replace individual properties; anything left blank inherits from Normal." );
+
+		_activeBody = savedActiveBody;
+	}
+
+	private void AddOverrideStateDropdown( SuiElement el, string state )
+	{
+		var host = Container();
+		var current = ReadStateStyle( el, state );
+		// Append "(set)" tag when the override has any authored field — gives
+		// the author a quick visual on which states have content without
+		// opening every one.
+		var headerTitle = (current != null && !current.IsEmpty()) ? $"{state}  (set)" : state;
+		var sub = new SuiDetailsSection( headerTitle, host, expanded: false );
+		host.Layout.Add( sub );
+
+		var savedActiveBody = _activeBody;
+		_activeBody = sub.Body;
+
+		// Clear button row — only enabled when there's something to clear.
+		var topRow = MakeRow();
+		topRow.Layout.AddStretchCell( 1 );
+		var clearBtn = new Button( "Clear State", "clear", topRow );
+		clearBtn.FixedHeight = 22;
+		clearBtn.Enabled = current != null && !current.IsEmpty();
+		clearBtn.Clicked += () =>
+		{
+			ClearStateStyle( el, state );
+			Refresh();
+		};
+		topRow.Layout.Add( clearBtn );
+		Container().Layout.Add( topRow );
+
+		// Eight fields — sentinel handling mirrors SuiInteractiveStateStyle.
+		AddImageAssetRow( "Background Image", current?.BackgroundImage ?? "",
+			v => MutateStateStyle( el, state, s => s.BackgroundImage = v ?? "", $"Set {state} background image" ) );
+		AddColorRow( "Background Color", current?.BackgroundColor ?? "",
+			v => MutateStateStyle( el, state, s => s.BackgroundColor = v ?? "", $"Set {state} background color" ) );
+		AddColorRow( "Border Color", current?.BorderColor ?? "",
+			v => MutateStateStyle( el, state, s => s.BorderColor = v ?? "", $"Set {state} border color" ) );
+		AddFloatRow( "Border Width", current?.BorderWidth ?? -1f,
+			v => MutateStateStyle( el, state, s => s.BorderWidth = v, $"Set {state} border width" ) );
+		AddFloatRow( "Border Radius", current?.BorderRadius ?? -1f,
+			v => MutateStateStyle( el, state, s => s.BorderRadius = v, $"Set {state} border radius" ) );
+		AddColorRow( "Text Color", current?.TextColor ?? "",
+			v => MutateStateStyle( el, state, s => s.TextColor = v ?? "", $"Set {state} text color" ) );
+		AddFloatRow( "Scale", current?.Scale ?? 1f,
+			v => MutateStateStyle( el, state, s => s.Scale = v, $"Set {state} scale" ) );
+		AddFloatRow( "Opacity", current?.Opacity ?? -1f,
+			v => MutateStateStyle( el, state, s => s.Opacity = v, $"Set {state} opacity" ) );
+
+		AddNote( "Empty strings inherit Normal. Border Width / Radius / Opacity = -1 means no override. Scale = 1 means no transform." );
+
+		_activeBody = savedActiveBody;
+	}
+
+	private void AddTransitionDropdown( SuiElement el )
+	{
+		var host = Container();
+		var sub = new SuiDetailsSection( "Transition (animation between states)", host, expanded: false );
+		host.Layout.Add( sub );
+
+		var savedActiveBody = _activeBody;
+		_activeBody = sub.Body;
+
+		var p = el.Props;
 		AddBoolRow( "Smooth Transition", p.TransitionEnabled,
 			v =>
 			{
@@ -1382,96 +1577,43 @@ public class SuiDetailsWidget : Widget
 			AddNote( "0.15s is the Material 'fast' baseline. 0.0–0.3s feels snappy; 0.4s+ feels sluggish." );
 		}
 
-		// ── Sound ─────────────────────────────────────────────────────
-		BeginSection( "Sound", defaultExpanded: false );
-		AddSoundAssetRow( "Hover Sound", p.HoverSound ?? "",
-			v => SetProp( el, e => e.Props.HoverSound, ( e, v2 ) => e.Props.HoverSound = v2, v, "Set hover sound" ) );
-		AddSoundAssetRow( "Press Sound", p.PressSound ?? "",
-			v => SetProp( el, e => e.Props.PressSound, ( e, v2 ) => e.Props.PressSound = v2, v, "Set press sound" ) );
-		AddNote( "Emitted as SCSS sound-in on :hover / :active. Asset path is the .sound resource (e.g. sounds/ui/click.sound)." );
-	}
-
-	private void AddStatePreviewRow( SuiElement el )
-	{
-		// Simple text-based picker built from a button — clicking opens an
-		// inline menu via Editor's Menu API. Keeps the dependency surface
-		// small (we already use Menu elsewhere for the right-click on rows).
-		var row = MakeRow();
-		AddRowLabel( row, "Preview State" );
-
-		var btn = new Button( _previewState, "tune", row );
-		btn.FixedHeight = 22;
-		btn.Clicked += () =>
-		{
-			var menu = new Menu( btn );
-			foreach ( var s in new[] { "Normal", "Hover", "Pressed", "Disabled", "Focused" } )
-			{
-				var stateName = s;
-				menu.AddOption( stateName, action: () =>
-				{
-					_previewState = stateName;
-					Refresh();
-					// Canvas hook for state preview lands in P5 — for now the
-					// Details panel rebuilds with the new selection only.
-				} );
-			}
-			menu.OpenAtCursor();
-		};
-		row.Layout.Add( btn, 1 );
-		Container().Layout.Add( row );
+		_activeBody = savedActiveBody;
 	}
 
 	/// <summary>
-	/// Builds the four tabs that edit Hover/Pressed/Disabled/Focused overrides.
-	/// Tab strip is a manual button row (active-state highlight + survives
-	/// Refresh because the active tab name is stored in <see cref="_activeStateTab"/>).
+	/// V1.5 M3.5 (PRD 25) — Snap-to-image-aspect helper. Loads the element's
+	/// Style.BackgroundImage, reads its pixel dimensions via Pixmap, then
+	/// rewrites Layout.Height = Width × (imgH / imgW). Width preserved so the
+	/// author's column alignment isn't disturbed.
+	///
+	/// No-op when image path is empty, unreadable, or degenerate (0-size).
 	/// </summary>
-	private void BuildStateTabs( SuiElement el )
+	private void SnapHeightToImageAspect( SuiElement el )
 	{
-		var host = Container();
+		var path = el?.Style?.BackgroundImage;
+		if ( string.IsNullOrEmpty( path ) ) return;
+		if ( el.Layout == null || el.Layout.Width <= 0f ) return;
 
-		// Tab strip.
-		var strip = new Widget( host );
-		strip.Layout = Layout.Row();
-		strip.Layout.Margin = new Sandbox.UI.Margin( 0, 4, 0, 4 );
-		strip.Layout.Spacing = 2;
+		// Resolve project-relative to absolute for Pixmap loader.
+		var projectRoot = Editor.Project.Current?.RootDirectory?.FullName;
+		if ( string.IsNullOrEmpty( projectRoot ) ) return;
 
-		var tabs = new[] { "Hover", "Pressed", "Disabled", "Focused" };
-		foreach ( var tabName in tabs )
-		{
-			var btn = new Button( tabName, null, strip );
-			btn.FixedHeight = 24;
-			bool isActive = string.Equals( tabName, _activeStateTab, StringComparison.Ordinal );
-			btn.SetStyles( isActive
-				? "background-color: rgb(50,80,130); color: white;"
-				: "background-color: rgb(36,38,42); color: rgb(190,195,205);" );
-			var captured = tabName;
-			btn.Clicked += () =>
-			{
-				_activeStateTab = captured;
-				Refresh();
-			};
-			strip.Layout.Add( btn, 1 );
-		}
-		host.Layout.Add( strip );
+		var trimmed = path.TrimStart( '/', '\\' );
+		var abs = System.IO.Path.Combine( projectRoot, "Assets", trimmed );
+		if ( !System.IO.File.Exists( abs ) )
+			abs = System.IO.Path.Combine( projectRoot, trimmed );
+		if ( !System.IO.File.Exists( abs ) ) return;
 
-		// Push the host as Container() so the editor's AddXRow callbacks
-		// parent rows under us. The editor is constructed during Build()
-		// of this widget and lives until next Refresh().
-		var savedActiveBody = _activeBody;
-		_activeBody = host;
+		Pixmap pm = null;
+		try { pm = Editor.Paint.LoadImage( abs ); }
+		catch { return; }
+		if ( pm == null || pm.Width <= 1 || pm.Height <= 1 ) return;
 
-		var editor = new SuiInteractiveStateEditor(
-			host,
-			read: () => ReadStateStyle( el, _activeStateTab ),
-			mutate: ( apply, label ) => MutateStateStyle( el, _activeStateTab, apply, label ),
-			onClear: () => ClearStateStyle( el, _activeStateTab ),
-			addImage: ( lbl, val, cb ) => AddImageAssetRow( lbl, val, cb ),
-			addColor: ( lbl, val, cb ) => AddColorRow( lbl, val, cb ),
-			addFloat: ( lbl, val, cb ) => AddFloatRow( lbl, val, cb ) );
-		host.Layout.Add( editor );
+		float aspect = (float)pm.Height / pm.Width;
+		float newHeight = el.Layout.Width * aspect;
 
-		_activeBody = savedActiveBody;
+		SetProp( el, e => e.Layout.Height, ( e, v ) => e.Layout.Height = v, newHeight, "Snap height to image aspect" );
+		Refresh();
 	}
 
 	private static SuiInteractiveStateStyle ReadStateStyle( SuiElement el, string state ) => state switch
@@ -1486,8 +1628,7 @@ public class SuiDetailsWidget : Widget
 	/// <summary>
 	/// Apply a mutation to one of the four state-style slots, going through the
 	/// command stack so undo/redo records the change. Lazy-creates the
-	/// <see cref="SuiInteractiveStateStyle"/> on first edit so authors don't
-	/// have to "Add Hover" before tweaking a field.
+	/// <see cref="SuiInteractiveStateStyle"/> on first edit.
 	/// </summary>
 	private void MutateStateStyle( SuiElement el, string state, Action<SuiInteractiveStateStyle> apply, string label )
 	{
@@ -1510,28 +1651,32 @@ public class SuiDetailsWidget : Widget
 				SetProp( el, e => e.Props.FocusedStyle, ( e, v ) => e.Props.FocusedStyle = v, draft, label );
 				break;
 		}
+		Refresh();
 	}
 
+	/// <summary>
+	/// Reset one of the four override states to null via the command stack.
+	/// Refresh is called from the caller so the dropdown header updates its
+	/// "(set)" tag.
+	/// </summary>
 	private void ClearStateStyle( SuiElement el, string state )
 	{
 		switch ( state )
 		{
 			case "Hover":
-				SetProp( el, e => e.Props.HoverStyle, ( e, v ) => e.Props.HoverStyle = v, (SuiInteractiveStateStyle)null, "Clear hover state" );
+				SetProp<SuiInteractiveStateStyle>( el, e => e.Props.HoverStyle, ( e, v ) => e.Props.HoverStyle = v, null, "Clear hover state" );
 				break;
 			case "Pressed":
-				SetProp( el, e => e.Props.PressedStyle, ( e, v ) => e.Props.PressedStyle = v, (SuiInteractiveStateStyle)null, "Clear pressed state" );
+				SetProp<SuiInteractiveStateStyle>( el, e => e.Props.PressedStyle, ( e, v ) => e.Props.PressedStyle = v, null, "Clear pressed state" );
 				break;
 			case "Disabled":
-				SetProp( el, e => e.Props.DisabledStyle, ( e, v ) => e.Props.DisabledStyle = v, (SuiInteractiveStateStyle)null, "Clear disabled state" );
+				SetProp<SuiInteractiveStateStyle>( el, e => e.Props.DisabledStyle, ( e, v ) => e.Props.DisabledStyle = v, null, "Clear disabled state" );
 				break;
 			case "Focused":
-				SetProp( el, e => e.Props.FocusedStyle, ( e, v ) => e.Props.FocusedStyle = v, (SuiInteractiveStateStyle)null, "Clear focused state" );
+				SetProp<SuiInteractiveStateStyle>( el, e => e.Props.FocusedStyle, ( e, v ) => e.Props.FocusedStyle = v, null, "Clear focused state" );
 				break;
 		}
 	}
-
-	public string CurrentPreviewState() => _previewState;
 
 	private static string AnchorLabel( SuiAnchor a ) => a switch
 	{
