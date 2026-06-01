@@ -1595,7 +1595,7 @@ public class SuiDetailsWidget : Widget
 		if ( el.Layout == null || el.Layout.Width <= 0f ) return;
 
 		// Resolve project-relative to absolute for Pixmap loader.
-		var projectRoot = Editor.Project.Current?.RootDirectory?.FullName;
+		var projectRoot = Sandbox.Project.Current?.RootDirectory?.FullName;
 		if ( string.IsNullOrEmpty( projectRoot ) ) return;
 
 		var trimmed = path.TrimStart( '/', '\\' );
