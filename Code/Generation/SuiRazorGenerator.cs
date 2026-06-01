@@ -240,8 +240,32 @@ public sealed class SuiRazorGenerator
 			body.Append( "\tpublic bool " ).Append( fieldName )
 				.Append( " { get; set; } = " ).Append( defaultLit ).AppendLine( ";" );
 			hashes.Add( fieldName );
+
+			// V1.5 M3.5 — emit a pure C# helper that returns the class string
+			// for this element. The Razor markup invokes it via the simple
+			// expression `class="@<Name>Class()"` — no mixed content, no
+			// nested quote-escape gymnastics that would confuse the Razor
+			// parser (which is what broke commit `1d2ef34`).
+			var methodName = SuiNameSanitizer.ToCSharpIdentifier( ( el.Name ?? el.Id ) + "Class" );
+			var staticClasses = BuildElementClassLiteral( el );
+			body.Append( "\tprivate string " ).Append( methodName )
+				.Append( "() => \"" ).Append( staticClasses )
+				.Append( "\" + (" ).Append( fieldName ).AppendLine( " ? \" disabled\" : \"\");" );
 		}
 		return hashes;
+	}
+
+	/// <summary>
+	/// Build the literal static-class string for an element — matches the
+	/// non-interactive markup emit path (see <see cref="EmitElement"/>) so the
+	/// runtime class string is identical whether the element ends up under
+	/// <c>class="literal"</c> or under <c>class="@FooClass()"</c>.
+	/// </summary>
+	private string BuildElementClassLiteral( SuiElement el )
+	{
+		var userClass = SuiNameSanitizer.ToCssClass( el.Style?.ClassName ?? el.Type.ToString() );
+		var uniqueClass = ElementUniqueClass( el );
+		return userClass == uniqueClass ? userClass : userClass + " " + uniqueClass;
 	}
 
 	private static bool HasAnyEventsOrRefs( SuiDocument doc )
@@ -535,16 +559,16 @@ public sealed class SuiRazorGenerator
 		var isInteractive = el.Type == SuiElementType.Button
 			|| el.Type == SuiElementType.InventorySlot
 			|| el.Type == SuiElementType.ItemIcon;
-		var disabledFieldName = isInteractive ? SuiNameSanitizer.ToCSharpIdentifier( ( el.Name ?? el.Id ) + "Disabled" ) : null;
 
 		if ( isInteractive )
 		{
-			// Mixed-content class attribute: literal class names + an @(...)
-			// expression that appends "disabled" when the runtime bool flips.
-			// Razor's mixed parser keeps the outer "..." as the attribute
-			// quotes, so inner C# strings can use plain "..." without escape.
-			_sb.Append( indent ).Append( "<div class=\"" ).Append( className )
-				.Append( " @(" ).Append( disabledFieldName ).Append( " ? \"disabled\" : \"\")\"" )
+			// Pure C# expression — `class="@<Name>Class()"`. The helper is
+			// emitted by EmitInteractiveDisabledFields and returns the
+			// concatenated class string. No mixed content, no nested quote
+			// escapes — eliminates the class of Razor parser bugs that
+			// regressed in commit `1d2ef34`.
+			var classMethodName = SuiNameSanitizer.ToCSharpIdentifier( ( el.Name ?? el.Id ) + "Class" );
+			_sb.Append( indent ).Append( "<div class=\"@" ).Append( classMethodName ).Append( "()\"" )
 				.Append( " tabindex=\"0\"" )
 				.Append( dataAttrs );
 		}
