@@ -33,11 +33,36 @@ public class SuiDetailsWidget : Widget
 	// otherwise. Reset to _bodyHost on every Refresh.
 	private Widget _activeBody;
 
-	// V1.5 M3.5 (PRD 25) — interactive Button/Slot/Icon authoring used to
-	// live behind a tab strip + a "Preview State" dropdown. P2.5 collapsed
-	// both into five collapsible dropdowns (Normal / Hover / Pressed /
-	// Disabled / Focused) inside the Appearance section — no in-widget state
-	// needed any more; everything rebuilds from the document on Refresh.
+	// V1.5 M3.5 (PRD 25) — Refresh() rebuilds the entire panel, which would
+	// otherwise reset every sub-section's expanded/collapsed state. We track
+	// the state by stable key (section title + element-id when scoped) so
+	// the sub-dropdowns survive every property edit.
+	private readonly System.Collections.Generic.Dictionary<string, bool> _sectionExpanded = new();
+
+	private bool ShouldExpand( string key, bool defaultValue )
+	{
+		if ( _sectionExpanded.TryGetValue( key, out var v ) ) return v;
+		_sectionExpanded[key] = defaultValue;
+		return defaultValue;
+	}
+
+	/// <summary>
+	/// Wrap section construction so the toggle handler writes back to the
+	/// persistence dict on every expand/collapse. <paramref name="stableKey"/>
+	/// must NOT include any dynamic part of <paramref name="title"/> (e.g.
+	/// a "(set)" suffix) — otherwise the dict loses the entry every time the
+	/// header text changes.
+	/// </summary>
+	private SuiDetailsSection MakePersistentSection( string title, Widget parent, string stableKey, bool defaultExpanded )
+	{
+		var expanded = ShouldExpand( stableKey, defaultExpanded );
+		var sub = new SuiDetailsSection( title, parent, expanded );
+		// SuiDetailsSection.Header.ToggledExpanded fires the existing handler
+		// (toggles IsExpanded + sets Body.Visible); our handler then writes
+		// the new state to the persistence dict. Multicast — both run.
+		sub.Header.ToggledExpanded += () => _sectionExpanded[stableKey] = sub.Header.IsExpanded;
+		return sub;
+	}
 
 	private LineEdit _search;
 	private string _searchFilter = "";
@@ -1423,7 +1448,7 @@ public class SuiDetailsWidget : Widget
 	private void AddNormalStateDropdown( SuiElement el )
 	{
 		var host = Container();
-		var sub = new SuiDetailsSection( "Normal", host, expanded: false );
+		var sub = MakePersistentSection( "Normal", host, "states/" + el.Id + "/Normal", defaultExpanded: false );
 		host.Layout.Add( sub );
 
 		var savedActiveBody = _activeBody;
@@ -1511,7 +1536,11 @@ public class SuiDetailsWidget : Widget
 		// the author a quick visual on which states have content without
 		// opening every one.
 		var headerTitle = (current != null && !current.IsEmpty()) ? $"{state}  (set)" : state;
-		var sub = new SuiDetailsSection( headerTitle, host, expanded: false );
+		// Persistence key uses raw state name (not headerTitle) so the
+		// "(set)" suffix doesn't break expanded-state tracking when an
+		// override is cleared/added.
+		var key = "states/" + el.Id + "/" + state;
+		var sub = MakePersistentSection( headerTitle, host, key, defaultExpanded: false );
 		host.Layout.Add( sub );
 
 		var savedActiveBody = _activeBody;
@@ -1557,7 +1586,7 @@ public class SuiDetailsWidget : Widget
 	private void AddTransitionDropdown( SuiElement el )
 	{
 		var host = Container();
-		var sub = new SuiDetailsSection( "Transition (animation between states)", host, expanded: false );
+		var sub = MakePersistentSection( "Transition (animation between states)", host, "states/" + el.Id + "/transition", defaultExpanded: false );
 		host.Layout.Add( sub );
 
 		var savedActiveBody = _activeBody;

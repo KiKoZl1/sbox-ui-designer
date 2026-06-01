@@ -539,8 +539,12 @@ public sealed class SuiRazorGenerator
 
 		if ( isInteractive )
 		{
-			_sb.Append( indent ).Append( "<div class=@($\"" ).Append( className )
-				.Append( "{(" ).Append( disabledFieldName ).Append( " ? \\\" disabled\\\" : \\\"\\\")}\")" )
+			// Mixed-content class attribute: literal class names + an @(...)
+			// expression that appends "disabled" when the runtime bool flips.
+			// Razor's mixed parser keeps the outer "..." as the attribute
+			// quotes, so inner C# strings can use plain "..." without escape.
+			_sb.Append( indent ).Append( "<div class=\"" ).Append( className )
+				.Append( " @(" ).Append( disabledFieldName ).Append( " ? \"disabled\" : \"\")\"" )
 				.Append( " tabindex=\"0\"" )
 				.Append( dataAttrs );
 		}
