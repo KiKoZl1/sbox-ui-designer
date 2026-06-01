@@ -58,6 +58,39 @@ public sealed class SuiElementProps
 
 	public string ButtonText { get; set; } = "";
 
+	// ---------- Interactive states (V1.5 M3.5 — PRD 25)
+	// Applies to: Button, InventorySlot, ItemIcon. Each per-state override is
+	// optional — null means the state inherits the element's Normal visuals
+	// (Layout + base style props). Codegen reads these to emit the SCSS
+	// pseudo-class rules in the order :hover < :focus < :active < .disabled.
+
+	public SuiInteractiveStateStyle HoverStyle { get; set; }
+	public SuiInteractiveStateStyle PressedStyle { get; set; }
+	public SuiInteractiveStateStyle DisabledStyle { get; set; }
+	public SuiInteractiveStateStyle FocusedStyle { get; set; }
+
+	/// <summary>
+	/// Runtime-bindable flag — when true the generated wrapper adds the
+	/// <c>.disabled</c> class to the root element and suppresses onclick.
+	/// Bind a Variable to this in the SUI Designer to toggle from gameplay.
+	/// </summary>
+	public bool IsDisabled { get; set; } = false;
+
+	/// <summary>Emit <c>transition: all Ns ease</c> on the root selector. Default ON.</summary>
+	public bool TransitionEnabled { get; set; } = true;
+
+	/// <summary>Seconds. 0.15s is the Material Design "fast" baseline.</summary>
+	public float TransitionDuration { get; set; } = 0.15f;
+
+	/// <summary>SoundEvent asset path played on <c>:hover</c> ingress (SCSS <c>sound-in</c>). Empty = no sound.</summary>
+	public string HoverSound { get; set; } = "";
+
+	/// <summary>SoundEvent asset path played on <c>:active</c> ingress (press). Empty = no sound.</summary>
+	public string PressSound { get; set; } = "";
+
+	/// <summary>CSS cursor name (e.g. "pointer", "not-allowed"). Empty = no emit.</summary>
+	public string Cursor { get; set; } = "";
+
 	// ---------- ProgressBar ----------
 
 	public float ProgressMin { get; set; } = 0f;
@@ -105,6 +138,16 @@ public sealed class SuiElementProps
 		AutoFill = AutoFill,
 		GridStrategy = GridStrategy,
 		ButtonText = ButtonText,
+		HoverStyle = HoverStyle?.Clone(),
+		PressedStyle = PressedStyle?.Clone(),
+		DisabledStyle = DisabledStyle?.Clone(),
+		FocusedStyle = FocusedStyle?.Clone(),
+		IsDisabled = IsDisabled,
+		TransitionEnabled = TransitionEnabled,
+		TransitionDuration = TransitionDuration,
+		HoverSound = HoverSound,
+		PressSound = PressSound,
+		Cursor = Cursor,
 		ProgressMin = ProgressMin,
 		ProgressMax = ProgressMax,
 		ProgressPreviewValue = ProgressPreviewValue,

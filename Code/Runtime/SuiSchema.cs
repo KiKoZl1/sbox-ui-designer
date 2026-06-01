@@ -8,8 +8,12 @@ public static class SuiSchemaVersion
 	/// <summary>
 	/// Current schema version emitted by this generator.
 	/// V2 (V1.5) adds Variables (with IsPublic) and PreviewData — see PRD 17 § 6.
+	/// V3 (V1.5 M3.5) adds per-state interactive style overrides for Button /
+	/// InventorySlot / ItemIcon (HoverStyle / PressedStyle / DisabledStyle /
+	/// FocusedStyle), plus IsDisabled / Transition / Sound / Cursor fields —
+	/// see PRD 25.
 	/// </summary>
-	public const int Current = 2;
+	public const int Current = 3;
 
 	/// <summary>Earliest schema version this codebase can load (for migration).</summary>
 	public const int MinimumSupported = 1;

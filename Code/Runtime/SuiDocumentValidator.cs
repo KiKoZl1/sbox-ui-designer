@@ -115,6 +115,11 @@ public static class SuiDocumentValidator
 				if ( (el.Type == SuiElementType.Grid || el.Type == SuiElementType.InventoryGrid)
 					&& (el.Props.Columns < 1 || el.Props.Rows < 1) )
 					r.Errors.Add( $"grid element '{el.Id}' has columns/rows < 1" );
+
+				// V1.5 M3.5 — interactive state ranges (PRD 25 § 4.3). Only
+				// validated on element types that surface interactive states.
+				if ( IsInteractiveType( el.Type ) )
+					ValidateInteractiveProps( el, r );
 			}
 		}
 
@@ -427,6 +432,62 @@ public static class SuiDocumentValidator
 		if ( s.Length == 0 ) return "_";
 		if ( !char.IsLetter( s[0] ) ) s = "x" + s;
 		return s;
+	}
+
+	/// <summary>
+	/// V1.5 M3.5 — element types that surface interactive states (Button + slots
+	/// + icon). Other element types ignore <see cref="SuiElementProps.HoverStyle"/>
+	/// etc., but having them present is a soft warning, not an error — keeps
+	/// migration lossless.
+	/// </summary>
+	private static bool IsInteractiveType( SuiElementType type )
+	{
+		return type == SuiElementType.Button
+			|| type == SuiElementType.InventorySlot
+			|| type == SuiElementType.ItemIcon;
+	}
+
+	/// <summary>
+	/// Validate interactive-state ranges on an element. Hard errors only on
+	/// values that would corrupt the generated SCSS (negative duration, NaN);
+	/// out-of-range Scale/Opacity get warnings.
+	/// </summary>
+	private static void ValidateInteractiveProps( SuiElement el, Result r )
+	{
+		var p = el.Props;
+		var elName = el.Name ?? el.Id;
+
+		if ( p.TransitionEnabled && p.TransitionDuration <= 0f )
+			r.Errors.Add( $"element '{elName}' has TransitionEnabled but TransitionDuration={p.TransitionDuration} <= 0" );
+		if ( p.TransitionDuration > 5f )
+			r.Warnings.Add( $"element '{elName}' transitionDuration={p.TransitionDuration}s is unusually long" );
+
+		ValidateStateStyle( elName, "HoverStyle", p.HoverStyle, r );
+		ValidateStateStyle( elName, "PressedStyle", p.PressedStyle, r );
+		ValidateStateStyle( elName, "DisabledStyle", p.DisabledStyle, r );
+		ValidateStateStyle( elName, "FocusedStyle", p.FocusedStyle, r );
+	}
+
+	private static void ValidateStateStyle( string elName, string stateName, SuiInteractiveStateStyle style, Result r )
+	{
+		if ( style == null ) return;
+
+		// Scale: 0 collapses the element, negatives flip it (probably not intended).
+		// Allow > 0 only.
+		if ( style.Scale <= 0f )
+			r.Errors.Add( $"element '{elName}' {stateName}.Scale={style.Scale} must be > 0" );
+		if ( style.Scale > 5f )
+			r.Warnings.Add( $"element '{elName}' {stateName}.Scale={style.Scale} is unusually large" );
+
+		// Opacity: -1 is the sentinel "no override"; 0..1 is the legal authored range.
+		if ( style.Opacity >= 0f && style.Opacity > 1f )
+			r.Errors.Add( $"element '{elName}' {stateName}.Opacity={style.Opacity} out of [0..1]" );
+
+		// BorderWidth / BorderRadius: -1 sentinel = no override; otherwise >= 0.
+		if ( style.BorderWidth >= 0f && style.BorderWidth > 64f )
+			r.Warnings.Add( $"element '{elName}' {stateName}.BorderWidth={style.BorderWidth} is unusually thick" );
+		if ( style.BorderRadius >= 0f && style.BorderRadius > 256f )
+			r.Warnings.Add( $"element '{elName}' {stateName}.BorderRadius={style.BorderRadius} is unusually large" );
 	}
 
 	/// <summary>

@@ -18,6 +18,9 @@ public static class SuiDocumentMigration
 		if ( doc.SchemaVersion < 2 )
 			MigrateV1ToV2( doc );
 
+		if ( doc.SchemaVersion < 3 )
+			MigrateV2ToV3( doc );
+
 		if ( doc.Elements == null ) return;
 
 		foreach ( var el in doc.Elements )
@@ -43,6 +46,28 @@ public static class SuiDocumentMigration
 		doc.Variables ??= new();
 		doc.Output ??= new();
 		doc.SchemaVersion = 2;
+	}
+
+	/// <summary>
+	/// V2 → V3 (V1.5 M3.5 — PRD 25). Additive only: introduces per-state visual
+	/// overrides (HoverStyle / PressedStyle / DisabledStyle / FocusedStyle) and
+	/// the IsDisabled / Transition / Sound / Cursor fields on
+	/// <see cref="SuiElementProps"/>. Existing documents have:
+	/// <list type="bullet">
+	///   <item>All four state overrides = null (no per-state SCSS emit — visual
+	///         identical to V2 behaviour).</item>
+	///   <item><c>IsDisabled</c> = false, <c>TransitionEnabled</c> = true (visible
+	///         change: hover transitions become smooth in 0.15s once authors
+	///         set Hover overrides; until they do, nothing animates).</item>
+	///   <item>Sounds / Cursor = empty (no emit).</item>
+	/// </list>
+	/// All defaults match the C# field initialisers — JSON deserialise of a V2
+	/// document already produces these values. This migration just bumps the
+	/// version number so the validator records the load as a V3 contract.
+	/// </summary>
+	private static void MigrateV2ToV3( SuiDocument doc )
+	{
+		doc.SchemaVersion = 3;
 	}
 
 	/// <summary>
