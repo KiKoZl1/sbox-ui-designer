@@ -83,9 +83,40 @@ public static class SuiEventEmitter
 						break;
 
 					case SuiEventMode.Doo:
-						// Typed events surface their argument to DooEditor via the
-						// ArgumentHint<T> attribute — designers see the parameter
-						// name on the slot instead of a generic input pin.
+						// WBP-like default: the .sui authors the Doo body; codegen
+						// embeds the serialised JSON so 1 .sui = 1 Doo default
+						// per slot, shared across every widget instance.
+						//
+						// We CANNOT use a plain `{ get; set; } = Json.Deserialize(...)`
+						// initialiser — the engine serialises [Property] values
+						// into the scene/prefab JSON on save, and an instance
+						// that never had the slot picker touched still gets
+						// written as `"OnFoo": null` (the serializer doesn't
+						// know about field initialisers). On reload the engine
+						// calls the setter with null AFTER the initialiser ran,
+						// destroying the default. So we use a backing field
+						// + defensive setter: get/set on null falls back to a
+						// lazily-parsed static default. The picker still wins
+						// — picking a new (non-null) Doo replaces the default.
+						var hasDefault = binding.DooBody != null;
+						var defaultField = "_" + char.ToLowerInvariant( slotName[0] ) + slotName.Substring( 1 ) + "Default";
+						var backingField = "_" + char.ToLowerInvariant( slotName[0] ) + slotName.Substring( 1 );
+
+						if ( hasDefault )
+						{
+							var json = Sandbox.Json.Serialize( binding.DooBody );
+							var escaped = (json ?? "{}").Replace( "\"", "\"\"" );
+
+							sb.Append( "\tprivate const string " ).Append( defaultField )
+								.Append( "Json = @\"" ).Append( escaped ).AppendLine( "\";" );
+							sb.Append( "\tprivate static global::Sandbox.Doo " ).Append( defaultField ).AppendLine( ";" );
+							sb.Append( "\tprivate static global::Sandbox.Doo " ).Append( slotName )
+								.Append( "DefaultFactory() => " ).Append( defaultField )
+								.Append( " ??= global::Sandbox.Json.Deserialize<global::Sandbox.Doo>( " )
+								.Append( defaultField ).AppendLine( "Json );" );
+							sb.Append( "\tprivate global::Sandbox.Doo " ).Append( backingField ).AppendLine( ";" );
+						}
+
 						sb.Append( "\t[Property, Group( \"Events\" )" );
 						if ( !string.IsNullOrEmpty( entry.CodeDelegate ) )
 						{
@@ -97,24 +128,22 @@ public static class SuiEventEmitter
 									.Append( argName ).Append( "\" )" );
 							}
 						}
-						sb.Append( " ] public global::Sandbox.Doo " ).Append( slotName )
-							.Append( " { get; set; }" );
+						sb.Append( " ] public global::Sandbox.Doo " ).Append( slotName );
 
-						// WBP-like default initialiser — when the .sui authors a
-						// Doo body, embed the serialised JSON as the property's
-						// default value so 1 .sui = 1 Doo default per slot,
-						// shared across every instance of the widget. Instance
-						// override still works through the engine's native
-						// inspector path; this just provides the starting Body.
-						if ( binding.DooBody != null )
+						if ( hasDefault )
 						{
-							var json = Sandbox.Json.Serialize( binding.DooBody );
-							// Escape backslashes + quotes for a verbatim string literal.
-							var escaped = (json ?? "{}").Replace( "\"", "\"\"" );
-							sb.Append( " = global::Sandbox.Json.Deserialize<global::Sandbox.Doo>( @\"" )
-								.Append( escaped ).Append( "\" );" );
+							sb.AppendLine();
+							sb.AppendLine( "\t{" );
+							sb.Append( "\t\tget => " ).Append( backingField ).Append( " ??= " )
+								.Append( slotName ).AppendLine( "DefaultFactory();" );
+							sb.Append( "\t\tset => " ).Append( backingField ).Append( " = value ?? " )
+								.Append( slotName ).AppendLine( "DefaultFactory();" );
+							sb.AppendLine( "\t}" );
 						}
-						sb.AppendLine();
+						else
+						{
+							sb.AppendLine( " { get; set; }" );
+						}
 						break;
 				}
 			}

@@ -141,3 +141,32 @@ every collision in the Compile Results panel with both contributors named
 exposed via `@ref`. The companion Controller
 `Code/BindTest/InteractiveHudController.cs` shows the gameplay-side
 wiring.
+
+## Known gap — Action Graph picker on Code-mode slots
+
+When a slot is authored in **Code mode**, codegen emits
+`[Property] public Action OnFoo { get; set; }` on the wrapper. Because
+the field is typed `Action`, the s&box inspector automatically offers
+an **Action Graph** picker next to it — a third authoring path on top
+of "bind via C# handler" (Code) and "author Doo blocks in the SUI
+Designer" (Doo).
+
+That picker **persists fine to the scene JSON** (save/load from disk
+keeps the graph), but the delegate is **lost when entering Play**:
+the engine's Play-mode snapshot does not appear to round-trip an
+`Action` property that lives inside a non-Component wrapper
+(`SuiPanel<TView>` is a plain class). Equivalent slots on built-in
+Components like `Sandbox.Mapping.Button` work because the property
+lives directly on a `Component`.
+
+**Practical guidance**
+
+* Use **Code mode** when you want a C# handler on the host Controller.
+* Use **Doo mode** when you want visual scripting that survives Play.
+* The Action Graph picker is cosmetic on SUI wrappers — don't ship
+  logic through it.
+
+Reconsider only if a user case justifies refactoring the wrapper to be
+a `Component` (would unlock the Action Graph round-trip but is a large
+M2-K7 architecture change for a path the engine team plans to deprecate
+within ~12 months in favour of Doo).

@@ -84,10 +84,17 @@ public static class SuiEventMatrix
 	// false-positive "Button does not surface OnClick".
 	private static Dictionary<SuiElementType, Entry[]> Build()
 	{
-		var OnHover    = new Entry { Name = "OnHover",       RazorAttribute = "onhover",       CodeDelegate = null, ParameterName = "" };
-		var OnUnhover  = new Entry { Name = "OnUnhover",     RazorAttribute = "onunhover",     CodeDelegate = null, ParameterName = "" };
+		// Razor attribute names match Sandbox.UI's MousePanelEvent vocabulary
+		// (engine UI/Input/PanelInput.cs + InputEventQueue.cs):
+		// onmouseover / onmouseout fire on hover enter/exit — onhover/onunhover
+		// don't exist and were silently dropped by the engine. onrightclick also
+		// doesn't exist: right-click arrives via onclick with e.Button=="mouseright",
+		// so until M4 surfaces MousePanelEvent handlers, OnRightClick is wired as
+		// a plain onclick (fires on ANY button — known gap).
+		var OnHover    = new Entry { Name = "OnHover",       RazorAttribute = "onmouseover",   CodeDelegate = null, ParameterName = "" };
+		var OnUnhover  = new Entry { Name = "OnUnhover",     RazorAttribute = "onmouseout",    CodeDelegate = null, ParameterName = "" };
 		var OnClick    = new Entry { Name = "OnClick",       RazorAttribute = "onclick",       CodeDelegate = null, ParameterName = "" };
-		var OnRClick   = new Entry { Name = "OnRightClick",  RazorAttribute = "onrightclick",  CodeDelegate = null, ParameterName = "" };
+		var OnRClick   = new Entry { Name = "OnRightClick",  RazorAttribute = "onclick",       CodeDelegate = null, ParameterName = "" };
 		var OnDblClick = new Entry { Name = "OnDoubleClick", RazorAttribute = "ondoubleclick", CodeDelegate = null, ParameterName = "" };
 
 		var panelLike = new[] { OnHover, OnUnhover, OnClick, OnRClick };
