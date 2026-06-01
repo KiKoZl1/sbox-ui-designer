@@ -33,6 +33,18 @@ public class SuiDetailsWidget : Widget
 	// otherwise. Reset to _bodyHost on every Refresh.
 	private Widget _activeBody;
 
+	// V1.5 M3.5 (PRD 25) — which override state tab the user has open inside
+	// the Button States section. Persisted across Refresh() rebuilds so the
+	// active tab survives every edit. Default = "Hover" (the most common
+	// first-author state).
+	private string _activeStateTab = "Hover";
+
+	// V1.5 M3.5 — which state the canvas renders for the selected Button.
+	// "Normal" by default; switching to e.g. "Hover" lets the designer see the
+	// authored hover overrides without playtesting. Per-element to avoid
+	// cluttering the doc-wide canvas settings. Reset when selection changes.
+	private string _previewState = "Normal";
+
 	private LineEdit _search;
 	private string _searchFilter = "";
 
@@ -695,6 +707,7 @@ public class SuiDetailsWidget : Widget
 				AddTextRow( "Button Text", p.ButtonText ?? "",
 					v => SetProp( el, e => e.Props.ButtonText, ( e, v2 ) => e.Props.ButtonText = v2, v, "Set button text" ),
 					bindingProperty: "ButtonText" );
+				BuildInteractiveSections( el );
 				break;
 
 			case SuiElementType.Grid:
@@ -961,6 +974,49 @@ public class SuiDetailsWidget : Widget
 
 				Log.Info( $"[Sui picker] asset.Name='{asset.Name}', asset.Path='{asset.Path}', asset.AbsolutePath='{asset.AbsolutePath}', resolved='{resolved}'" );
 
+				f.Text = resolved;
+				onCommit?.Invoke( f.Text );
+			};
+			picker.Window.Show();
+		};
+		row.Layout.Add( browseBtn );
+
+		Container().Layout.Add( row );
+	}
+
+	/// <summary>
+	/// SoundEvent (.sound) asset picker row. Mirror of <see cref="AddImageAssetRow"/>
+	/// using <c>AssetType.FromExtension("sound")</c> — the same overload used by
+	/// engine-side widgets that pick SoundEvent resources (PRD 25 § 5.4).
+	/// </summary>
+	private void AddSoundAssetRow( string label, string value, Action<string> onCommit, string bindingProperty = null )
+	{
+		var row = MakeRow();
+		AddRowLabel( row, label, bindingProperty );
+
+		var f = new SuiTextField( row );
+		f.Text = value ?? "";
+		f.ValueCommitted += v => onCommit?.Invoke( v ?? "" );
+		ApplyTooltipTo( f );
+		row.Layout.Add( f, 1 );
+
+		var browseBtn = new SuiBrowseButton( row );
+		ApplyTooltipTo( browseBtn );
+		browseBtn.Clicked += () =>
+		{
+			var picker = AssetPicker.Create( this, AssetType.FromExtension( "sound" ), new()
+			{
+				EnableMultiselect = false,
+				EnableCloud = false
+			} );
+			picker.Window.StateCookie = "SuiDesigner.SoundPicker";
+			picker.Window.RestoreFromStateCookie();
+			picker.Window.Title = "Pick sound event";
+			picker.OnAssetPicked = assets =>
+			{
+				var asset = assets?.FirstOrDefault();
+				if ( asset == null ) return;
+				string resolved = ResolveSourceRelativePath( asset );
 				f.Text = resolved;
 				onCommit?.Invoke( f.Text );
 			};
@@ -1283,6 +1339,199 @@ public class SuiDetailsWidget : Widget
 
 		Container().Layout.Add( row );
 	}
+
+	// ─────────────────────────────────────────────────────────────────────
+	//  V1.5 M3.5 — Interactive states (PRD 25)
+	//  Renders the four extra sections common to Button (Phase 1) and later
+	//  InventorySlot / ItemIcon (Phase 7): Interaction, States (tabs),
+	//  Transition, Sound.
+	// ─────────────────────────────────────────────────────────────────────
+
+	private void BuildInteractiveSections( SuiElement el )
+	{
+		var p = el.Props;
+
+		// ── Interaction ───────────────────────────────────────────────
+		BeginSection( "Interaction", defaultExpanded: false );
+		AddBoolRow( "Disabled", p.IsDisabled,
+			v => SetProp( el, e => e.Props.IsDisabled, ( e, v2 ) => e.Props.IsDisabled = v2, v, "Set disabled" ),
+			bindingProperty: "IsDisabled" );
+		AddTextRow( "Cursor", p.Cursor ?? "",
+			v => SetProp( el, e => e.Props.Cursor, ( e, v2 ) => e.Props.Cursor = v2, v, "Set cursor" ) );
+		AddNote( "Cursor: 'pointer' (default for buttons), 'not-allowed', or any CSS cursor name. Empty = no override." );
+
+		// ── States (with preview dropdown + tabs) ─────────────────────
+		BeginSection( "States" );
+		AddNote( "Normal lives in the Appearance / Layout sections above. The four tabs below override individual properties on hover, press, when disabled, or when focused (controller / keyboard nav)." );
+
+		AddStatePreviewRow( el );
+		BuildStateTabs( el );
+
+		// ── Transition ────────────────────────────────────────────────
+		BeginSection( "Transition", defaultExpanded: false );
+		AddBoolRow( "Smooth Transition", p.TransitionEnabled,
+			v =>
+			{
+				SetProp( el, e => e.Props.TransitionEnabled, ( e, v2 ) => e.Props.TransitionEnabled = v2, v, "Set transition enabled" );
+				Refresh();
+			} );
+		if ( p.TransitionEnabled )
+		{
+			AddFloatRow( "Duration (s)", p.TransitionDuration,
+				v => SetProp( el, e => e.Props.TransitionDuration, ( e, v2 ) => e.Props.TransitionDuration = v2, v, "Set transition duration" ) );
+			AddNote( "0.15s is the Material 'fast' baseline. 0.0–0.3s feels snappy; 0.4s+ feels sluggish." );
+		}
+
+		// ── Sound ─────────────────────────────────────────────────────
+		BeginSection( "Sound", defaultExpanded: false );
+		AddSoundAssetRow( "Hover Sound", p.HoverSound ?? "",
+			v => SetProp( el, e => e.Props.HoverSound, ( e, v2 ) => e.Props.HoverSound = v2, v, "Set hover sound" ) );
+		AddSoundAssetRow( "Press Sound", p.PressSound ?? "",
+			v => SetProp( el, e => e.Props.PressSound, ( e, v2 ) => e.Props.PressSound = v2, v, "Set press sound" ) );
+		AddNote( "Emitted as SCSS sound-in on :hover / :active. Asset path is the .sound resource (e.g. sounds/ui/click.sound)." );
+	}
+
+	private void AddStatePreviewRow( SuiElement el )
+	{
+		// Simple text-based picker built from a button — clicking opens an
+		// inline menu via Editor's Menu API. Keeps the dependency surface
+		// small (we already use Menu elsewhere for the right-click on rows).
+		var row = MakeRow();
+		AddRowLabel( row, "Preview State" );
+
+		var btn = new Button( _previewState, "tune", row );
+		btn.FixedHeight = 22;
+		btn.Clicked += () =>
+		{
+			var menu = new Menu( btn );
+			foreach ( var s in new[] { "Normal", "Hover", "Pressed", "Disabled", "Focused" } )
+			{
+				var stateName = s;
+				menu.AddOption( stateName, action: () =>
+				{
+					_previewState = stateName;
+					Refresh();
+					// Canvas hook for state preview lands in P5 — for now the
+					// Details panel rebuilds with the new selection only.
+				} );
+			}
+			menu.OpenAtCursor();
+		};
+		row.Layout.Add( btn, 1 );
+		Container().Layout.Add( row );
+	}
+
+	/// <summary>
+	/// Builds the four tabs that edit Hover/Pressed/Disabled/Focused overrides.
+	/// Tab strip is a manual button row (active-state highlight + survives
+	/// Refresh because the active tab name is stored in <see cref="_activeStateTab"/>).
+	/// </summary>
+	private void BuildStateTabs( SuiElement el )
+	{
+		var host = Container();
+
+		// Tab strip.
+		var strip = new Widget( host );
+		strip.Layout = Layout.Row();
+		strip.Layout.Margin = new Sandbox.UI.Margin( 0, 4, 0, 4 );
+		strip.Layout.Spacing = 2;
+
+		var tabs = new[] { "Hover", "Pressed", "Disabled", "Focused" };
+		foreach ( var tabName in tabs )
+		{
+			var btn = new Button( tabName, null, strip );
+			btn.FixedHeight = 24;
+			bool isActive = string.Equals( tabName, _activeStateTab, StringComparison.Ordinal );
+			btn.SetStyles( isActive
+				? "background-color: rgb(50,80,130); color: white;"
+				: "background-color: rgb(36,38,42); color: rgb(190,195,205);" );
+			var captured = tabName;
+			btn.Clicked += () =>
+			{
+				_activeStateTab = captured;
+				Refresh();
+			};
+			strip.Layout.Add( btn, 1 );
+		}
+		host.Layout.Add( strip );
+
+		// Push the host as Container() so the editor's AddXRow callbacks
+		// parent rows under us. The editor is constructed during Build()
+		// of this widget and lives until next Refresh().
+		var savedActiveBody = _activeBody;
+		_activeBody = host;
+
+		var editor = new SuiInteractiveStateEditor(
+			host,
+			read: () => ReadStateStyle( el, _activeStateTab ),
+			mutate: ( apply, label ) => MutateStateStyle( el, _activeStateTab, apply, label ),
+			onClear: () => ClearStateStyle( el, _activeStateTab ),
+			addImage: ( lbl, val, cb ) => AddImageAssetRow( lbl, val, cb ),
+			addColor: ( lbl, val, cb ) => AddColorRow( lbl, val, cb ),
+			addFloat: ( lbl, val, cb ) => AddFloatRow( lbl, val, cb ) );
+		host.Layout.Add( editor );
+
+		_activeBody = savedActiveBody;
+	}
+
+	private static SuiInteractiveStateStyle ReadStateStyle( SuiElement el, string state ) => state switch
+	{
+		"Hover" => el.Props.HoverStyle,
+		"Pressed" => el.Props.PressedStyle,
+		"Disabled" => el.Props.DisabledStyle,
+		"Focused" => el.Props.FocusedStyle,
+		_ => null,
+	};
+
+	/// <summary>
+	/// Apply a mutation to one of the four state-style slots, going through the
+	/// command stack so undo/redo records the change. Lazy-creates the
+	/// <see cref="SuiInteractiveStateStyle"/> on first edit so authors don't
+	/// have to "Add Hover" before tweaking a field.
+	/// </summary>
+	private void MutateStateStyle( SuiElement el, string state, Action<SuiInteractiveStateStyle> apply, string label )
+	{
+		var current = ReadStateStyle( el, state );
+		var draft = current?.Clone() ?? new SuiInteractiveStateStyle();
+		apply( draft );
+
+		switch ( state )
+		{
+			case "Hover":
+				SetProp( el, e => e.Props.HoverStyle, ( e, v ) => e.Props.HoverStyle = v, draft, label );
+				break;
+			case "Pressed":
+				SetProp( el, e => e.Props.PressedStyle, ( e, v ) => e.Props.PressedStyle = v, draft, label );
+				break;
+			case "Disabled":
+				SetProp( el, e => e.Props.DisabledStyle, ( e, v ) => e.Props.DisabledStyle = v, draft, label );
+				break;
+			case "Focused":
+				SetProp( el, e => e.Props.FocusedStyle, ( e, v ) => e.Props.FocusedStyle = v, draft, label );
+				break;
+		}
+	}
+
+	private void ClearStateStyle( SuiElement el, string state )
+	{
+		switch ( state )
+		{
+			case "Hover":
+				SetProp( el, e => e.Props.HoverStyle, ( e, v ) => e.Props.HoverStyle = v, (SuiInteractiveStateStyle)null, "Clear hover state" );
+				break;
+			case "Pressed":
+				SetProp( el, e => e.Props.PressedStyle, ( e, v ) => e.Props.PressedStyle = v, (SuiInteractiveStateStyle)null, "Clear pressed state" );
+				break;
+			case "Disabled":
+				SetProp( el, e => e.Props.DisabledStyle, ( e, v ) => e.Props.DisabledStyle = v, (SuiInteractiveStateStyle)null, "Clear disabled state" );
+				break;
+			case "Focused":
+				SetProp( el, e => e.Props.FocusedStyle, ( e, v ) => e.Props.FocusedStyle = v, (SuiInteractiveStateStyle)null, "Clear focused state" );
+				break;
+		}
+	}
+
+	public string CurrentPreviewState() => _previewState;
 
 	private static string AnchorLabel( SuiAnchor a ) => a switch
 	{
