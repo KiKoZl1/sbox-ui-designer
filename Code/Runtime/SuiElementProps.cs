@@ -144,8 +144,12 @@ public sealed class SuiElementProps
 	public string SliderHandleColor { get; set; } = "#ffffff";
 	public bool SliderShowValue { get; set; } = false;
 	public float SliderValue { get; set; } = 50f;    // Design-time preview position
-	public string SliderTooltipBgColor { get; set; } = "#000000";
-	public string SliderTooltipTextColor { get; set; } = "#ffffff";
+	// V1.5 M4 — tooltip color customization was attempted but Sandbox.UI's
+	// SCSS parser doesn't support compound class selectors needed to win
+	// specificity against engine's tooltip rule. Properties retained for
+	// schema compatibility with older docs but no longer surfaced in the UI.
+	public string SliderTooltipBgColor { get; set; } = "";
+	public string SliderTooltipTextColor { get; set; } = "";
 
 	// Toggle — backed by Sandbox.UI.Checkbox.
 	public bool ToggleChecked { get; set; } = false;

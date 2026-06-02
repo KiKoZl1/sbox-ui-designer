@@ -838,14 +838,14 @@ public sealed class SuiCanvasRenderer
 		Editor.Paint.SetBrush( handleColor.WithAlpha( handleColor.a * opacity ) );
 		DrawRect( thumbRect, ThumbSize * 0.5f );
 
-		// Tooltip preview — match the engine pill exactly so canvas == Play.
-		// Honors SliderTooltipBgColor / SliderTooltipTextColor; falls back
-		// to engine defaults (black bg + white text) when the author left
-		// the color fields empty.
+		// Tooltip preview — engine renders a black-on-white pill during
+		// drag. Canvas matches that look exactly so the author isn't
+		// surprised. Customization isn't supported (see SCSS generator
+		// comment for the parser-limitation rationale).
 		if ( p.SliderShowValue )
 		{
-			var tipBg = ParseColor( p.SliderTooltipBgColor ) ?? Color.Black;
-			var tipFg = ParseColor( p.SliderTooltipTextColor ) ?? Color.White;
+			var tipBg = Color.Black;
+			var tipFg = Color.White;
 			var label = p.SliderValue.ToString( "0.##" );
 
 			Editor.Paint.SetFont( Theme.DefaultFont, 12, 400 );
@@ -853,15 +853,13 @@ public sealed class SuiCanvasRenderer
 			const float padX = 8f, padY = 4f;
 			var pillW = textSize.Width + padX * 2;
 			var pillH = textSize.Height + padY * 2;
-			var pillTop = rect.Top - pillH - 6;       // 150% above thumb (~16*1.5 -> ~24, we use 6 + pillH gap)
+			var pillTop = rect.Top - pillH - 6;
 			var pillRect = new Rect( thumbCx - pillW * 0.5f, pillTop, pillW, pillH );
 
-			// Pill bg.
 			Editor.Paint.SetBrush( tipBg.WithAlpha( tipBg.a * opacity ) );
 			Editor.Paint.ClearPen();
 			DrawRect( pillRect, pillH * 0.4f );
 
-			// Pill text.
 			Editor.Paint.SetPen( tipFg.WithAlpha( tipFg.a * opacity ) );
 			Editor.Paint.ClearBrush();
 			Editor.Paint.DrawText( pillRect, label, TextFlag.Center );

@@ -836,18 +836,8 @@ public class SuiDetailsWidget : Widget
 				AddColorRow( "Handle Color", p.SliderHandleColor ?? "",
 					v => SetProp( el, e => e.Props.SliderHandleColor, ( e, v2 ) => e.Props.SliderHandleColor = v2, v, "Set handle color" ) );
 				AddBoolRow( "Show Value Tooltip", p.SliderShowValue,
-					v =>
-					{
-						SetProp( el, e => e.Props.SliderShowValue, ( e, v2 ) => e.Props.SliderShowValue = v2, v, "Set show value" );
-						Refresh();
-					} );
-				if ( p.SliderShowValue )
-				{
-					AddColorRow( "  Tooltip Bg", p.SliderTooltipBgColor ?? "",
-						v => SetProp( el, e => e.Props.SliderTooltipBgColor, ( e, v2 ) => e.Props.SliderTooltipBgColor = v2, v, "Set tooltip bg" ) );
-					AddColorRow( "  Tooltip Text", p.SliderTooltipTextColor ?? "",
-						v => SetProp( el, e => e.Props.SliderTooltipTextColor, ( e, v2 ) => e.Props.SliderTooltipTextColor = v2, v, "Set tooltip text color" ) );
-				}
+					v => SetProp( el, e => e.Props.SliderShowValue, ( e, v2 ) => e.Props.SliderShowValue = v2, v, "Set show value" ) );
+				AddNote( "Tooltip uses the engine's default black/white styling — recoloring isn't reliably possible in V1.5 due to Sandbox.UI SCSS parser limits. When ON the engine pill shows during drag; when OFF the tooltip is fully hidden." );
 				break;
 
 			case SuiElementType.Toggle:

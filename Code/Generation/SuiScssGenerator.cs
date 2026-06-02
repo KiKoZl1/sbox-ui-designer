@@ -726,55 +726,35 @@ public sealed class SuiScssGenerator
 				if ( !string.IsNullOrEmpty( p.SliderHandleColor ) )
 					Emit( depth + 1, "background-color", p.SliderHandleColor );
 				_sb.Append( slInner ).AppendLine( "}" );
-				// Value tooltip pill — engine markup inside the SliderControl
-				// renders `<label>@Value</label>` inside `<div class="value-
-				// tooltip">`. Engine's stylesheet wins specificity ties
-				// against `.sui-el-X .value-tooltip > .label`. To force-win
-				// we emit flat selectors (no SCSS nesting, no `&` chains —
-				// engine's parser has been observed to silently drop those)
-				// AND repeat the engine's `.slidercontrol` class to raise
-				// specificity from (0,0,3,0) to (0,0,4,0).
+				// V1.5 M4 — Value tooltip styling. Investigation against
+				// engine source + StyleSheetParse tests confirmed Sandbox.UI's
+				// SCSS parser does NOT support compound class selectors
+				// (`.classA.classB` on same element) — no tests cover it, no
+				// usage anywhere in sbox-public/sbox-hc1/etc. That means we
+				// can't raise specificity above engine's
+				// `.slidercontrol .value-tooltip > .label` (which sets bg
+				// black + padding) via class chaining.
 				//
-				// Selectors are queued in a separate StringBuilder so they
-				// land at the file root once we exit the current element
-				// block. Two forms emitted to cover both `.label` class and
-				// bare `label` tag — sbox-public engine uses class, sbox-hc1
-				// override uses tag.
+				// Tag-selector approach (`.X .value-tooltip label`) has
+				// LOWER specificity than engine's class chain, so it loses.
+				// `&` nesting only supports pseudo-classes per engine tests.
+				//
+				// Given those constraints, customizing the tooltip colors
+				// isn't reliably possible in V1.5. Author choice "Show Value
+				// Tooltip" still works — when OFF we set `display: none`
+				// on `.value-tooltip` directly. `display` isn't set by the
+				// engine SCSS at all, so this rule wins on first match (no
+				// specificity contest needed). When ON the engine renders
+				// its default black-on-white pill — there's no way to
+				// recolor it from user-side SCSS in this build.
 				_pendingFlatRules ??= new System.Text.StringBuilder();
-				var sliderRootClass = SuiRazorGenerator.ElementUniqueClass( el );
-
-				if ( !string.IsNullOrEmpty( p.SliderTooltipBgColor )
-					|| !string.IsNullOrEmpty( p.SliderTooltipTextColor )
-					|| !p.SliderShowValue )
+				if ( !p.SliderShowValue )
 				{
+					var sliderClass = SuiRazorGenerator.ElementUniqueClass( el );
 					_pendingFlatRules.AppendLine();
-
-					// Label color/bg (covers both selector conventions).
-					_pendingFlatRules.Append( "." ).Append( sliderRootClass ).Append( ".slidercontrol .value-tooltip > .label, ." )
-						.Append( sliderRootClass ).Append( ".slidercontrol .value-tooltip label {" ).AppendLine();
-					if ( !string.IsNullOrEmpty( p.SliderTooltipBgColor ) )
-						_pendingFlatRules.Append( "  background-color: " ).Append( p.SliderTooltipBgColor ).AppendLine( ";" );
-					if ( !string.IsNullOrEmpty( p.SliderTooltipTextColor ) )
-						_pendingFlatRules.Append( "  color: " ).Append( p.SliderTooltipTextColor ).AppendLine( ";" );
-					_pendingFlatRules.AppendLine( "  font-size: 12px;" );
-					_pendingFlatRules.AppendLine( "  padding: 4px 8px;" );
+					_pendingFlatRules.Append( "." ).Append( sliderClass ).AppendLine( " .value-tooltip {" );
+					_pendingFlatRules.AppendLine( "  display: none;" );
 					_pendingFlatRules.AppendLine( "}" );
-
-					// Tail (the pointer triangle) takes the bg color too.
-					if ( !string.IsNullOrEmpty( p.SliderTooltipBgColor ) )
-					{
-						_pendingFlatRules.Append( "." ).Append( sliderRootClass ).Append( ".slidercontrol .value-tooltip > .tail {" ).AppendLine();
-						_pendingFlatRules.Append( "  background-color: " ).Append( p.SliderTooltipBgColor ).AppendLine( ";" );
-						_pendingFlatRules.AppendLine( "}" );
-					}
-
-					// Hide the whole tooltip when the author chose to suppress it.
-					if ( !p.SliderShowValue )
-					{
-						_pendingFlatRules.Append( "." ).Append( sliderRootClass ).Append( ".slidercontrol .value-tooltip {" ).AppendLine();
-						_pendingFlatRules.AppendLine( "  display: none;" );
-						_pendingFlatRules.AppendLine( "}" );
-					}
 				}
 				break;
 
