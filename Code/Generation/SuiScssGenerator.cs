@@ -281,51 +281,62 @@ public sealed class SuiScssGenerator
 				Emit( depth, "bottom", Px( l.Y ) );
 				break;
 
-			// V1.5 M4 — Center-based anchors use `calc(50% - half + offset)`
-			// instead of `transform: translate(-50%, -50%)`. The transform
-			// approach was correct visually but the engine's Box.Rect is the
-			// LAYOUT position (transform-ignorant), and components like
-			// Popup / DropDown menu positioning rely on Box.Rect to compute
-			// their floating overlay coords. With transform centering the
-			// popup ended up offset by half-the-width/height because its
-			// "source" rect didn't include the transform offset.
-			// calc() positioning keeps Box.Rect aligned with the visual
-			// position so popup-style children sit where the user expects.
+			// V1.5 M4 — Center-based anchors use `margin: auto` instead of
+			// `transform: translate(-50%, -50%)`. The transform approach
+			// centered visually but the engine's Box.Rect is the LAYOUT
+			// position (transform-ignorant) — Popup / DropDown menu
+			// positioning relied on Box.Rect and ended up offset by
+			// half-width/half-height. The `margin: auto` flex centering
+			// keeps Box.Rect aligned with the visual position because the
+			// margin IS part of the layout box. Sandbox.UI's flexbox engine
+			// supports auto margins natively (per ui-anti-patterns reference).
+			//
+			// X/Y offsets shift the element away from the center via explicit
+			// margins on the relevant side.
 			case SuiAnchor.TopCenter:
-				Emit( depth, "left", l.Width > 0
-					? $"calc(50% - {Px( l.Width * 0.5f )} + {Px( l.X )})"
-					: "50%" );
+				Emit( depth, "left", "0" );
+				Emit( depth, "right", "0" );
 				Emit( depth, "top", Px( l.Y ) );
+				Emit( depth, "margin-left", "auto" );
+				Emit( depth, "margin-right", "auto" );
+				if ( l.X != 0 ) Emit( depth, "transform", $"translateX({Px( l.X )})" );
 				break;
 
 			case SuiAnchor.BottomCenter:
-				Emit( depth, "left", l.Width > 0
-					? $"calc(50% - {Px( l.Width * 0.5f )} + {Px( l.X )})"
-					: "50%" );
+				Emit( depth, "left", "0" );
+				Emit( depth, "right", "0" );
 				Emit( depth, "bottom", Px( l.Y ) );
+				Emit( depth, "margin-left", "auto" );
+				Emit( depth, "margin-right", "auto" );
+				if ( l.X != 0 ) Emit( depth, "transform", $"translateX({Px( l.X )})" );
 				break;
 
 			case SuiAnchor.MiddleLeft:
 				Emit( depth, "left", Px( l.X ) );
-				Emit( depth, "top", l.Height > 0
-					? $"calc(50% - {Px( l.Height * 0.5f )} + {Px( l.Y )})"
-					: "50%" );
+				Emit( depth, "top", "0" );
+				Emit( depth, "bottom", "0" );
+				Emit( depth, "margin-top", "auto" );
+				Emit( depth, "margin-bottom", "auto" );
+				if ( l.Y != 0 ) Emit( depth, "transform", $"translateY({Px( l.Y )})" );
 				break;
 
 			case SuiAnchor.MiddleRight:
 				Emit( depth, "right", Px( l.X ) );
-				Emit( depth, "top", l.Height > 0
-					? $"calc(50% - {Px( l.Height * 0.5f )} + {Px( l.Y )})"
-					: "50%" );
+				Emit( depth, "top", "0" );
+				Emit( depth, "bottom", "0" );
+				Emit( depth, "margin-top", "auto" );
+				Emit( depth, "margin-bottom", "auto" );
+				if ( l.Y != 0 ) Emit( depth, "transform", $"translateY({Px( l.Y )})" );
 				break;
 
 			case SuiAnchor.MiddleCenter:
-				Emit( depth, "left", l.Width > 0
-					? $"calc(50% - {Px( l.Width * 0.5f )} + {Px( l.X )})"
-					: "50%" );
-				Emit( depth, "top", l.Height > 0
-					? $"calc(50% - {Px( l.Height * 0.5f )} + {Px( l.Y )})"
-					: "50%" );
+				Emit( depth, "left", "0" );
+				Emit( depth, "right", "0" );
+				Emit( depth, "top", "0" );
+				Emit( depth, "bottom", "0" );
+				Emit( depth, "margin", "auto" );
+				if ( l.X != 0 || l.Y != 0 )
+					Emit( depth, "transform", $"translate({Px( l.X )}, {Px( l.Y )})" );
 				break;
 
 			case SuiAnchor.Stretch:
