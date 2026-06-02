@@ -838,14 +838,13 @@ public sealed class SuiCanvasRenderer
 		Editor.Paint.SetBrush( handleColor.WithAlpha( handleColor.a * opacity ) );
 		DrawRect( thumbRect, ThumbSize * 0.5f );
 
-		// Tooltip preview — engine renders a black-on-white pill during
-		// drag. Canvas matches that look exactly so the author isn't
-		// surprised. Customization isn't supported (see SCSS generator
-		// comment for the parser-limitation rationale).
+		// Tooltip preview — uses author-controlled colors (SliderTooltipBgColor
+		// + SliderTooltipTextColor) so the canvas matches the SCSS pill emitted
+		// for Play 1:1.
 		if ( p.SliderShowValue )
 		{
-			var tipBg = Color.Black;
-			var tipFg = Color.White;
+			var tipBg = ParseColor( p.SliderTooltipBgColor ) ?? Color.Black;
+			var tipFg = ParseColor( p.SliderTooltipTextColor ) ?? Color.White;
 			var label = p.SliderValue.ToString( "0.##" );
 
 			Editor.Paint.SetFont( Theme.DefaultFont, 12, 400 );

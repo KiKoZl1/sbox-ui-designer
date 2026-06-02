@@ -682,55 +682,49 @@ public sealed class SuiScssGenerator
 				break;
 
 			case SuiElementType.Slider:
-				// V1.5 M4 — Custom slider mirroring the engine SliderControl
-				// SCSS pattern (sbox-public/Controls/SliderControl.razor.scss)
-				// with our class names so author colors apply unopposed.
-				//   <div class="sui-el-X sui-slider">      <-- flex row, align center
-				//     <div class="sui-slider-track">       <-- relative, h:8px
-				//       <div class="sui-slider-fill" />    <-- absolute, h:100%, w:N%
-				//       <div class="sui-slider-thumb" />   <-- relative, w/h:16, translateX(-50%)
-				//       <div class="sui-slider-tooltip">   <-- absolute, b:150%
-				Emit( depth, "flex-direction", "row" );
-				Emit( depth, "align-items", "center" );
+				// V1.5 M4 — Custom slider. EVERYTHING absolute-positioned so
+				// Sandbox.UI's flex quirks can't make track / fill / thumb
+				// collapse to zero. The wrapper is the positioning context.
+				Emit( depth, "position", "relative" );
 				Emit( depth, "min-width", "50px" );
 				Emit( depth, "flex-grow", "0" );
 				var slInner = new string( ' ', depth * 2 );
 
-				// Track — flex-grow:1 so it fills the wrapper width without
-				// an explicit `width: 100%` (matches engine pattern).
+				// Track — vertically centered in the wrapper, full wrapper width.
 				_sb.Append( slInner ).AppendLine( "> .sui-slider-track {" );
-				Emit( depth + 1, "position", "relative" );
-				Emit( depth + 1, "flex-grow", "1" );
+				Emit( depth + 1, "position", "absolute" );
+				Emit( depth + 1, "left", "0" );
+				Emit( depth + 1, "right", "0" );
+				Emit( depth + 1, "top", "50%" );
+				Emit( depth + 1, "transform", "translateY(-50%)" );
 				Emit( depth + 1, "height", "8px" );
 				Emit( depth + 1, "border-radius", "4px" );
-				Emit( depth + 1, "align-items", "center" );
 				if ( !string.IsNullOrEmpty( p.SliderTrackColor ) )
 					Emit( depth + 1, "background-color", p.SliderTrackColor );
 				Emit( depth + 1, "cursor", "pointer" );
 				Emit( depth + 1, "pointer-events", "all" );
 				_sb.Append( slInner ).AppendLine( "}" );
 
-				// Fill — absolute over track. Inline `width: N%` from markup.
+				// Fill — absolute inside track. Inline width: N%.
 				_sb.Append( slInner ).AppendLine( "> .sui-slider-track > .sui-slider-fill {" );
 				Emit( depth + 1, "position", "absolute" );
 				Emit( depth + 1, "left", "0" );
-				Emit( depth + 1, "height", "100%" );
+				Emit( depth + 1, "top", "0" );
+				Emit( depth + 1, "bottom", "0" );
 				Emit( depth + 1, "border-radius", "4px" );
 				if ( !string.IsNullOrEmpty( p.SliderFillColor ) )
 					Emit( depth + 1, "background-color", p.SliderFillColor );
 				Emit( depth + 1, "pointer-events", "none" );
 				_sb.Append( slInner ).AppendLine( "}" );
 
-				// Thumb — engine uses position:relative + transform:translateX(-50%)
-				// + inline `left: N%`. With align-items:center on the track,
-				// the thumb sits vertically centered in the 8px track height,
-				// extending 4px above + below (since thumb is 16x16).
+				// Thumb — absolute centered on the track's vertical midline.
 				_sb.Append( slInner ).AppendLine( "> .sui-slider-track > .sui-slider-thumb {" );
-				Emit( depth + 1, "position", "relative" );
+				Emit( depth + 1, "position", "absolute" );
+				Emit( depth + 1, "top", "50%" );
 				Emit( depth + 1, "width", "16px" );
 				Emit( depth + 1, "height", "16px" );
 				Emit( depth + 1, "border-radius", "50%" );
-				Emit( depth + 1, "transform", "translateX(-50%)" );
+				Emit( depth + 1, "transform", "translate(-50%, -50%)" );
 				if ( !string.IsNullOrEmpty( p.SliderHandleColor ) )
 					Emit( depth + 1, "background-color", p.SliderHandleColor );
 				Emit( depth + 1, "pointer-events", "none" );
@@ -739,7 +733,8 @@ public sealed class SuiScssGenerator
 				// Tooltip pill — absolute above the track.
 				_sb.Append( slInner ).AppendLine( "> .sui-slider-track > .sui-slider-tooltip {" );
 				Emit( depth + 1, "position", "absolute" );
-				Emit( depth + 1, "bottom", "150%" );
+				Emit( depth + 1, "bottom", "100%" );
+				Emit( depth + 1, "margin-bottom", "8px" );
 				Emit( depth + 1, "transform", "translateX(-50%)" );
 				Emit( depth + 1, "flex-direction", "column" );
 				Emit( depth + 1, "align-items", "center" );
