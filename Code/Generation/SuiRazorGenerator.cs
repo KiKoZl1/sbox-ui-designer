@@ -88,7 +88,10 @@ public sealed class SuiRazorGenerator
 		var childRefs = CollectChildReferences();
 		var hasChildren = childRefs.Count > 0;
 		var hasEvents = HasAnyEventsOrRefs( _doc );
-		if ( !hasVars && !hasChildren && !hasEvents ) return;
+		// V1.5 M4 — DropDown widgets need their static Options list emitted
+		// even when no other field needs the @code block.
+		var hasDropDown = HasAnyDropDown( _doc );
+		if ( !hasVars && !hasChildren && !hasEvents && !hasDropDown ) return;
 
 		var body = new System.Text.StringBuilder();
 		SuiVariableEmitter.EmitProperties( _doc.Variables, body );
@@ -105,6 +108,11 @@ public sealed class SuiRazorGenerator
 		// `pointer-events: none` so onclick is suppressed automatically.
 		// Authoring-time default comes from SuiElementProps.IsDisabled.
 		var disabledHashExprs = EmitInteractiveDisabledFields( body );
+
+		// V1.5 M4 (PRD 21) — DropDown widgets ship a static List<Option>
+		// field on the renderer so the @Options attribute resolves. Runtime
+		// dynamic options (replace whole list from gameplay) is V1.6.
+		EmitDropDownOptions( body );
 
 		// V1.5-M2-K7-bugfix — also collect expressions that need to feed the
 		// parent's BuildHash so that mutations on a child instance
@@ -266,6 +274,16 @@ public sealed class SuiRazorGenerator
 		var userClass = SuiNameSanitizer.ToCssClass( el.Style?.ClassName ?? el.Type.ToString() );
 		var uniqueClass = ElementUniqueClass( el );
 		return userClass == uniqueClass ? userClass : userClass + " " + uniqueClass;
+	}
+
+	private static bool HasAnyDropDown( SuiDocument doc )
+	{
+		if ( doc?.Elements == null ) return false;
+		foreach ( var el in doc.Elements )
+		{
+			if ( el != null && el.Type == SuiElementType.DropDown ) return true;
+		}
+		return false;
 	}
 
 	private static bool HasAnyEventsOrRefs( SuiDocument doc )
@@ -560,6 +578,16 @@ public sealed class SuiRazorGenerator
 			|| el.Type == SuiElementType.InventorySlot
 			|| el.Type == SuiElementType.ItemIcon;
 
+		// V1.5 M4 (PRD 21) — input widgets emit real Sandbox.UI component
+		// tags (PascalCase) instead of the generic <div>. They self-close
+		// (no children, no intrinsic content beyond attributes).
+		var inputTag = ResolveInputTag( el.Type );
+		if ( inputTag != null )
+		{
+			EmitInputWidgetTag( el, inputTag, className, indent, dataAttrs, styleBody );
+			return;
+		}
+
 		if ( isInteractive )
 		{
 			// Pure C# expression — `class="@<Name>Class()"`. The helper is
@@ -606,6 +634,121 @@ public sealed class SuiRazorGenerator
 
 		// Close tag
 		_sb.Append( indent ).AppendLine( "</div>" );
+	}
+
+	/// <summary>
+	/// V1.5 M4 (PRD 21) — emit a static <c>List&lt;Option&gt;</c> field per
+	/// DropDown element so its <c>Options=@&lt;Name&gt;Options</c> attribute
+	/// resolves. Authoring-time list lives in <c>SuiElementProps.DropDownOptions</c>;
+	/// runtime mutation (replace whole list) lands in V1.6.
+	/// </summary>
+	private void EmitDropDownOptions( System.Text.StringBuilder body )
+	{
+		if ( _doc?.Elements == null ) return;
+		foreach ( var el in _doc.Elements )
+		{
+			if ( el == null || el.Type != SuiElementType.DropDown ) continue;
+			var fieldName = SuiNameSanitizer.ToCSharpIdentifier( ( el.Name ?? el.Id ) + "Options" );
+			if ( string.IsNullOrEmpty( fieldName ) ) continue;
+
+			body.Append( "\tpublic global::System.Collections.Generic.List<global::Sandbox.UI.Option> " )
+				.Append( fieldName )
+				.Append( " { get; set; } = new global::System.Collections.Generic.List<global::Sandbox.UI.Option> { " );
+
+			var opts = el.Props?.DropDownOptions;
+			if ( opts != null )
+			{
+				for ( int i = 0; i < opts.Count; i++ )
+				{
+					if ( i > 0 ) body.Append( ", " );
+					var label = (opts[i] ?? "").Replace( "\"", "\\\"" );
+					body.Append( "new global::Sandbox.UI.Option( \"" ).Append( label ).Append( "\", " ).Append( i ).Append( " )" );
+				}
+			}
+
+			body.AppendLine( " };" );
+		}
+	}
+
+	/// <summary>
+	/// V1.5 M4 (PRD 21) — map input widget element types to their
+	/// Sandbox.UI tag name. Casing matches Sandbox.UI's PascalCase Razor
+	/// convention (skill ref ui-razor.md § Built-in Controls). Non-input
+	/// types return null and the generic &lt;div&gt; path is used.
+	/// </summary>
+	private static string ResolveInputTag( SuiElementType t ) => t switch
+	{
+		SuiElementType.TextEntry => "TextEntry",
+		// Engine tag is SliderControl (not SliderScale / Slider — those don't
+		// exist as types). Confirmed against sbox-public + sbox-ui-lab.
+		SuiElementType.Slider => "SliderControl",
+		SuiElementType.Toggle => "Checkbox",
+		SuiElementType.DropDown => "DropDown",
+		_ => null,
+	};
+
+	/// <summary>
+	/// V1.5 M4 — emit one of the four Sandbox.UI input controls as a
+	/// self-closing Razor tag with its widget-specific attributes. The class
+	/// + dataAttrs + styleBody are still emitted so two-way binding metadata
+	/// (`:bind`-suffix attributes) and Variable-bound style overrides work
+	/// the same as on a regular `&lt;div&gt;`.
+	/// </summary>
+	private void EmitInputWidgetTag( SuiElement el, string tag, string className, string indent, string dataAttrs, string styleBody )
+	{
+		_sb.Append( indent ).Append( '<' ).Append( tag )
+			.Append( " class=\"" ).Append( className ).Append( "\"" )
+			.Append( dataAttrs );
+		if ( styleBody.Length > 0 )
+			_sb.Append( " style=\"" ).Append( styleBody ).Append( "\"" );
+
+		var p = el.Props;
+		var inv = System.Globalization.CultureInfo.InvariantCulture;
+		switch ( el.Type )
+		{
+			case SuiElementType.TextEntry:
+				if ( !string.IsNullOrEmpty( p?.PlaceholderText ) )
+					_sb.Append( " Placeholder=\"" ).Append( EscapeForAttr( p.PlaceholderText ) ).Append( "\"" );
+				// MaxLength is Nullable<int> on the engine type — Razor needs
+				// a C# expression, not a string literal, or CS0029 fires.
+				if ( p != null && p.MaxLength > 0 )
+					_sb.Append( " MaxLength=\"@(" ).Append( p.MaxLength ).Append( ")\"" );
+				if ( p != null && p.ReadOnly )
+					_sb.Append( " ReadOnly=\"@true\"" );
+				break;
+
+			case SuiElementType.Slider:
+				// Numerics on SliderControl are bound to float / int — Razor
+				// expression form ("@(N)") is the idiomatic way per
+				// sbox-public/.../GameSettings.razor.
+				_sb.Append( " Min=\"@(" ).Append( p?.SliderMin.ToString( "0.###", inv ) ).Append( "f)\"" )
+					.Append( " Max=\"@(" ).Append( p?.SliderMax.ToString( "0.###", inv ) ).Append( "f)\"" )
+					.Append( " Step=\"@(" ).Append( p?.SliderStep.ToString( "0.###", inv ) ).Append( "f)\"" );
+				if ( p != null && p.SliderShowValue )
+					_sb.Append( " ShowValueTooltip=\"@true\"" );
+				break;
+
+			case SuiElementType.Toggle:
+				if ( !string.IsNullOrEmpty( p?.ToggleLabelText ) )
+					_sb.Append( " LabelText=\"" ).Append( EscapeForAttr( p.ToggleLabelText ) ).Append( "\"" );
+				break;
+
+			case SuiElementType.DropDown:
+				// Static options list ships as the initial @Options value via
+				// the @code block (see EmitDropDownOptions). Runtime-bindable
+				// Options is deferred to V1.6 per PRD 21 § 11 #4.
+				if ( p?.DropDownOptions != null && p.DropDownOptions.Count > 0 )
+				{
+					var optsField = SuiNameSanitizer.ToCSharpIdentifier( ( el.Name ?? el.Id ) + "Options" );
+					_sb.Append( " Options=@" ).Append( optsField );
+				}
+				break;
+		}
+
+		SuiElementRefEmitter.EmitRazorRef( el, _sb );
+		SuiEventEmitter.EmitRazorAttributes( el, _sb );
+
+		_sb.Append( " />" ).AppendLine();
 	}
 
 	private bool HasIntrinsicContent( SuiElement el ) => el.Type switch
