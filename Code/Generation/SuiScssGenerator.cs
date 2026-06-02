@@ -574,6 +574,117 @@ public sealed class SuiScssGenerator
 				// Bare container background; M9 doesn't generate the inner fill div
 				// — V1 will. Just ensures the bar shape exists.
 				break;
+
+			// V1.5 M4 (PRD 21) — Input widget engine-template overrides.
+			// Each emits nested selectors that reach into the inner panels the
+			// engine builds (track/thumb/checkmark/etc.) so user-authored
+			// colors actually apply in runtime, matching the canvas paint 1:1.
+
+			case SuiElementType.TextEntry:
+				// `.textentry` is the implicit engine root tag class; our
+				// per-element class (sui-el-X) wraps it via the same selector.
+				// Inner `.content-label` holds the typed text + placeholder.
+				Emit( depth, "flex-direction", "row" );
+				Emit( depth, "align-items", "center" );
+				var teInner = new string( ' ', depth * 2 );
+				_sb.Append( teInner ).AppendLine( "> .content-label {" );
+				Emit( depth + 1, "flex-grow", "1" );
+				Emit( depth + 1, "padding", "0 8px" );
+				if ( p.FontSize > 0f ) Emit( depth + 1, "font-size", Px( p.FontSize ) );
+				if ( !string.IsNullOrEmpty( p.FontFamily ) ) Emit( depth + 1, "font-family", p.FontFamily );
+				if ( p.FontWeight != SuiFontWeight.Normal ) Emit( depth + 1, "font-weight", FontWeight( p.FontWeight ) );
+				if ( !string.IsNullOrEmpty( p.Color ) ) Emit( depth + 1, "color", p.Color );
+				_sb.Append( teInner ).AppendLine( "}" );
+				// Placeholder = 60% opacity of the text color when label has the
+				// engine-added `.placeholder` class.
+				_sb.Append( teInner ).AppendLine( "> .content-label.placeholder {" );
+				Emit( depth + 1, "opacity", "0.5" );
+				_sb.Append( teInner ).AppendLine( "}" );
+				break;
+
+			case SuiElementType.Slider:
+				// SliderControl engine SCSS:
+				//   <root class="slidercontrol">
+				//     <div class="inner">
+				//       <div class="track">
+				//         <div class="track-active"/>
+				//         <div class="thumb"/>
+				// Defaults: track 7px gray, fill white, thumb 16x16 circle.
+				// We override per-color from SuiElementProps so the canvas
+				// preview matches the runtime visual exactly.
+				Emit( depth, "flex-direction", "row" );
+				Emit( depth, "align-items", "center" );
+				Emit( depth, "min-width", "50px" );
+				var slInner = new string( ' ', depth * 2 );
+				_sb.Append( slInner ).AppendLine( "> .inner > .track {" );
+				if ( !string.IsNullOrEmpty( p.SliderTrackColor ) )
+					Emit( depth + 1, "background-color", p.SliderTrackColor );
+				_sb.Append( slInner ).AppendLine( "}" );
+				_sb.Append( slInner ).AppendLine( "> .inner > .track > .track-active {" );
+				if ( !string.IsNullOrEmpty( p.SliderFillColor ) )
+					Emit( depth + 1, "background-color", p.SliderFillColor );
+				_sb.Append( slInner ).AppendLine( "}" );
+				_sb.Append( slInner ).AppendLine( "> .inner > .track > .thumb {" );
+				if ( !string.IsNullOrEmpty( p.SliderHandleColor ) )
+					Emit( depth + 1, "background-color", p.SliderHandleColor );
+				_sb.Append( slInner ).AppendLine( "}" );
+				break;
+
+			case SuiElementType.Toggle:
+				// Checkbox engine template:
+				//   <checkbox class="checkbox" [.checked]>
+				//     <icon class="checkmark">check</icon>
+				//     <label>LabelText</label>
+				// We size the checkmark + style it visible only when .checked,
+				// and align the label to the right via row flow.
+				Emit( depth, "flex-direction", "row" );
+				Emit( depth, "align-items", "center" );
+				Emit( depth, "gap", "8px" );
+				var cbInner = new string( ' ', depth * 2 );
+				// Checkmark box: 20x20, hides icon when not checked.
+				_sb.Append( cbInner ).AppendLine( "> .checkmark {" );
+				Emit( depth + 1, "width", "20px" );
+				Emit( depth + 1, "height", "20px" );
+				Emit( depth + 1, "flex-shrink", "0" );
+				Emit( depth + 1, "border", "1px solid rgba(255,255,255,0.3)" );
+				Emit( depth + 1, "border-radius", "3px" );
+				Emit( depth + 1, "background-color", "rgba(0,0,0,0.4)" );
+				Emit( depth + 1, "color", "transparent" );
+				Emit( depth + 1, "align-items", "center" );
+				Emit( depth + 1, "justify-content", "center" );
+				Emit( depth + 1, "font-size", "16px" );
+				_sb.Append( cbInner ).AppendLine( "}" );
+				_sb.Append( cbInner ).AppendLine( "&.checked > .checkmark {" );
+				Emit( depth + 1, "background-color", "#22c55e" );
+				Emit( depth + 1, "border-color", "#22c55e" );
+				Emit( depth + 1, "color", "#ffffff" );
+				_sb.Append( cbInner ).AppendLine( "}" );
+				_sb.Append( cbInner ).AppendLine( "> label {" );
+				if ( p.FontSize > 0f ) Emit( depth + 1, "font-size", Px( p.FontSize ) );
+				if ( !string.IsNullOrEmpty( p.Color ) ) Emit( depth + 1, "color", p.Color );
+				_sb.Append( cbInner ).AppendLine( "}" );
+				break;
+
+			case SuiElementType.DropDown:
+				// DropDown extends PopupButton extends Button:
+				//   <select class="dropdown button">
+				//     ...button internals...
+				//     <icon class="dropdown_indicator">expand_more</icon>
+				// We theme the button-text label + the right-aligned indicator.
+				Emit( depth, "flex-direction", "row" );
+				Emit( depth, "align-items", "center" );
+				Emit( depth, "justify-content", "space-between" );
+				Emit( depth, "padding", "0 8px" );
+				var ddInner = new string( ' ', depth * 2 );
+				_sb.Append( ddInner ).AppendLine( "> .button-right-column .button-text {" );
+				if ( p.FontSize > 0f ) Emit( depth + 1, "font-size", Px( p.FontSize ) );
+				if ( !string.IsNullOrEmpty( p.Color ) ) Emit( depth + 1, "color", p.Color );
+				_sb.Append( ddInner ).AppendLine( "}" );
+				_sb.Append( ddInner ).AppendLine( "> .dropdown_indicator {" );
+				Emit( depth + 1, "font-size", "16px" );
+				if ( !string.IsNullOrEmpty( p.Color ) ) Emit( depth + 1, "color", p.Color );
+				_sb.Append( ddInner ).AppendLine( "}" );
+				break;
 		}
 	}
 

@@ -731,6 +731,11 @@ public sealed class SuiRazorGenerator
 			case SuiElementType.Toggle:
 				if ( !string.IsNullOrEmpty( p?.ToggleLabelText ) )
 					_sb.Append( " LabelText=\"" ).Append( EscapeForAttr( p.ToggleLabelText ) ).Append( "\"" );
+				// Initial state — emit Checked when authoring-time true so the
+				// engine's `.checked` class fires on first paint (canvas+Play
+				// match without user code).
+				if ( p != null && p.ToggleChecked )
+					_sb.Append( " Checked=\"@true\"" );
 				break;
 
 			case SuiElementType.DropDown:
@@ -741,6 +746,13 @@ public sealed class SuiRazorGenerator
 				{
 					var optsField = SuiNameSanitizer.ToCSharpIdentifier( ( el.Name ?? el.Id ) + "Options" );
 					_sb.Append( " Options=@" ).Append( optsField );
+
+					// Pre-select Value so the DropDown shows the option title
+					// from its first paint. Engine resolves Value -> Selected
+					// via Option.Value lookup; we use the numeric index (the
+					// same Option.Value we set in EmitDropDownOptions).
+					if ( p.DropDownSelectedIndex >= 0 && p.DropDownSelectedIndex < p.DropDownOptions.Count )
+						_sb.Append( " Value=\"@(" ).Append( p.DropDownSelectedIndex ).Append( ")\"" );
 				}
 				break;
 		}

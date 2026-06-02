@@ -141,6 +141,22 @@ public sealed class SuiCanvasRenderer
 			case SuiElementType.SuiReference:
 				PaintSuiReference( el, rect, opacity );
 				break;
+
+			// V1.5 M4 — Input widgets (PRD 21 § 3).
+			case SuiElementType.TextEntry:
+				PaintPanelLike( el, rect, opacity );
+				PaintTextEntry( el, rect, opacity );
+				break;
+			case SuiElementType.Slider:
+				PaintSlider( el, rect, opacity );
+				break;
+			case SuiElementType.Toggle:
+				PaintToggle( el, rect, opacity );
+				break;
+			case SuiElementType.DropDown:
+				PaintPanelLike( el, rect, opacity );
+				PaintDropDown( el, rect, opacity );
+				break;
 		}
 
 		PaintChildren( el );
@@ -746,6 +762,191 @@ public sealed class SuiCanvasRenderer
 		// simplicity we use just the element's own opacity for now (matches
 		// CSS opacity per element semantics).
 		return MathF.Max( 0, MathF.Min( 1, op ) );
+	}
+
+	// ─────────────────────────────────────────────────────────────────────
+	//  V1.5 M4 — Input widget canvas paint (PRD 21 § 3)
+	// ─────────────────────────────────────────────────────────────────────
+
+	private void PaintTextEntry( SuiElement el, Rect rect, float opacity )
+	{
+		var p = el.Props;
+		if ( p == null ) return;
+
+		// Inner padding so text doesn't kiss the edge.
+		var inner = new Rect( rect.Left + 8, rect.Top + 4, MathF.Max( 0, rect.Width - 16 ), MathF.Max( 0, rect.Height - 8 ) );
+
+		var hasValue = !string.IsNullOrEmpty( p.PreviewValue );
+		var displayText = hasValue ? p.PreviewValue : (p.PlaceholderText ?? "");
+		var baseColor = ParseColor( p.Color ) ?? Color.White;
+		var color = hasValue ? baseColor : baseColor.WithAlpha( baseColor.a * 0.5f );
+
+		var fontName = string.IsNullOrEmpty( p.FontFamily ) ? Theme.DefaultFont : p.FontFamily;
+		Editor.Paint.SetFont( fontName, p.FontSize > 0 ? p.FontSize : 14, MapFontWeight( p.FontWeight ) );
+		Editor.Paint.SetPen( color.WithAlpha( color.a * opacity ) );
+		Editor.Paint.ClearBrush();
+		Editor.Paint.DrawText( inner, displayText, TextFlag.LeftCenter );
+
+		// Disabled visual — overlay 60% alpha black to dim the widget.
+		if ( p.ReadOnly )
+		{
+			Editor.Paint.SetBrush( new Color( 0, 0, 0, 0.4f * opacity ) );
+			Editor.Paint.ClearPen();
+			var radius = MathF.Max( 0, el.Style?.BorderRadius ?? 0 );
+			DrawRect( rect, radius );
+		}
+	}
+
+	private void PaintSlider( SuiElement el, Rect rect, float opacity )
+	{
+		var p = el.Props;
+		if ( p == null ) return;
+
+		// Engine SliderControl defaults (sbox-public/Controls/SliderControl.razor.scss):
+		//   track height 7px, border-radius 4px, margin 8px
+		//   thumb 16x16 circular
+		var trackColor = ParseColor( p.SliderTrackColor ) ?? new Color( 0.53f, 0.53f, 0.53f );
+		var fillColor = ParseColor( p.SliderFillColor ) ?? Color.White;
+		var handleColor = ParseColor( p.SliderHandleColor ) ?? Color.White;
+
+		var midY = rect.Top + rect.Height * 0.5f;
+		const float TrackH = 7f;
+		const float TrackPad = 8f;          // engine .track margin
+		const float ThumbSize = 16f;
+		var trackRect = new Rect( rect.Left + TrackPad, midY - TrackH * 0.5f, MathF.Max( 0, rect.Width - TrackPad * 2 ), TrackH );
+
+		Editor.Paint.SetBrush( trackColor.WithAlpha( trackColor.a * opacity ) );
+		Editor.Paint.ClearPen();
+		DrawRect( trackRect, 4f );
+
+		var range = p.SliderMax - p.SliderMin;
+		var t = range <= 0 ? 0f : MathF.Max( 0, MathF.Min( 1, (p.SliderValue - p.SliderMin) / range ) );
+
+		var fillRect = new Rect( trackRect.Left, trackRect.Top, trackRect.Width * t, TrackH );
+		Editor.Paint.SetBrush( fillColor.WithAlpha( fillColor.a * opacity ) );
+		DrawRect( fillRect, 4f );
+
+		// Thumb (16x16 circular, centered on the value position).
+		var thumbCx = trackRect.Left + trackRect.Width * t;
+		var thumbRect = new Rect( thumbCx - ThumbSize * 0.5f, midY - ThumbSize * 0.5f, ThumbSize, ThumbSize );
+		Editor.Paint.SetBrush( handleColor.WithAlpha( handleColor.a * opacity ) );
+		DrawRect( thumbRect, ThumbSize * 0.5f );
+
+		// Optional show-value tooltip above the thumb (engine renders this
+		// only while user actively drags — we always show it on canvas if
+		// SliderShowValue is true, so the author sees the styling preview).
+		if ( p.SliderShowValue )
+		{
+			var color = Color.White.WithAlpha( opacity );
+			Editor.Paint.SetFont( Theme.DefaultFont, 11, 400 );
+			Editor.Paint.SetPen( color );
+			Editor.Paint.ClearBrush();
+			var labelRect = new Rect( thumbCx - 30, rect.Top - 14, 60, 12 );
+			Editor.Paint.DrawText( labelRect, p.SliderValue.ToString( "0.##" ), TextFlag.Center );
+		}
+	}
+
+	private void PaintToggle( SuiElement el, Rect rect, float opacity )
+	{
+		var p = el.Props;
+		if ( p == null ) return;
+
+		// Engine Checkbox: 20x20 square checkmark box (left), optional label
+		// (right). The wrapper `<checkbox>` has no width constraint — engine
+		// flexes row, items kept their natural size by our SCSS emit.
+		const float BoxSize = 20f;
+		var hasLabel = !string.IsNullOrEmpty( p.ToggleLabelText );
+
+		// Center vertically inside the element rect.
+		var boxRect = new Rect( rect.Left, rect.Top + (rect.Height - BoxSize) * 0.5f, BoxSize, BoxSize );
+
+		// Box visuals — uncheck = dark fill + dim border; checked = green fill.
+		var radius = 3f;
+		if ( p.ToggleChecked )
+		{
+			var fill = new Color( 0.13f, 0.77f, 0.37f );    // #22c55e
+			Editor.Paint.SetBrush( fill.WithAlpha( fill.a * opacity ) );
+			Editor.Paint.ClearPen();
+			DrawRect( boxRect, radius );
+
+			// Checkmark — Material "check" icon. We approximate via two
+			// connected segments rendered as filled rects for the canvas
+			// (the engine uses the real font icon).
+			var checkColor = Color.White.WithAlpha( opacity );
+			Editor.Paint.SetPen( checkColor, 2.2f );
+			Editor.Paint.ClearBrush();
+			var pad = BoxSize * 0.22f;
+			var p1 = new Vector2( boxRect.Left + pad, boxRect.Top + BoxSize * 0.55f );
+			var p2 = new Vector2( boxRect.Left + BoxSize * 0.42f, boxRect.Bottom - pad );
+			var p3 = new Vector2( boxRect.Right - pad, boxRect.Top + pad );
+			Editor.Paint.DrawLine( p1, p2 );
+			Editor.Paint.DrawLine( p2, p3 );
+		}
+		else
+		{
+			var bg = new Color( 0, 0, 0, 0.4f );
+			Editor.Paint.SetBrush( bg.WithAlpha( bg.a * opacity ) );
+			Editor.Paint.ClearPen();
+			DrawRect( boxRect, radius );
+
+			var border = new Color( 1, 1, 1, 0.3f );
+			Editor.Paint.SetPen( border.WithAlpha( border.a * opacity ), 1 );
+			Editor.Paint.ClearBrush();
+			DrawRect( boxRect, radius );
+		}
+
+		// Label right of the box, 8px gap (engine gap-emitted match).
+		if ( hasLabel && rect.Width > BoxSize + 8 )
+		{
+			var labelRect = new Rect( boxRect.Right + 8, rect.Top, rect.Width - BoxSize - 8, rect.Height );
+			var labelColor = ParseColor( p.Color ) ?? Color.White;
+			Editor.Paint.SetFont( Theme.DefaultFont, p.FontSize > 0 ? p.FontSize : 14, MapFontWeight( p.FontWeight ) );
+			Editor.Paint.SetPen( labelColor.WithAlpha( labelColor.a * opacity ) );
+			Editor.Paint.ClearBrush();
+			Editor.Paint.DrawText( labelRect, p.ToggleLabelText, TextFlag.LeftCenter );
+		}
+	}
+
+	private void PaintDropDown( SuiElement el, Rect rect, float opacity )
+	{
+		var p = el.Props;
+		if ( p == null ) return;
+
+		// Inner area = element width minus 24px reserved on the right for the
+		// indicator (engine icon). 8px left padding to match SCSS emit.
+		const float IndicatorWidth = 24f;
+		var inner = new Rect( rect.Left + 8, rect.Top, MathF.Max( 0, rect.Width - IndicatorWidth - 8 ), rect.Height );
+
+		string label;
+		if ( p.DropDownOptions != null && p.DropDownOptions.Count > 0
+			&& p.DropDownSelectedIndex >= 0 && p.DropDownSelectedIndex < p.DropDownOptions.Count )
+		{
+			label = p.DropDownOptions[p.DropDownSelectedIndex] ?? "";
+		}
+		else
+		{
+			label = "";
+		}
+
+		var color = ParseColor( p.Color ) ?? Color.White;
+		Editor.Paint.SetFont( Theme.DefaultFont, p.FontSize > 0 ? p.FontSize : 14, MapFontWeight( p.FontWeight ) );
+		Editor.Paint.SetPen( color.WithAlpha( color.a * opacity ) );
+		Editor.Paint.ClearBrush();
+		Editor.Paint.DrawText( inner, label, TextFlag.LeftCenter );
+
+		// Right side: chevron "v" approximating Material expand_more icon.
+		// Drawn as two diagonal strokes meeting at a point.
+		var indCx = rect.Right - IndicatorWidth * 0.5f;
+		var indCy = rect.Top + rect.Height * 0.5f;
+		Editor.Paint.SetPen( color.WithAlpha( color.a * opacity ), 1.8f );
+		Editor.Paint.ClearBrush();
+		const float chevW = 8f;
+		const float chevH = 4f;
+		var a = new Vector2( indCx - chevW * 0.5f, indCy - chevH * 0.5f );
+		var b = new Vector2( indCx, indCy + chevH * 0.5f );
+		var c = new Vector2( indCx + chevW * 0.5f, indCy - chevH * 0.5f );
+		Editor.Paint.DrawLine( a, b );
+		Editor.Paint.DrawLine( b, c );
 	}
 
 	private static Color? ParseColor( string raw )
