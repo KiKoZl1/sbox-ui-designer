@@ -794,6 +794,76 @@ public class SuiDetailsWidget : Widget
 					v => SetProp( el, e => e.Props.PreviewIconPath, ( e, v2 ) => e.Props.PreviewIconPath = v2, v, "Set preview icon" ) );
 				AddIntRow( "Preview Count", p.PreviewCount,
 					v => SetProp( el, e => e.Props.PreviewCount, ( e, v2 ) => e.Props.PreviewCount = v2, v, "Set preview count" ) );
+				BuildInteractiveSections( el );
+				break;
+
+			// V1.5 M4 — Input widgets (PRD 21).
+			case SuiElementType.TextEntry:
+				BeginSection( "Text Entry" );
+				AddTextRow( "Placeholder", p.PlaceholderText ?? "",
+					v => SetProp( el, e => e.Props.PlaceholderText, ( e, v2 ) => e.Props.PlaceholderText = v2, v, "Set placeholder" ),
+					bindingProperty: "PlaceholderText" );
+				AddTextRow( "Value", p.PreviewValue ?? "",
+					v => SetProp( el, e => e.Props.PreviewValue, ( e, v2 ) => e.Props.PreviewValue = v2, v, "Set value" ),
+					bindingProperty: "Value" );
+				AddIntRow( "Max Length (0 = none)", p.MaxLength,
+					v => SetProp( el, e => e.Props.MaxLength, ( e, v2 ) => e.Props.MaxLength = v2, v, "Set max length" ) );
+				AddBoolRow( "Read-only", p.ReadOnly,
+					v => SetProp( el, e => e.Props.ReadOnly, ( e, v2 ) => e.Props.ReadOnly = v2, v, "Set read-only" ),
+					bindingProperty: "ReadOnly" );
+				AddFloatRow( "Font Size", p.FontSize > 0 ? p.FontSize : 14f,
+					v => SetProp( el, e => e.Props.FontSize, ( e, v2 ) => e.Props.FontSize = v2, v, "Set font size" ) );
+				AddColorRow( "Text Color", p.Color ?? "",
+					v => SetProp( el, e => e.Props.Color, ( e, v2 ) => e.Props.Color = v2, v, "Set text color" ),
+					bindingProperty: "Color" );
+				break;
+
+			case SuiElementType.Slider:
+				BeginSection( "Slider" );
+				AddFloatRow( "Min", p.SliderMin,
+					v => SetProp( el, e => e.Props.SliderMin, ( e, v2 ) => e.Props.SliderMin = v2, v, "Set slider min" ) );
+				AddFloatRow( "Max", p.SliderMax,
+					v => SetProp( el, e => e.Props.SliderMax, ( e, v2 ) => e.Props.SliderMax = v2, v, "Set slider max" ) );
+				AddFloatRow( "Step", p.SliderStep,
+					v => SetProp( el, e => e.Props.SliderStep, ( e, v2 ) => e.Props.SliderStep = v2, v, "Set slider step" ) );
+				AddFloatRow( "Value", p.SliderValue,
+					v => SetProp( el, e => e.Props.SliderValue, ( e, v2 ) => e.Props.SliderValue = v2, v, "Set slider value" ),
+					bindingProperty: "Value" );
+				AddColorRow( "Track Color", p.SliderTrackColor ?? "",
+					v => SetProp( el, e => e.Props.SliderTrackColor, ( e, v2 ) => e.Props.SliderTrackColor = v2, v, "Set track color" ) );
+				AddColorRow( "Fill Color", p.SliderFillColor ?? "",
+					v => SetProp( el, e => e.Props.SliderFillColor, ( e, v2 ) => e.Props.SliderFillColor = v2, v, "Set fill color" ) );
+				AddColorRow( "Handle Color", p.SliderHandleColor ?? "",
+					v => SetProp( el, e => e.Props.SliderHandleColor, ( e, v2 ) => e.Props.SliderHandleColor = v2, v, "Set handle color" ) );
+				AddBoolRow( "Show Value", p.SliderShowValue,
+					v => SetProp( el, e => e.Props.SliderShowValue, ( e, v2 ) => e.Props.SliderShowValue = v2, v, "Set show value" ) );
+				break;
+
+			case SuiElementType.Toggle:
+				BeginSection( "Toggle" );
+				AddBoolRow( "Checked", p.ToggleChecked,
+					v => SetProp( el, e => e.Props.ToggleChecked, ( e, v2 ) => e.Props.ToggleChecked = v2, v, "Set checked" ),
+					bindingProperty: "Checked" );
+				AddTextRow( "Label", p.ToggleLabelText ?? "",
+					v => SetProp( el, e => e.Props.ToggleLabelText, ( e, v2 ) => e.Props.ToggleLabelText = v2, v, "Set toggle label" ),
+					bindingProperty: "LabelText" );
+				break;
+
+			case SuiElementType.DropDown:
+				BeginSection( "Drop Down" );
+				AddIntRow( "Selected Index", p.DropDownSelectedIndex,
+					v => SetProp( el, e => e.Props.DropDownSelectedIndex, ( e, v2 ) => e.Props.DropDownSelectedIndex = v2, v, "Set selected index" ),
+					bindingProperty: "SelectedIndex" );
+				AddNote( "Edit the Options list in code via @code partial — runtime options binding lands in V1.6 (PRD 21 § 11 #4)." );
+				if ( p.DropDownOptions != null )
+				{
+					for ( int i = 0; i < p.DropDownOptions.Count; i++ )
+					{
+						int idx = i;
+						AddTextRow( $"  Option [{idx}]", p.DropDownOptions[idx] ?? "",
+							v => SetProp( el, e => e.Props.DropDownOptions[idx], ( e, v2 ) => e.Props.DropDownOptions[idx] = v2, v, "Set option" ) );
+					}
+				}
 				break;
 		}
 	}

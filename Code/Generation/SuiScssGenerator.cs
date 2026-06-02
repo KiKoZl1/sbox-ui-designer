@@ -710,11 +710,14 @@ public sealed class SuiScssGenerator
 				if ( !string.IsNullOrEmpty( p.SliderHandleColor ) )
 					Emit( depth + 1, "background-color", p.SliderHandleColor );
 				_sb.Append( slInner ).AppendLine( "}" );
-				// Value tooltip — engine's default `.value-tooltip > .label`
-				// has black bg + 8/12px padding but no text color set, so
-				// the label can render invisible (text default white vs no
-				// override). Force text color white so the value reads.
-				_sb.Append( slInner ).AppendLine( ".value-tooltip > .label {" );
+				// Value tooltip text — engine markup is `<label>@Value...</label>`
+				// (a Sandbox.UI Label tag, NOT a `.label` class — confirmed
+				// against sbox-public SliderControl.razor + sbox-hc1's
+				// MenuSystem.scss override which targets the `label` tag).
+				// Sandbox.UI's CSS engine respects the tag selector; using
+				// `.label` would match nothing here, leaving the number
+				// invisible inside the black tooltip pill.
+				_sb.Append( slInner ).AppendLine( ".value-tooltip label {" );
 				Emit( depth + 1, "color", "#ffffff" );
 				Emit( depth + 1, "font-size", "12px" );
 				_sb.Append( slInner ).AppendLine( "}" );
