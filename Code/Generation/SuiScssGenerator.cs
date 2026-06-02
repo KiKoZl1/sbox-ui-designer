@@ -685,7 +685,10 @@ public sealed class SuiScssGenerator
 				//     <div class="inner">
 				//       <div class="track">
 				//         <div class="track-active"/>
-				//         <div class="thumb"/>
+				//         <div class="thumb">
+				//           <div class="value-tooltip">
+				//             <label>Value</label>
+				//             <div class="tail"/>
 				// Defaults: track 7px gray, fill white, thumb 16x16 circle.
 				// Engine `.slidercontrol` ships with `flex-grow: 1` — that
 				// override blows through our authored Width when the parent
@@ -706,6 +709,14 @@ public sealed class SuiScssGenerator
 				_sb.Append( slInner ).AppendLine( "> .inner > .track > .thumb {" );
 				if ( !string.IsNullOrEmpty( p.SliderHandleColor ) )
 					Emit( depth + 1, "background-color", p.SliderHandleColor );
+				_sb.Append( slInner ).AppendLine( "}" );
+				// Value tooltip — engine's default `.value-tooltip > .label`
+				// has black bg + 8/12px padding but no text color set, so
+				// the label can render invisible (text default white vs no
+				// override). Force text color white so the value reads.
+				_sb.Append( slInner ).AppendLine( ".value-tooltip > .label {" );
+				Emit( depth + 1, "color", "#ffffff" );
+				Emit( depth + 1, "font-size", "12px" );
 				_sb.Append( slInner ).AppendLine( "}" );
 				break;
 
