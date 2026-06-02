@@ -590,6 +590,24 @@ public sealed class SuiScssGenerator
 		|| type == SuiElementType.ItemIcon;
 
 	/// <summary>
+	/// V1.5 M3.5 — map <see cref="SuiCursor"/> to the matching CSS keyword.
+	/// <see cref="SuiCursor.Default"/> returns empty so no rule is emitted
+	/// (the element inherits whatever the cascade hands it).
+	/// </summary>
+	private static string CursorCss( SuiCursor c ) => c switch
+	{
+		SuiCursor.Pointer => "pointer",
+		SuiCursor.NotAllowed => "not-allowed",
+		SuiCursor.Wait => "wait",
+		SuiCursor.Text => "text",
+		SuiCursor.Move => "move",
+		SuiCursor.Crosshair => "crosshair",
+		SuiCursor.Help => "help",
+		SuiCursor.None => "none",
+		_ => "",
+	};
+
+	/// <summary>
 	/// V1.5 M3.5 — translate <see cref="SuiBackgroundSize"/> + Custom dimensions
 	/// into the CSS <c>background-size</c> value. Custom with both dimensions = 0
 	/// degrades to Contain so the user doesn't get an invisible image.
@@ -641,10 +659,12 @@ public sealed class SuiScssGenerator
 		if ( p == null ) return;
 
 		// Cursor (CSS property — engine supports a limited set per anti-patterns
-		// doc, but "pointer" / "not-allowed" are confirmed). Empty = no emit so
-		// the element inherits whatever the cascade hands it.
-		if ( !string.IsNullOrEmpty( p.Cursor ) )
-			Emit( depth, "cursor", p.Cursor );
+		// doc, "pointer" / "not-allowed" / "default" confirmed). Default enum
+		// value emits nothing so the element inherits whatever the cascade
+		// hands it.
+		var cursorCss = CursorCss( p.Cursor );
+		if ( !string.IsNullOrEmpty( cursorCss ) )
+			Emit( depth, "cursor", cursorCss );
 
 		// Transition — once enabled, every property animates over Duration.
 		// "all" + "ease" matches the skill reference pattern; emitting only

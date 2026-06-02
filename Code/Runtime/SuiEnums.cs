@@ -233,6 +233,27 @@ public enum SuiBackgroundSize
 	Custom,
 }
 
+/// <summary>
+/// V1.5 M3.5 (PRD 25) — mouse cursor preset for interactive elements.
+/// Default = no emit (browser/engine default). Other values map to the
+/// matching CSS cursor keyword. Limited set per the s&box CSS subset
+/// (ui-anti-patterns.md § 2: "cursor (most values) | Limited set; check
+/// before relying on it") — these are the values confirmed in Facepunch
+/// public source.
+/// </summary>
+public enum SuiCursor
+{
+	Default,
+	Pointer,
+	NotAllowed,
+	Wait,
+	Text,
+	Move,
+	Crosshair,
+	Help,
+	None,
+}
+
 public enum SuiBackgroundPosition
 {
 	Center,

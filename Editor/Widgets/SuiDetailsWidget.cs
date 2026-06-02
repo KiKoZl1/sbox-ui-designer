@@ -1390,9 +1390,9 @@ public class SuiDetailsWidget : Widget
 		AddBoolRow( "Disabled", p.IsDisabled,
 			v => SetProp( el, e => e.Props.IsDisabled, ( e, v2 ) => e.Props.IsDisabled = v2, v, "Set disabled" ),
 			bindingProperty: "IsDisabled" );
-		AddTextRow( "Cursor", p.Cursor ?? "",
+		AddEnumRow<SuiCursor>( "Cursor", p.Cursor,
 			v => SetProp( el, e => e.Props.Cursor, ( e, v2 ) => e.Props.Cursor = v2, v, "Set cursor" ) );
-		AddNote( "Cursor: 'pointer' (default for buttons), 'not-allowed', or any CSS cursor name. Empty = no override." );
+		AddNote( "Cursor: Default = no override (inherits). Pointer is the typical choice for buttons, NotAllowed for disabled visuals, etc." );
 
 		// States / Transition were folded into the Appearance section's
 		// five state dropdowns + Transition sub-section (PRD 25 § 5 — P2.5

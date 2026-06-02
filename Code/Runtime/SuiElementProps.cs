@@ -96,8 +96,11 @@ public sealed class SuiElementProps
 	/// <summary>SoundEvent asset path played on <c>:active</c> ingress (press). Empty = no sound.</summary>
 	public string PressSound { get; set; } = "";
 
-	/// <summary>CSS cursor name (e.g. "pointer", "not-allowed"). Empty = no emit.</summary>
-	public string Cursor { get; set; } = "";
+	/// <summary>
+	/// CSS cursor preset. <see cref="SuiCursor.Default"/> = no emit (inherit).
+	/// Other values map to the matching CSS keyword via the SCSS generator.
+	/// </summary>
+	public SuiCursor Cursor { get; set; } = SuiCursor.Default;
 
 	// ---------- ProgressBar ----------
 
