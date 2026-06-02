@@ -714,10 +714,13 @@ public sealed class SuiRazorGenerator
 				.Append( " { get; set; } = " ).Append( defaultLit ).AppendLine( "f;" );
 			body.Append( "\tprivate global::Sandbox.UI.Panel " ).Append( fieldName ).AppendLine( "_TrackPanel;" );
 			body.Append( "\tprivate bool " ).Append( fieldName ).AppendLine( "_Dragging;" );
-			// Engine invokes the handler with PanelEvent (base); cast to
-			// MousePanelEvent to read LocalPosition + Button. Without the
-			// cast, declaring the handler with MousePanelEvent directly
-			// fails CS1503 because the engine's delegate is PanelEvent-typed.
+			// Engine invokes Razor `onmousedown` callbacks with the base
+			// PanelEvent; we cast to MousePanelEvent inside (declaring the
+			// handler directly with MousePanelEvent fails CS1503).
+			//
+			// Math mirrors engine SliderControl.ScreenPosToValue:
+			//   normalized = LerpInverse(Mouse.Position.x, Box.Left, Box.Right)
+			// Box.Left/Right are screen-pixel coordinates of the track.
 			body.Append( "\tprivate void " ).Append( fieldName ).AppendLine( "_OnTrackPress( global::Sandbox.UI.PanelEvent baseEvent )" );
 			body.AppendLine( "\t{" );
 			body.AppendLine( "\t\tif ( baseEvent is not global::Sandbox.UI.MousePanelEvent e ) return;" );
@@ -725,17 +728,16 @@ public sealed class SuiRazorGenerator
 			body.AppendLine( "\t\tif ( e.Target == null || !e.Target.IsValid() ) return;" );
 			body.Append( "\t\t" ).Append( fieldName ).AppendLine( "_TrackPanel = e.Target;" );
 			body.Append( "\t\t" ).Append( fieldName ).AppendLine( "_Dragging = true;" );
-			body.Append( "\t\t" ).Append( fieldName ).Append( "_UpdateFromMouse( e.LocalPosition.x, e.Target );" ).AppendLine();
+			body.Append( "\t\t" ).Append( fieldName ).Append( "_UpdateFromMouseScreen( global::Sandbox.Mouse.Position.x );" ).AppendLine();
 			body.AppendLine( "\t}" );
-			body.Append( "\tprivate void " ).Append( fieldName ).AppendLine( "_UpdateFromMouse( float localX, global::Sandbox.UI.Panel track )" );
+			body.Append( "\tprivate void " ).Append( fieldName ).AppendLine( "_UpdateFromMouseScreen( float mouseScreenX )" );
 			body.AppendLine( "\t{" );
+			body.Append( "\t\tvar track = " ).Append( fieldName ).AppendLine( "_TrackPanel;" );
 			body.AppendLine( "\t\tif ( track == null || !track.IsValid() ) return;" );
-			body.AppendLine( "\t\tvar w = track.Box.Rect.Width * track.ScaleFromScreen;" );
-			body.AppendLine( "\t\tif ( w <= 0 ) return;" );
-			body.AppendLine( "\t\tvar t = global::System.Math.Clamp( localX / w, 0f, 1f );" );
-			body.Append( "\t\tvar v = " ).Append( minLit ).Append( "f + t * (" ).Append( maxLit ).Append( "f - " ).Append( minLit ).AppendLine( "f);" );
+			body.AppendLine( "\t\tvar normalized = global::MathX.LerpInverse( mouseScreenX, track.Box.Left, track.Box.Right, true );" );
+			body.Append( "\t\tvar v = global::MathX.LerpTo( " ).Append( minLit ).Append( "f, " ).Append( maxLit ).AppendLine( "f, normalized, true );" );
 			body.Append( "\t\tvar step = " ).Append( stepLit ).AppendLine( "f;" );
-			body.AppendLine( "\t\tif ( step > 0 ) v = global::System.MathF.Round( v / step ) * step;" );
+			body.AppendLine( "\t\tif ( step > 0 ) v = v.SnapToGrid( step );" );
 			body.Append( "\t\t" ).Append( fieldName ).AppendLine( " = v;" );
 			body.AppendLine( "\t\tStateHasChanged();" );
 			body.AppendLine( "\t}" );
@@ -744,7 +746,9 @@ public sealed class SuiRazorGenerator
 			hashes.Add( fieldName );
 		}
 
-		// Single shared Tick that handles every slider's drag continuation.
+		// Single shared Tick that drives every slider's drag. While left-mouse
+		// is held + we're dragging, update from the current mouse position
+		// using engine-style screen-pixel math (Box.Left/Right, no scaling).
 		if ( sliders.Count > 0 )
 		{
 			body.AppendLine( "\tpublic override void Tick()" );
@@ -762,8 +766,7 @@ public sealed class SuiRazorGenerator
 				body.AppendLine( "\t\t\t}" );
 				body.AppendLine( "\t\t\telse" );
 				body.AppendLine( "\t\t\t{" );
-				body.AppendLine( "\t\t\t\tvar localX = (global::Sandbox.Mouse.Position.x - tp.Box.Rect.Left) * tp.ScaleFromScreen;" );
-				body.Append( "\t\t\t\t" ).Append( s.Field ).AppendLine( "_UpdateFromMouse( localX, tp );" );
+				body.Append( "\t\t\t\t" ).Append( s.Field ).AppendLine( "_UpdateFromMouseScreen( global::Sandbox.Mouse.Position.x );" );
 				body.AppendLine( "\t\t\t}" );
 				body.AppendLine( "\t\t}" );
 			}
