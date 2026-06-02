@@ -281,39 +281,51 @@ public sealed class SuiScssGenerator
 				Emit( depth, "bottom", Px( l.Y ) );
 				break;
 
-			// Center-based anchors: position the anchor reference at the center
-			// of the relevant axis, then apply X/Y as additional pixel offset
-			// (chained translate). Without the second translate the element
-			// stays glued to the centerline regardless of X/Y, which breaks
-			// drag-to-move + selection chrome (hit-test honors X/Y).
+			// V1.5 M4 — Center-based anchors use `calc(50% - half + offset)`
+			// instead of `transform: translate(-50%, -50%)`. The transform
+			// approach was correct visually but the engine's Box.Rect is the
+			// LAYOUT position (transform-ignorant), and components like
+			// Popup / DropDown menu positioning rely on Box.Rect to compute
+			// their floating overlay coords. With transform centering the
+			// popup ended up offset by half-the-width/height because its
+			// "source" rect didn't include the transform offset.
+			// calc() positioning keeps Box.Rect aligned with the visual
+			// position so popup-style children sit where the user expects.
 			case SuiAnchor.TopCenter:
-				Emit( depth, "left", "50%" );
+				Emit( depth, "left", l.Width > 0
+					? $"calc(50% - {Px( l.Width * 0.5f )} + {Px( l.X )})"
+					: "50%" );
 				Emit( depth, "top", Px( l.Y ) );
-				Emit( depth, "transform", $"translateX(-50%) translateX({Px( l.X )})" );
 				break;
 
 			case SuiAnchor.BottomCenter:
-				Emit( depth, "left", "50%" );
+				Emit( depth, "left", l.Width > 0
+					? $"calc(50% - {Px( l.Width * 0.5f )} + {Px( l.X )})"
+					: "50%" );
 				Emit( depth, "bottom", Px( l.Y ) );
-				Emit( depth, "transform", $"translateX(-50%) translateX({Px( l.X )})" );
 				break;
 
 			case SuiAnchor.MiddleLeft:
 				Emit( depth, "left", Px( l.X ) );
-				Emit( depth, "top", "50%" );
-				Emit( depth, "transform", $"translateY(-50%) translateY({Px( l.Y )})" );
+				Emit( depth, "top", l.Height > 0
+					? $"calc(50% - {Px( l.Height * 0.5f )} + {Px( l.Y )})"
+					: "50%" );
 				break;
 
 			case SuiAnchor.MiddleRight:
 				Emit( depth, "right", Px( l.X ) );
-				Emit( depth, "top", "50%" );
-				Emit( depth, "transform", $"translateY(-50%) translateY({Px( l.Y )})" );
+				Emit( depth, "top", l.Height > 0
+					? $"calc(50% - {Px( l.Height * 0.5f )} + {Px( l.Y )})"
+					: "50%" );
 				break;
 
 			case SuiAnchor.MiddleCenter:
-				Emit( depth, "left", "50%" );
-				Emit( depth, "top", "50%" );
-				Emit( depth, "transform", $"translate(-50%, -50%) translate({Px( l.X )}, {Px( l.Y )})" );
+				Emit( depth, "left", l.Width > 0
+					? $"calc(50% - {Px( l.Width * 0.5f )} + {Px( l.X )})"
+					: "50%" );
+				Emit( depth, "top", l.Height > 0
+					? $"calc(50% - {Px( l.Height * 0.5f )} + {Px( l.Y )})"
+					: "50%" );
 				break;
 
 			case SuiAnchor.Stretch:
