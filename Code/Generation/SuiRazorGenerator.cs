@@ -91,7 +91,9 @@ public sealed class SuiRazorGenerator
 		// V1.5 M4 — DropDown widgets need their static Options list emitted
 		// even when no other field needs the @code block.
 		var hasDropDown = HasAnyDropDown( _doc );
-		if ( !hasVars && !hasChildren && !hasEvents && !hasDropDown ) return;
+		var hasSlider = HasAnyOfType( _doc, SuiElementType.Slider );
+		var hasInteractive = HasAnyInteractive( _doc );
+		if ( !hasVars && !hasChildren && !hasEvents && !hasDropDown && !hasSlider && !hasInteractive ) return;
 
 		var body = new System.Text.StringBuilder();
 		SuiVariableEmitter.EmitProperties( _doc.Variables, body );
@@ -113,6 +115,14 @@ public sealed class SuiRazorGenerator
 		// field on the renderer so the @Options attribute resolves. Runtime
 		// dynamic options (replace whole list from gameplay) is V1.6.
 		EmitDropDownOptions( body );
+
+		// V1.5 M4 — Slider value field. SliderControl's `Value:bind` writes
+		// into this field on every drag so our custom tooltip can compute
+		// its horizontal position. Included in BuildHash so parent
+		// re-renders on every value change.
+		var sliderValueExprs = EmitSliderValueFields( body );
+		foreach ( var expr in sliderValueExprs )
+			childHashExprs.Add( expr );
 
 		// V1.5-M2-K7-bugfix — also collect expressions that need to feed the
 		// parent's BuildHash so that mutations on a child instance
@@ -282,6 +292,29 @@ public sealed class SuiRazorGenerator
 		foreach ( var el in doc.Elements )
 		{
 			if ( el != null && el.Type == SuiElementType.DropDown ) return true;
+		}
+		return false;
+	}
+
+	private static bool HasAnyOfType( SuiDocument doc, SuiElementType type )
+	{
+		if ( doc?.Elements == null ) return false;
+		foreach ( var el in doc.Elements )
+		{
+			if ( el != null && el.Type == type ) return true;
+		}
+		return false;
+	}
+
+	private static bool HasAnyInteractive( SuiDocument doc )
+	{
+		if ( doc?.Elements == null ) return false;
+		foreach ( var el in doc.Elements )
+		{
+			if ( el == null ) continue;
+			if ( el.Type == SuiElementType.Button
+				|| el.Type == SuiElementType.InventorySlot
+				|| el.Type == SuiElementType.ItemIcon ) return true;
 		}
 		return false;
 	}
@@ -584,7 +617,16 @@ public sealed class SuiRazorGenerator
 		var inputTag = ResolveInputTag( el.Type );
 		if ( inputTag != null )
 		{
-			EmitInputWidgetTag( el, inputTag, className, indent, dataAttrs, styleBody );
+			// Slider needs the wrapper-div treatment because we render a
+			// custom tooltip pill alongside it. Other widgets stay flat.
+			if ( el.Type == SuiElementType.Slider )
+			{
+				EmitSliderWithTooltip( el, className, indent, dataAttrs, styleBody );
+			}
+			else
+			{
+				EmitInputWidgetTag( el, inputTag, className, indent, dataAttrs, styleBody );
+			}
 			return;
 		}
 
@@ -637,6 +679,33 @@ public sealed class SuiRazorGenerator
 	}
 
 	/// <summary>
+	/// V1.5 M4 — emit one <c>public float &lt;Name&gt;SliderValue { get; set; }</c>
+	/// per Slider element. SliderControl's `Value:bind` writes here on every
+	/// drag; the custom tooltip's inline style reads from here. Returns the
+	/// expressions to add to BuildHash so the parent re-renders (and the
+	/// tooltip position recomputes) on every value change.
+	/// </summary>
+	private System.Collections.Generic.List<string> EmitSliderValueFields( System.Text.StringBuilder body )
+	{
+		var hashes = new System.Collections.Generic.List<string>();
+		if ( _doc?.Elements == null ) return hashes;
+
+		var inv = System.Globalization.CultureInfo.InvariantCulture;
+		foreach ( var el in _doc.Elements )
+		{
+			if ( el == null || el.Type != SuiElementType.Slider ) continue;
+			var fieldName = SuiNameSanitizer.ToCSharpIdentifier( ( el.Name ?? el.Id ) + "SliderValue" );
+			if ( string.IsNullOrEmpty( fieldName ) ) continue;
+
+			var defaultLit = (el.Props?.SliderValue ?? 0f).ToString( "0.###", inv );
+			body.Append( "\tpublic float " ).Append( fieldName )
+				.Append( " { get; set; } = " ).Append( defaultLit ).AppendLine( "f;" );
+			hashes.Add( fieldName );
+		}
+		return hashes;
+	}
+
+	/// <summary>
 	/// V1.5 M4 (PRD 21) — emit a static <c>List&lt;Option&gt;</c> field per
 	/// DropDown element so its <c>Options=@&lt;Name&gt;Options</c> attribute
 	/// resolves. Authoring-time list lives in <c>SuiElementProps.DropDownOptions</c>;
@@ -686,6 +755,58 @@ public sealed class SuiRazorGenerator
 		SuiElementType.DropDown => "DropDown",
 		_ => null,
 	};
+
+	/// <summary>
+	/// V1.5 M4 (PRD 21) — Slider markup wraps the engine SliderControl in a
+	/// container plus a custom tooltip pill rendered alongside it. Engine's
+	/// own value-tooltip is hidden via SCSS so it doesn't compete; ours uses
+	/// inline-style left-positioning bound to the slider's authored value via
+	/// a `[Property]` field on the renderer (Value:bind keeps it in sync).
+	///
+	/// This route exists because engine's tooltip can't be re-colored from
+	/// user-side SCSS (Sandbox.UI parser doesn't honor compound class
+	/// selectors needed to beat its built-in specificity). Custom pill gives
+	/// the author full control of bg + text color.
+	/// </summary>
+	private void EmitSliderWithTooltip( SuiElement el, string className, string indent, string dataAttrs, string styleBody )
+	{
+		var p = el.Props;
+		var inv = System.Globalization.CultureInfo.InvariantCulture;
+		var valueField = SuiNameSanitizer.ToCSharpIdentifier( ( el.Name ?? el.Id ) + "SliderValue" );
+
+		// Wrapper carries the user's authored position/size + sui-el-X class.
+		_sb.Append( indent ).Append( "<div class=\"" ).Append( className ).Append( "\"" ).Append( dataAttrs );
+		if ( styleBody.Length > 0 )
+			_sb.Append( " style=\"" ).Append( styleBody ).Append( "\"" );
+		SuiElementRefEmitter.EmitRazorRef( el, _sb );
+		SuiEventEmitter.EmitRazorAttributes( el, _sb );
+		_sb.AppendLine( ">" );
+
+		var inner = new string( ' ', (indent.Length / 2 + 1) * 2 );
+
+		// Engine SliderControl — `Value:bind` flows the live value into our
+		// renderer field, which the tooltip pill reads to compute its
+		// horizontal position via inline style.
+		_sb.Append( inner ).Append( "<SliderControl class=\"sui-slider-inner\"" )
+			.Append( " Value:bind=\"@" ).Append( valueField ).Append( "\"" )
+			.Append( " Min=\"@(" ).Append( p?.SliderMin.ToString( "0.###", inv ) ).Append( "f)\"" )
+			.Append( " Max=\"@(" ).Append( p?.SliderMax.ToString( "0.###", inv ) ).Append( "f)\"" )
+			.Append( " Step=\"@(" ).Append( p?.SliderStep.ToString( "0.###", inv ) ).Append( "f)\"" )
+			.AppendLine( " ShowValueTooltip=\"@false\" />" );
+
+		// Custom tooltip pill — only emitted when the author wants it shown.
+		if ( p?.SliderShowValue == true )
+		{
+			var posExpr = $"({valueField} - {p.SliderMin.ToString( "0.###", inv )}f) / ({p.SliderMax.ToString( "0.###", inv )}f - {p.SliderMin.ToString( "0.###", inv )}f) * 100";
+			_sb.Append( inner ).Append( "<div class=\"sui-slider-tooltip\" style=\"left: @(" )
+				.Append( posExpr ).Append( ")%\">" ).AppendLine();
+			_sb.Append( inner ).Append( "  <label>@(" ).Append( valueField ).AppendLine( ".ToString(\"0.##\"))</label>" );
+			_sb.Append( inner ).AppendLine( "  <div class=\"sui-slider-tooltip-tail\"></div>" );
+			_sb.Append( inner ).AppendLine( "</div>" );
+		}
+
+		_sb.Append( indent ).AppendLine( "</div>" );
+	}
 
 	/// <summary>
 	/// V1.5 M4 — emit one of the four Sandbox.UI input controls as a

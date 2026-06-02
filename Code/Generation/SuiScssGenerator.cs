@@ -726,36 +726,66 @@ public sealed class SuiScssGenerator
 				if ( !string.IsNullOrEmpty( p.SliderHandleColor ) )
 					Emit( depth + 1, "background-color", p.SliderHandleColor );
 				_sb.Append( slInner ).AppendLine( "}" );
-				// V1.5 M4 — Value tooltip styling. Investigation against
-				// engine source + StyleSheetParse tests confirmed Sandbox.UI's
-				// SCSS parser does NOT support compound class selectors
-				// (`.classA.classB` on same element) — no tests cover it, no
-				// usage anywhere in sbox-public/sbox-hc1/etc. That means we
-				// can't raise specificity above engine's
-				// `.slidercontrol .value-tooltip > .label` (which sets bg
-				// black + padding) via class chaining.
+				// V1.5 M4 — Slider rendering. Wrapper layout is on this
+				// element; the inner `<SliderControl class="sui-slider-inner">`
+				// fills it; our custom `<div class="sui-slider-tooltip">`
+				// sits above the slider with author-controlled colors.
 				//
-				// Tag-selector approach (`.X .value-tooltip label`) has
-				// LOWER specificity than engine's class chain, so it loses.
-				// `&` nesting only supports pseudo-classes per engine tests.
-				//
-				// Given those constraints, customizing the tooltip colors
-				// isn't reliably possible in V1.5. Author choice "Show Value
-				// Tooltip" still works — when OFF we set `display: none`
-				// on `.value-tooltip` directly. `display` isn't set by the
-				// engine SCSS at all, so this rule wins on first match (no
-				// specificity contest needed). When ON the engine renders
-				// its default black-on-white pill — there's no way to
-				// recolor it from user-side SCSS in this build.
-				_pendingFlatRules ??= new System.Text.StringBuilder();
-				if ( !p.SliderShowValue )
-				{
-					var sliderClass = SuiRazorGenerator.ElementUniqueClass( el );
-					_pendingFlatRules.AppendLine();
-					_pendingFlatRules.Append( "." ).Append( sliderClass ).AppendLine( " .value-tooltip {" );
-					_pendingFlatRules.AppendLine( "  display: none;" );
-					_pendingFlatRules.AppendLine( "}" );
-				}
+				// Engine's own `.value-tooltip` is force-hidden (display:none
+				// wins regardless of specificity because engine doesn't set
+				// `display` on that selector).
+				Emit( depth, "position", "relative" );
+				var slInnerStyle = new string( ' ', depth * 2 );
+				_sb.Append( slInnerStyle ).AppendLine( "> .sui-slider-inner {" );
+				Emit( depth + 1, "width", "100%" );
+				Emit( depth + 1, "height", "100%" );
+				Emit( depth + 1, "flex-grow", "1" );
+				_sb.Append( slInnerStyle ).AppendLine( "}" );
+				_sb.Append( slInnerStyle ).AppendLine( "> .sui-slider-inner > .inner > .track {" );
+				if ( !string.IsNullOrEmpty( p.SliderTrackColor ) )
+					Emit( depth + 1, "background-color", p.SliderTrackColor );
+				_sb.Append( slInnerStyle ).AppendLine( "}" );
+				_sb.Append( slInnerStyle ).AppendLine( "> .sui-slider-inner > .inner > .track > .track-active {" );
+				if ( !string.IsNullOrEmpty( p.SliderFillColor ) )
+					Emit( depth + 1, "background-color", p.SliderFillColor );
+				_sb.Append( slInnerStyle ).AppendLine( "}" );
+				_sb.Append( slInnerStyle ).AppendLine( "> .sui-slider-inner > .inner > .track > .thumb {" );
+				if ( !string.IsNullOrEmpty( p.SliderHandleColor ) )
+					Emit( depth + 1, "background-color", p.SliderHandleColor );
+				_sb.Append( slInnerStyle ).AppendLine( "}" );
+
+				// Hide engine's stock tooltip (display: none wins always).
+				_sb.Append( slInnerStyle ).AppendLine( ".value-tooltip {" );
+				Emit( depth + 1, "display", "none" );
+				_sb.Append( slInnerStyle ).AppendLine( "}" );
+
+				// Custom tooltip pill — sits absolute above the slider track.
+				_sb.Append( slInnerStyle ).AppendLine( "> .sui-slider-tooltip {" );
+				Emit( depth + 1, "position", "absolute" );
+				Emit( depth + 1, "bottom", "100%" );
+				Emit( depth + 1, "margin-bottom", "8px" );
+				Emit( depth + 1, "transform", "translateX(-50%)" );
+				Emit( depth + 1, "flex-direction", "column" );
+				Emit( depth + 1, "align-items", "center" );
+				Emit( depth + 1, "z-index", "10" );
+				Emit( depth + 1, "pointer-events", "none" );
+				_sb.Append( slInnerStyle ).AppendLine( "}" );
+				_sb.Append( slInnerStyle ).AppendLine( "> .sui-slider-tooltip > label {" );
+				if ( !string.IsNullOrEmpty( p.SliderTooltipBgColor ) )
+					Emit( depth + 1, "background-color", p.SliderTooltipBgColor );
+				if ( !string.IsNullOrEmpty( p.SliderTooltipTextColor ) )
+					Emit( depth + 1, "color", p.SliderTooltipTextColor );
+				Emit( depth + 1, "padding", "4px 8px" );
+				Emit( depth + 1, "border-radius", "6px" );
+				Emit( depth + 1, "font-size", "12px" );
+				_sb.Append( slInnerStyle ).AppendLine( "}" );
+				_sb.Append( slInnerStyle ).AppendLine( "> .sui-slider-tooltip > .sui-slider-tooltip-tail {" );
+				Emit( depth + 1, "width", "8px" );
+				Emit( depth + 1, "height", "8px" );
+				if ( !string.IsNullOrEmpty( p.SliderTooltipBgColor ) )
+					Emit( depth + 1, "background-color", p.SliderTooltipBgColor );
+				Emit( depth + 1, "transform", "rotateZ(45deg) translateY(-4px)" );
+				_sb.Append( slInnerStyle ).AppendLine( "}" );
 				break;
 
 			case SuiElementType.Toggle:
