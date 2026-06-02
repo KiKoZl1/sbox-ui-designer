@@ -116,6 +116,12 @@ public sealed class SuiRazorGenerator
 		// dynamic options (replace whole list from gameplay) is V1.6.
 		EmitDropDownOptions( body );
 
+		// V1.5-M2-K7-bugfix — also collect expressions that need to feed the
+		// parent's BuildHash so that mutations on a child instance
+		// (e.g. parent.MyHud.Health -= 10) trigger a parent re-render and
+		// the embedded child tag picks up the new attribute values.
+		var childHashExprs = new System.Collections.Generic.List<string>();
+
 		// V1.5 M4 — Slider value field. SliderControl's `Value:bind` writes
 		// into this field on every drag so our custom tooltip can compute
 		// its horizontal position. Included in BuildHash so parent
@@ -123,12 +129,6 @@ public sealed class SuiRazorGenerator
 		var sliderValueExprs = EmitSliderValueFields( body );
 		foreach ( var expr in sliderValueExprs )
 			childHashExprs.Add( expr );
-
-		// V1.5-M2-K7-bugfix — also collect expressions that need to feed the
-		// parent's BuildHash so that mutations on a child instance
-		// (e.g. parent.MyHud.Health -= 10) trigger a parent re-render and
-		// the embedded child tag picks up the new attribute values.
-		var childHashExprs = new System.Collections.Generic.List<string>();
 
 		// V1.5-M2-K4 — named-instance fields for every SuiReference. Single
 		// instance → [Property] FieldType FieldName = new(); ForEach → List<>.
@@ -679,11 +679,17 @@ public sealed class SuiRazorGenerator
 	}
 
 	/// <summary>
-	/// V1.5 M4 — emit one <c>public float &lt;Name&gt;SliderValue { get; set; }</c>
-	/// per Slider element. SliderControl's `Value:bind` writes here on every
-	/// drag; the custom tooltip's inline style reads from here. Returns the
-	/// expressions to add to BuildHash so the parent re-renders (and the
-	/// tooltip position recomputes) on every value change.
+	/// V1.5 M4 — emit per-Slider state on the renderer:
+	/// <list type="bullet">
+	///   <item>`<Name>SliderValue` — the current value, bound to the
+	///         tooltip + fill + thumb position via inline style.</item>
+	///   <item>`<Name>SliderValue_OnTrackPress` — mouse-down handler that
+	///         starts the drag.</item>
+	///   <item>Single shared `Tick()` override that loops over every
+	///         slider's drag state. Only emitted when at least one
+	///         slider is present in the document.</item>
+	/// </list>
+	/// Returns the value field names so BuildHash picks them up.
 	/// </summary>
 	private System.Collections.Generic.List<string> EmitSliderValueFields( System.Text.StringBuilder body )
 	{
@@ -691,6 +697,8 @@ public sealed class SuiRazorGenerator
 		if ( _doc?.Elements == null ) return hashes;
 
 		var inv = System.Globalization.CultureInfo.InvariantCulture;
+		var sliders = new System.Collections.Generic.List<(string Field, string Min, string Max, string Step)>();
+
 		foreach ( var el in _doc.Elements )
 		{
 			if ( el == null || el.Type != SuiElementType.Slider ) continue;
@@ -698,10 +706,65 @@ public sealed class SuiRazorGenerator
 			if ( string.IsNullOrEmpty( fieldName ) ) continue;
 
 			var defaultLit = (el.Props?.SliderValue ?? 0f).ToString( "0.###", inv );
+			var minLit = (el.Props?.SliderMin ?? 0f).ToString( "0.###", inv );
+			var maxLit = (el.Props?.SliderMax ?? 100f).ToString( "0.###", inv );
+			var stepLit = (el.Props?.SliderStep ?? 1f).ToString( "0.###", inv );
+
 			body.Append( "\tpublic float " ).Append( fieldName )
 				.Append( " { get; set; } = " ).Append( defaultLit ).AppendLine( "f;" );
+			body.Append( "\tprivate global::Sandbox.UI.Panel " ).Append( fieldName ).AppendLine( "_TrackPanel;" );
+			body.Append( "\tprivate bool " ).Append( fieldName ).AppendLine( "_Dragging;" );
+			body.Append( "\tprivate void " ).Append( fieldName ).AppendLine( "_OnTrackPress( global::Sandbox.UI.MousePanelEvent e )" );
+			body.AppendLine( "\t{" );
+			body.AppendLine( "\t\tif ( e.Button != \"mouseleft\" ) return;" );
+			body.AppendLine( "\t\tif ( e.Target == null || !e.Target.IsValid() ) return;" );
+			body.Append( "\t\t" ).Append( fieldName ).AppendLine( "_TrackPanel = e.Target;" );
+			body.Append( "\t\t" ).Append( fieldName ).AppendLine( "_Dragging = true;" );
+			body.Append( "\t\t" ).Append( fieldName ).Append( "_UpdateFromMouse( e.LocalPosition.x, e.Target );" ).AppendLine();
+			body.AppendLine( "\t}" );
+			body.Append( "\tprivate void " ).Append( fieldName ).AppendLine( "_UpdateFromMouse( float localX, global::Sandbox.UI.Panel track )" );
+			body.AppendLine( "\t{" );
+			body.AppendLine( "\t\tif ( track == null || !track.IsValid() ) return;" );
+			body.AppendLine( "\t\tvar w = track.Box.Rect.Width * track.ScaleFromScreen;" );
+			body.AppendLine( "\t\tif ( w <= 0 ) return;" );
+			body.AppendLine( "\t\tvar t = global::System.Math.Clamp( localX / w, 0f, 1f );" );
+			body.Append( "\t\tvar v = " ).Append( minLit ).Append( "f + t * (" ).Append( maxLit ).Append( "f - " ).Append( minLit ).AppendLine( "f);" );
+			body.Append( "\t\tvar step = " ).Append( stepLit ).AppendLine( "f;" );
+			body.AppendLine( "\t\tif ( step > 0 ) v = global::System.MathF.Round( v / step ) * step;" );
+			body.Append( "\t\t" ).Append( fieldName ).AppendLine( " = v;" );
+			body.AppendLine( "\t\tStateHasChanged();" );
+			body.AppendLine( "\t}" );
+
+			sliders.Add( (fieldName, minLit, maxLit, stepLit) );
 			hashes.Add( fieldName );
 		}
+
+		// Single shared Tick that handles every slider's drag continuation.
+		if ( sliders.Count > 0 )
+		{
+			body.AppendLine( "\tpublic override void Tick()" );
+			body.AppendLine( "\t{" );
+			body.AppendLine( "\t\tbase.Tick();" );
+			body.AppendLine( "\t\tvar mouseDown = global::Sandbox.Input.Down( \"attack1\" );" );
+			foreach ( var s in sliders )
+			{
+				body.Append( "\t\tif ( " ).Append( s.Field ).AppendLine( "_Dragging )" );
+				body.AppendLine( "\t\t{" );
+				body.Append( "\t\t\tvar tp = " ).Append( s.Field ).AppendLine( "_TrackPanel;" );
+				body.AppendLine( "\t\t\tif ( tp == null || !tp.IsValid() || !mouseDown )" );
+				body.AppendLine( "\t\t\t{" );
+				body.Append( "\t\t\t\t" ).Append( s.Field ).AppendLine( "_Dragging = false;" );
+				body.AppendLine( "\t\t\t}" );
+				body.AppendLine( "\t\t\telse" );
+				body.AppendLine( "\t\t\t{" );
+				body.AppendLine( "\t\t\t\tvar localX = (global::Sandbox.Mouse.Position.x - tp.Box.Rect.Left) * tp.ScaleFromScreen;" );
+				body.Append( "\t\t\t\t" ).Append( s.Field ).AppendLine( "_UpdateFromMouse( localX, tp );" );
+				body.AppendLine( "\t\t\t}" );
+				body.AppendLine( "\t\t}" );
+			}
+			body.AppendLine( "\t}" );
+		}
+
 		return hashes;
 	}
 
@@ -757,25 +820,23 @@ public sealed class SuiRazorGenerator
 	};
 
 	/// <summary>
-	/// V1.5 M4 (PRD 21) — Slider markup wraps the engine SliderControl in a
-	/// container plus a custom tooltip pill rendered alongside it. Engine's
-	/// own value-tooltip is hidden via SCSS so it doesn't compete; ours uses
-	/// inline-style left-positioning bound to the slider's authored value via
-	/// a `[Property]` field on the renderer (Value:bind keeps it in sync).
-	///
-	/// This route exists because engine's tooltip can't be re-colored from
-	/// user-side SCSS (Sandbox.UI parser doesn't honor compound class
-	/// selectors needed to beat its built-in specificity). Custom pill gives
-	/// the author full control of bg + text color.
+	/// V1.5 M4 (PRD 21) — Slider markup is 100% ours. NO engine SliderControl —
+	/// the engine slider's value-tooltip can't be recolored from user-side
+	/// SCSS (parser doesn't honor compound class selectors), so we build the
+	/// entire control: track, fill, thumb, tooltip pill. Drag math lives in
+	/// the renderer's @code helper (`OnSliderMouseDown/Move/Up`) which
+	/// updates the authored Value via the bound property.
 	/// </summary>
 	private void EmitSliderWithTooltip( SuiElement el, string className, string indent, string dataAttrs, string styleBody )
 	{
 		var p = el.Props;
 		var inv = System.Globalization.CultureInfo.InvariantCulture;
 		var valueField = SuiNameSanitizer.ToCSharpIdentifier( ( el.Name ?? el.Id ) + "SliderValue" );
+		var minLit = (p?.SliderMin ?? 0f).ToString( "0.###", inv );
+		var maxLit = (p?.SliderMax ?? 100f).ToString( "0.###", inv );
 
-		// Wrapper carries the user's authored position/size + sui-el-X class.
-		_sb.Append( indent ).Append( "<div class=\"" ).Append( className ).Append( "\"" ).Append( dataAttrs );
+		// Wrapper carries the authored position/size + sui-el-X class.
+		_sb.Append( indent ).Append( "<div class=\"" ).Append( className ).Append( " sui-slider\"" ).Append( dataAttrs );
 		if ( styleBody.Length > 0 )
 			_sb.Append( " style=\"" ).Append( styleBody ).Append( "\"" );
 		SuiElementRefEmitter.EmitRazorRef( el, _sb );
@@ -784,27 +845,33 @@ public sealed class SuiRazorGenerator
 
 		var inner = new string( ' ', (indent.Length / 2 + 1) * 2 );
 
-		// Engine SliderControl — `Value:bind` flows the live value into our
-		// renderer field, which the tooltip pill reads to compute its
-		// horizontal position via inline style.
-		_sb.Append( inner ).Append( "<SliderControl class=\"sui-slider-inner\"" )
-			.Append( " Value:bind=\"@" ).Append( valueField ).Append( "\"" )
-			.Append( " Min=\"@(" ).Append( p?.SliderMin.ToString( "0.###", inv ) ).Append( "f)\"" )
-			.Append( " Max=\"@(" ).Append( p?.SliderMax.ToString( "0.###", inv ) ).Append( "f)\"" )
-			.Append( " Step=\"@(" ).Append( p?.SliderStep.ToString( "0.###", inv ) ).Append( "f)\"" )
-			.AppendLine( " ShowValueTooltip=\"@false\" />" );
+		// Track — captures mousedown/move to drive the value. The
+		// renderer's helper method computes Value from the mouse X
+		// position relative to track bounds.
+		_sb.Append( inner ).Append( "<div class=\"sui-slider-track\" onmousedown=@(e => " )
+			.Append( valueField ).Append( "_OnTrackPress(e))>" ).AppendLine();
 
-		// Custom tooltip pill — only emitted when the author wants it shown.
+		// Fill bar — width follows the value via inline style. `bottom`/`top`
+		// shorthand not needed; flex parent stacks horizontally.
+		var posExpr = $"({valueField} - {minLit}f) / ({maxLit}f - {minLit}f) * 100";
+		_sb.Append( inner ).Append( "  <div class=\"sui-slider-fill\" style=\"width: @(" )
+			.Append( posExpr ).AppendLine( ")%\"></div>" );
+
+		// Thumb — left position follows the same expression.
+		_sb.Append( inner ).Append( "  <div class=\"sui-slider-thumb\" style=\"left: @(" )
+			.Append( posExpr ).AppendLine( ")%\"></div>" );
+
+		// Tooltip pill above the thumb — only when the author wants it.
 		if ( p?.SliderShowValue == true )
 		{
-			var posExpr = $"({valueField} - {p.SliderMin.ToString( "0.###", inv )}f) / ({p.SliderMax.ToString( "0.###", inv )}f - {p.SliderMin.ToString( "0.###", inv )}f) * 100";
-			_sb.Append( inner ).Append( "<div class=\"sui-slider-tooltip\" style=\"left: @(" )
-				.Append( posExpr ).Append( ")%\">" ).AppendLine();
-			_sb.Append( inner ).Append( "  <label>@(" ).Append( valueField ).AppendLine( ".ToString(\"0.##\"))</label>" );
-			_sb.Append( inner ).AppendLine( "  <div class=\"sui-slider-tooltip-tail\"></div>" );
-			_sb.Append( inner ).AppendLine( "</div>" );
+			_sb.Append( inner ).Append( "  <div class=\"sui-slider-tooltip\" style=\"left: @(" )
+				.Append( posExpr ).AppendLine( ")%\">" );
+			_sb.Append( inner ).Append( "    <label>@(" ).Append( valueField ).AppendLine( ".ToString(\"0.##\"))</label>" );
+			_sb.Append( inner ).AppendLine( "    <div class=\"sui-slider-tooltip-tail\"></div>" );
+			_sb.Append( inner ).AppendLine( "  </div>" );
 		}
 
+		_sb.Append( inner ).AppendLine( "</div>" );
 		_sb.Append( indent ).AppendLine( "</div>" );
 	}
 
