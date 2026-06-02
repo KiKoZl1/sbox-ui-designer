@@ -142,15 +142,21 @@ public sealed class SuiCanvasRenderer
 				PaintSuiReference( el, rect, opacity );
 				break;
 
-			// V1.5 M4 — Input widgets (PRD 21 § 3).
+			// V1.5 M4 — Input widgets (PRD 21 § 3). All four call PaintPanelLike
+			// FIRST so the user-authored Style (background color / border /
+			// background image / radius) actually appears on the canvas in the
+			// same place where the engine paints it at runtime — otherwise the
+			// canvas hides authored visuals that show up as "surprises" in Play.
 			case SuiElementType.TextEntry:
 				PaintPanelLike( el, rect, opacity );
 				PaintTextEntry( el, rect, opacity );
 				break;
 			case SuiElementType.Slider:
+				PaintPanelLike( el, rect, opacity );
 				PaintSlider( el, rect, opacity );
 				break;
 			case SuiElementType.Toggle:
+				PaintPanelLike( el, rect, opacity );
 				PaintToggle( el, rect, opacity );
 				break;
 			case SuiElementType.DropDown:
