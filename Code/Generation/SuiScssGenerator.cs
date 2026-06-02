@@ -35,6 +35,11 @@ public sealed class SuiScssGenerator
 	private SuiDocument _doc;
 	private Dictionary<string, SuiElement> _byId;
 
+	// V1.5 M4 — selectors that need to land at the file root (not nested
+	// inside the current element block). Used for cases where SCSS `&` /
+	// nested chaining is too fragile against engine class-selector ties.
+	private StringBuilder _pendingFlatRules;
+
 	public string Generate( SuiGenerationContext ctx, SuiGenerationResult result )
 	{
 		_sb.Clear();
@@ -55,6 +60,8 @@ public sealed class SuiScssGenerator
 		var typeName = SuiNameSanitizer.ToCSharpIdentifier( ctx.ClassName ?? _doc.Name );
 		var root = _doc.GetRoot();
 
+		_pendingFlatRules?.Clear();
+
 		_sb.Append( SuiHeaderEmitter.EmitScssHeader( _doc ) );
 		_sb.Append( '\n' );
 
@@ -63,6 +70,15 @@ public sealed class SuiScssGenerator
 		{
 			EmitElement( root, depth: 1, isRoot: true );
 		}
+
+		// V1.5 M4 — flat selectors that need to live at root of the typeName
+		// block (not nested under any element). Used for engine-component
+		// overrides where SCSS `&` chaining is too fragile.
+		if ( _pendingFlatRules != null && _pendingFlatRules.Length > 0 )
+		{
+			_sb.Append( _pendingFlatRules );
+		}
+
 		_sb.AppendLine( "}" );
 
 		// User-owned sidecar — emitted ONLY in Final mode (compile-to-output).
@@ -710,33 +726,55 @@ public sealed class SuiScssGenerator
 				if ( !string.IsNullOrEmpty( p.SliderHandleColor ) )
 					Emit( depth + 1, "background-color", p.SliderHandleColor );
 				_sb.Append( slInner ).AppendLine( "}" );
-				// Value tooltip pill — engine renders `<label>@Value</label>`
-				// inside `<div class="value-tooltip">` when ShowValueTooltip is
-				// true. Engine SCSS sets the `.label` background to black but
-				// our element has BOTH `.slidercontrol` (engine-injected) and
-				// `.sui-el-X` classes on the root. By chaining them in the
-				// selector we raise specificity from (0,0,3,0) to (0,0,4,0)
-				// and force-win against engine's `.slidercontrol .value-tooltip
-				// > .label`. Mirror the tag-selector form for the `<label>`
-				// case where the engine markup may or may not have a class.
-				var slClass = SuiRazorGenerator.ElementUniqueClass( el );
-				_sb.Append( slInner ).Append( "&.slidercontrol .value-tooltip > .label, &.slidercontrol .value-tooltip label {" ).AppendLine();
-				if ( !string.IsNullOrEmpty( p.SliderTooltipBgColor ) )
-					Emit( depth + 1, "background-color", p.SliderTooltipBgColor );
-				if ( !string.IsNullOrEmpty( p.SliderTooltipTextColor ) )
-					Emit( depth + 1, "color", p.SliderTooltipTextColor );
-				Emit( depth + 1, "font-size", "12px" );
-				Emit( depth + 1, "padding", "4px 8px" );
-				_sb.Append( slInner ).AppendLine( "}" );
-				_sb.Append( slInner ).AppendLine( "&.slidercontrol .value-tooltip > .tail {" );
-				if ( !string.IsNullOrEmpty( p.SliderTooltipBgColor ) )
-					Emit( depth + 1, "background-color", p.SliderTooltipBgColor );
-				_sb.Append( slInner ).AppendLine( "}" );
-				if ( !p.SliderShowValue )
+				// Value tooltip pill — engine markup inside the SliderControl
+				// renders `<label>@Value</label>` inside `<div class="value-
+				// tooltip">`. Engine's stylesheet wins specificity ties
+				// against `.sui-el-X .value-tooltip > .label`. To force-win
+				// we emit flat selectors (no SCSS nesting, no `&` chains —
+				// engine's parser has been observed to silently drop those)
+				// AND repeat the engine's `.slidercontrol` class to raise
+				// specificity from (0,0,3,0) to (0,0,4,0).
+				//
+				// Selectors are queued in a separate StringBuilder so they
+				// land at the file root once we exit the current element
+				// block. Two forms emitted to cover both `.label` class and
+				// bare `label` tag — sbox-public engine uses class, sbox-hc1
+				// override uses tag.
+				_pendingFlatRules ??= new System.Text.StringBuilder();
+				var sliderRootClass = SuiRazorGenerator.ElementUniqueClass( el );
+
+				if ( !string.IsNullOrEmpty( p.SliderTooltipBgColor )
+					|| !string.IsNullOrEmpty( p.SliderTooltipTextColor )
+					|| !p.SliderShowValue )
 				{
-					_sb.Append( slInner ).AppendLine( "&.slidercontrol .value-tooltip {" );
-					Emit( depth + 1, "display", "none" );
-					_sb.Append( slInner ).AppendLine( "}" );
+					_pendingFlatRules.AppendLine();
+
+					// Label color/bg (covers both selector conventions).
+					_pendingFlatRules.Append( "." ).Append( sliderRootClass ).Append( ".slidercontrol .value-tooltip > .label, ." )
+						.Append( sliderRootClass ).Append( ".slidercontrol .value-tooltip label {" ).AppendLine();
+					if ( !string.IsNullOrEmpty( p.SliderTooltipBgColor ) )
+						_pendingFlatRules.Append( "  background-color: " ).Append( p.SliderTooltipBgColor ).AppendLine( ";" );
+					if ( !string.IsNullOrEmpty( p.SliderTooltipTextColor ) )
+						_pendingFlatRules.Append( "  color: " ).Append( p.SliderTooltipTextColor ).AppendLine( ";" );
+					_pendingFlatRules.AppendLine( "  font-size: 12px;" );
+					_pendingFlatRules.AppendLine( "  padding: 4px 8px;" );
+					_pendingFlatRules.AppendLine( "}" );
+
+					// Tail (the pointer triangle) takes the bg color too.
+					if ( !string.IsNullOrEmpty( p.SliderTooltipBgColor ) )
+					{
+						_pendingFlatRules.Append( "." ).Append( sliderRootClass ).Append( ".slidercontrol .value-tooltip > .tail {" ).AppendLine();
+						_pendingFlatRules.Append( "  background-color: " ).Append( p.SliderTooltipBgColor ).AppendLine( ";" );
+						_pendingFlatRules.AppendLine( "}" );
+					}
+
+					// Hide the whole tooltip when the author chose to suppress it.
+					if ( !p.SliderShowValue )
+					{
+						_pendingFlatRules.Append( "." ).Append( sliderRootClass ).Append( ".slidercontrol .value-tooltip {" ).AppendLine();
+						_pendingFlatRules.AppendLine( "  display: none;" );
+						_pendingFlatRules.AppendLine( "}" );
+					}
 				}
 				break;
 
