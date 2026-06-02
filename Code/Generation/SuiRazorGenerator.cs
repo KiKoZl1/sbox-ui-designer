@@ -728,10 +728,14 @@ public sealed class SuiRazorGenerator
 				// so the slider opens at the position the user set, not at 0.
 				if ( p != null )
 					_sb.Append( " Value=\"@(" ).Append( p.SliderValue.ToString( "0.###", inv ) ).Append( "f)\"" );
-				// Engine default ShowValueTooltip is true — only override when
-				// the user explicitly toggled it off.
-				if ( p != null && !p.SliderShowValue )
-					_sb.Append( " ShowValueTooltip=\"@false\"" );
+				// Always emit ShowValueTooltip explicitly so the engine
+				// default (true) doesn't override our intent. Default in
+				// SuiElementProps is false, so the tooltip is hidden unless
+				// the author opts in via "Show Value Tooltip" in the
+				// inspector.
+				_sb.Append( " ShowValueTooltip=\"@" );
+				_sb.Append( p?.SliderShowValue == true ? "true" : "false" );
+				_sb.Append( "\"" );
 				break;
 
 			case SuiElementType.Toggle:

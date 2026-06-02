@@ -124,6 +124,37 @@ public sealed class SuiElementProps
 	public string PreviewIconPath { get; set; }
 	public int PreviewCount { get; set; } = 0;
 
+	// ---------- V1.5 M4 — Input widgets (PRD 21) ----------
+
+	// TextEntry
+	public string PlaceholderText { get; set; } = "";
+	public int MaxLength { get; set; } = 0;          // 0 = unbounded
+	public bool ReadOnly { get; set; } = false;
+	public string PreviewValue { get; set; } = "";   // Design-time preview text
+
+	// Slider — backed by Sandbox.UI.SliderControl. No orientation property on
+	// the engine type; SuiSliderOrientation is kept for future Vertical support
+	// but currently emitted as horizontal-only (PRD 21 § 11 #2).
+	public float SliderMin { get; set; } = 0f;
+	public float SliderMax { get; set; } = 100f;
+	public float SliderStep { get; set; } = 1f;
+	public SuiSliderOrientation SliderOrientation { get; set; } = SuiSliderOrientation.Horizontal;
+	public string SliderTrackColor { get; set; } = "#22222288";
+	public string SliderFillColor { get; set; } = "#4ade80";
+	public string SliderHandleColor { get; set; } = "#ffffff";
+	public bool SliderShowValue { get; set; } = false;
+	public float SliderValue { get; set; } = 50f;    // Design-time preview position
+	public string SliderTooltipBgColor { get; set; } = "#000000";
+	public string SliderTooltipTextColor { get; set; } = "#ffffff";
+
+	// Toggle — backed by Sandbox.UI.Checkbox.
+	public bool ToggleChecked { get; set; } = false;
+	public string ToggleLabelText { get; set; } = "";
+
+	// DropDown — backed by Sandbox.UI.DropDown.
+	public System.Collections.Generic.List<string> DropDownOptions { get; set; } = new();
+	public int DropDownSelectedIndex { get; set; } = 0;  // Design-time preview which option is selected
+
 	public SuiElementProps Clone() => new()
 	{
 		Text = Text,
@@ -170,6 +201,26 @@ public sealed class SuiElementProps
 		SlotIndex = SlotIndex,
 		PreviewIconPath = PreviewIconPath,
 		PreviewCount = PreviewCount,
+		// M4 input widgets
+		PlaceholderText = PlaceholderText,
+		MaxLength = MaxLength,
+		ReadOnly = ReadOnly,
+		PreviewValue = PreviewValue,
+		SliderMin = SliderMin,
+		SliderMax = SliderMax,
+		SliderStep = SliderStep,
+		SliderOrientation = SliderOrientation,
+		SliderTrackColor = SliderTrackColor,
+		SliderFillColor = SliderFillColor,
+		SliderHandleColor = SliderHandleColor,
+		SliderShowValue = SliderShowValue,
+		SliderValue = SliderValue,
+		SliderTooltipBgColor = SliderTooltipBgColor,
+		SliderTooltipTextColor = SliderTooltipTextColor,
+		ToggleChecked = ToggleChecked,
+		ToggleLabelText = ToggleLabelText,
+		DropDownOptions = new System.Collections.Generic.List<string>( DropDownOptions ?? new() ),
+		DropDownSelectedIndex = DropDownSelectedIndex,
 	};
 }
 
