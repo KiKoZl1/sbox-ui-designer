@@ -610,11 +610,13 @@ public sealed class SuiScssGenerator
 				//         <div class="track-active"/>
 				//         <div class="thumb"/>
 				// Defaults: track 7px gray, fill white, thumb 16x16 circle.
-				// We override per-color from SuiElementProps so the canvas
-				// preview matches the runtime visual exactly.
+				// Engine `.slidercontrol` ships with `flex-grow: 1` — that
+				// override blows through our authored Width when the parent
+				// is flex. Override back to 0 so the inspector Width sticks.
 				Emit( depth, "flex-direction", "row" );
 				Emit( depth, "align-items", "center" );
 				Emit( depth, "min-width", "50px" );
+				Emit( depth, "flex-grow", "0" );
 				var slInner = new string( ' ', depth * 2 );
 				_sb.Append( slInner ).AppendLine( "> .inner > .track {" );
 				if ( !string.IsNullOrEmpty( p.SliderTrackColor ) )
@@ -670,12 +672,23 @@ public sealed class SuiScssGenerator
 				//   <select class="dropdown button">
 				//     ...button internals...
 				//     <icon class="dropdown_indicator">expand_more</icon>
-				// We theme the button-text label + the right-aligned indicator.
+				// Engine `.dropdown` SCSS hard-codes `flex-grow: 1` and
+				// `.button-right-column { flex-grow: 1 }` — without overriding
+				// both, the authored Width is ignored and the control fills
+				// the flex parent (seen in the M4 smoke test as a stretched
+				// pill across the whole card width).
 				Emit( depth, "flex-direction", "row" );
 				Emit( depth, "align-items", "center" );
 				Emit( depth, "justify-content", "space-between" );
 				Emit( depth, "padding", "0 8px" );
+				Emit( depth, "flex-grow", "0" );
 				var ddInner = new string( ' ', depth * 2 );
+				// Inner column also flex-grows by engine default; cap it so
+				// the indicator stays right-aligned without forcing extra
+				// width onto the dropdown.
+				_sb.Append( ddInner ).AppendLine( "> .button-right-column {" );
+				Emit( depth + 1, "flex-grow", "0" );
+				_sb.Append( ddInner ).AppendLine( "}" );
 				_sb.Append( ddInner ).AppendLine( "> .button-right-column .button-text {" );
 				if ( p.FontSize > 0f ) Emit( depth + 1, "font-size", Px( p.FontSize ) );
 				if ( !string.IsNullOrEmpty( p.Color ) ) Emit( depth + 1, "color", p.Color );
