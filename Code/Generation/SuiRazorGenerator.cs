@@ -734,10 +734,10 @@ public sealed class SuiRazorGenerator
 			body.AppendLine( "\t{" );
 			body.Append( "\t\tvar track = " ).Append( fieldName ).AppendLine( "_TrackPanel;" );
 			body.AppendLine( "\t\tif ( track == null || !track.IsValid() ) return;" );
-			body.AppendLine( "\t\tvar normalized = global::MathX.LerpInverse( mouseScreenX, track.Box.Left, track.Box.Right, true );" );
-			body.Append( "\t\tvar v = global::MathX.LerpTo( " ).Append( minLit ).Append( "f, " ).Append( maxLit ).AppendLine( "f, normalized, true );" );
+			body.AppendLine( "\t\tvar normalized = global::Sandbox.MathX.LerpInverse( mouseScreenX, track.Box.Left, track.Box.Right, true );" );
+			body.Append( "\t\tvar v = global::Sandbox.MathX.LerpTo( " ).Append( minLit ).Append( "f, " ).Append( maxLit ).AppendLine( "f, normalized, true );" );
 			body.Append( "\t\tvar step = " ).Append( stepLit ).AppendLine( "f;" );
-			body.AppendLine( "\t\tif ( step > 0 ) v = v.SnapToGrid( step );" );
+			body.AppendLine( "\t\tif ( step > 0 ) v = global::System.MathF.Round( v / step ) * step;" );
 			body.Append( "\t\t" ).Append( fieldName ).AppendLine( " = v;" );
 			body.AppendLine( "\t\tStateHasChanged();" );
 			body.AppendLine( "\t}" );
