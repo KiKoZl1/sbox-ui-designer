@@ -808,18 +808,18 @@ public sealed class SuiCanvasRenderer
 		var p = el.Props;
 		if ( p == null ) return;
 
-		// Engine SliderControl defaults (sbox-public/Controls/SliderControl.razor.scss):
-		//   track height 7px, border-radius 4px, margin 8px
-		//   thumb 16x16 circular
-		var trackColor = ParseColor( p.SliderTrackColor ) ?? new Color( 0.53f, 0.53f, 0.53f );
-		var fillColor = ParseColor( p.SliderFillColor ) ?? Color.White;
+		// V1.5 M4 — Canvas mirrors our CUSTOM slider markup exactly (track
+		// 8px height, full-width inside the rect, fill + thumb on same line,
+		// tooltip pill above with author-controlled colors). No engine
+		// SliderControl involvement.
+		var trackColor = ParseColor( p.SliderTrackColor ) ?? new Color( 0.13f, 0.13f, 0.13f, 0.53f );
+		var fillColor = ParseColor( p.SliderFillColor ) ?? new Color( 0.29f, 0.87f, 0.5f );
 		var handleColor = ParseColor( p.SliderHandleColor ) ?? Color.White;
 
 		var midY = rect.Top + rect.Height * 0.5f;
-		const float TrackH = 7f;
-		const float TrackPad = 8f;          // engine .track margin
+		const float TrackH = 8f;
 		const float ThumbSize = 16f;
-		var trackRect = new Rect( rect.Left + TrackPad, midY - TrackH * 0.5f, MathF.Max( 0, rect.Width - TrackPad * 2 ), TrackH );
+		var trackRect = new Rect( rect.Left, midY - TrackH * 0.5f, rect.Width, TrackH );
 
 		Editor.Paint.SetBrush( trackColor.WithAlpha( trackColor.a * opacity ) );
 		Editor.Paint.ClearPen();
