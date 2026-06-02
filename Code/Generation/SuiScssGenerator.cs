@@ -712,15 +712,15 @@ public sealed class SuiScssGenerator
 				_sb.Append( slInner ).AppendLine( "}" );
 				// Value tooltip pill — engine renders `<label>@Value</label>`
 				// inside `<div class="value-tooltip">` when ShowValueTooltip is
-				// true. The author controls both the bg/text color via props
-				// SliderTooltipBgColor + SliderTooltipTextColor — that gives
-				// full styling control (the engine defaults to black-on-no-
-				// color which can render invisible depending on cascade).
-				// Force `display: none` on the whole tooltip wrapper when the
-				// author chose to hide it (Razor `ShowValueTooltip="@false"`
-				// gates the markup too, but the SCSS override is a defensive
-				// belt-and-braces).
-				_sb.Append( slInner ).AppendLine( ".value-tooltip > .label, .value-tooltip label {" );
+				// true. Engine SCSS sets the `.label` background to black but
+				// our element has BOTH `.slidercontrol` (engine-injected) and
+				// `.sui-el-X` classes on the root. By chaining them in the
+				// selector we raise specificity from (0,0,3,0) to (0,0,4,0)
+				// and force-win against engine's `.slidercontrol .value-tooltip
+				// > .label`. Mirror the tag-selector form for the `<label>`
+				// case where the engine markup may or may not have a class.
+				var slClass = SuiRazorGenerator.ElementUniqueClass( el );
+				_sb.Append( slInner ).Append( "&.slidercontrol .value-tooltip > .label, &.slidercontrol .value-tooltip label {" ).AppendLine();
 				if ( !string.IsNullOrEmpty( p.SliderTooltipBgColor ) )
 					Emit( depth + 1, "background-color", p.SliderTooltipBgColor );
 				if ( !string.IsNullOrEmpty( p.SliderTooltipTextColor ) )
@@ -728,13 +728,13 @@ public sealed class SuiScssGenerator
 				Emit( depth + 1, "font-size", "12px" );
 				Emit( depth + 1, "padding", "4px 8px" );
 				_sb.Append( slInner ).AppendLine( "}" );
-				_sb.Append( slInner ).AppendLine( ".value-tooltip > .tail {" );
+				_sb.Append( slInner ).AppendLine( "&.slidercontrol .value-tooltip > .tail {" );
 				if ( !string.IsNullOrEmpty( p.SliderTooltipBgColor ) )
 					Emit( depth + 1, "background-color", p.SliderTooltipBgColor );
 				_sb.Append( slInner ).AppendLine( "}" );
 				if ( !p.SliderShowValue )
 				{
-					_sb.Append( slInner ).AppendLine( ".value-tooltip {" );
+					_sb.Append( slInner ).AppendLine( "&.slidercontrol .value-tooltip {" );
 					Emit( depth + 1, "display", "none" );
 					_sb.Append( slInner ).AppendLine( "}" );
 				}

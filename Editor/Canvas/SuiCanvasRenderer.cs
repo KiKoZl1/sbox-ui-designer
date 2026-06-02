@@ -838,17 +838,33 @@ public sealed class SuiCanvasRenderer
 		Editor.Paint.SetBrush( handleColor.WithAlpha( handleColor.a * opacity ) );
 		DrawRect( thumbRect, ThumbSize * 0.5f );
 
-		// Optional show-value tooltip above the thumb (engine renders this
-		// only while user actively drags — we always show it on canvas if
-		// SliderShowValue is true, so the author sees the styling preview).
+		// Tooltip preview — match the engine pill exactly so canvas == Play.
+		// Honors SliderTooltipBgColor / SliderTooltipTextColor; falls back
+		// to engine defaults (black bg + white text) when the author left
+		// the color fields empty.
 		if ( p.SliderShowValue )
 		{
-			var color = Color.White.WithAlpha( opacity );
-			Editor.Paint.SetFont( Theme.DefaultFont, 11, 400 );
-			Editor.Paint.SetPen( color );
+			var tipBg = ParseColor( p.SliderTooltipBgColor ) ?? Color.Black;
+			var tipFg = ParseColor( p.SliderTooltipTextColor ) ?? Color.White;
+			var label = p.SliderValue.ToString( "0.##" );
+
+			Editor.Paint.SetFont( Theme.DefaultFont, 12, 400 );
+			var textSize = Editor.Paint.MeasureText( new Rect( 0, 0, 9999, 9999 ), label, TextFlag.LeftTop );
+			const float padX = 8f, padY = 4f;
+			var pillW = textSize.Width + padX * 2;
+			var pillH = textSize.Height + padY * 2;
+			var pillTop = rect.Top - pillH - 6;       // 150% above thumb (~16*1.5 -> ~24, we use 6 + pillH gap)
+			var pillRect = new Rect( thumbCx - pillW * 0.5f, pillTop, pillW, pillH );
+
+			// Pill bg.
+			Editor.Paint.SetBrush( tipBg.WithAlpha( tipBg.a * opacity ) );
+			Editor.Paint.ClearPen();
+			DrawRect( pillRect, pillH * 0.4f );
+
+			// Pill text.
+			Editor.Paint.SetPen( tipFg.WithAlpha( tipFg.a * opacity ) );
 			Editor.Paint.ClearBrush();
-			var labelRect = new Rect( thumbCx - 30, rect.Top - 14, 60, 12 );
-			Editor.Paint.DrawText( labelRect, p.SliderValue.ToString( "0.##" ), TextFlag.Center );
+			Editor.Paint.DrawText( pillRect, label, TextFlag.Center );
 		}
 	}
 
