@@ -714,8 +714,13 @@ public sealed class SuiRazorGenerator
 				.Append( " { get; set; } = " ).Append( defaultLit ).AppendLine( "f;" );
 			body.Append( "\tprivate global::Sandbox.UI.Panel " ).Append( fieldName ).AppendLine( "_TrackPanel;" );
 			body.Append( "\tprivate bool " ).Append( fieldName ).AppendLine( "_Dragging;" );
-			body.Append( "\tprivate void " ).Append( fieldName ).AppendLine( "_OnTrackPress( global::Sandbox.UI.MousePanelEvent e )" );
+			// Engine invokes the handler with PanelEvent (base); cast to
+			// MousePanelEvent to read LocalPosition + Button. Without the
+			// cast, declaring the handler with MousePanelEvent directly
+			// fails CS1503 because the engine's delegate is PanelEvent-typed.
+			body.Append( "\tprivate void " ).Append( fieldName ).AppendLine( "_OnTrackPress( global::Sandbox.UI.PanelEvent baseEvent )" );
 			body.AppendLine( "\t{" );
+			body.AppendLine( "\t\tif ( baseEvent is not global::Sandbox.UI.MousePanelEvent e ) return;" );
 			body.AppendLine( "\t\tif ( e.Button != \"mouseleft\" ) return;" );
 			body.AppendLine( "\t\tif ( e.Target == null || !e.Target.IsValid() ) return;" );
 			body.Append( "\t\t" ).Append( fieldName ).AppendLine( "_TrackPanel = e.Target;" );
