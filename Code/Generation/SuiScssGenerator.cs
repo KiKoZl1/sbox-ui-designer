@@ -175,7 +175,7 @@ public sealed class SuiScssGenerator
 			}
 			else
 			{
-				EmitAnchorRules( depth, l );
+				EmitAnchorRules( depth, l, el );
 
 				// For Stretch anchors, Layout.Width / Layout.Height are MARGINS
 				// (right/bottom), not the element's box size — EmitAnchorRules
@@ -253,7 +253,46 @@ public sealed class SuiScssGenerator
 		EmitSpacing( depth, "padding", l.Padding );
 	}
 
+	/// <summary>
+	/// V1.5 M4 — element parent dimensions, when knowable from the document
+	/// (i.e. when the element is a direct child of the Canvas root). Returns
+	/// (parentWidth, parentHeight) or null when unknown (nested centered
+	/// elements). Caller uses this to pre-compute pixel-exact center
+	/// positions so the engine's Box.Rect == visual rect.
+	/// </summary>
+	private (float W, float H)? ResolveParentDimensions( SuiElement el )
+	{
+		if ( el == null || _doc == null ) return null;
+
+		// Direct Canvas child — parent dimensions are the canvas BaseWidth/Height.
+		if ( !string.IsNullOrEmpty( el.ParentId )
+			&& _byId.TryGetValue( el.ParentId, out var parent )
+			&& parent.Type == SuiElementType.Canvas )
+		{
+			var c = _doc.Canvas;
+			if ( c != null && c.BaseWidth > 0 && c.BaseHeight > 0 )
+				return (c.BaseWidth, c.BaseHeight);
+		}
+
+		// Nested under another fixed-size element (rare) — fall back to that
+		// element's Width/Height when set.
+		if ( !string.IsNullOrEmpty( el.ParentId )
+			&& _byId.TryGetValue( el.ParentId, out var parent2 )
+			&& parent2?.Layout != null
+			&& parent2.Layout.Width > 0 && parent2.Layout.Height > 0 )
+		{
+			return (parent2.Layout.Width, parent2.Layout.Height);
+		}
+
+		return null;
+	}
+
 	private void EmitAnchorRules( int depth, SuiLayoutData l )
+	{
+		EmitAnchorRules( depth, l, null );
+	}
+
+	private void EmitAnchorRules( int depth, SuiLayoutData l, SuiElement el )
 	{
 		// Note: PRD doc 08 lays out the canonical anchor → CSS mapping. For MVP
 		// we emit explicit left/top from x/y plus width/height. Right-anchored
@@ -281,62 +320,38 @@ public sealed class SuiScssGenerator
 				Emit( depth, "bottom", Px( l.Y ) );
 				break;
 
-			// V1.5 M4 — Center-based anchors use `margin: auto` instead of
-			// `transform: translate(-50%, -50%)`. The transform approach
-			// centered visually but the engine's Box.Rect is the LAYOUT
-			// position (transform-ignorant) — Popup / DropDown menu
-			// positioning relied on Box.Rect and ended up offset by
-			// half-width/half-height. The `margin: auto` flex centering
-			// keeps Box.Rect aligned with the visual position because the
-			// margin IS part of the layout box. Sandbox.UI's flexbox engine
-			// supports auto margins natively (per ui-anti-patterns reference).
+			// V1.5 M4 — Center anchors: compute exact pixel position from
+			// known parent dimensions when possible. Engine Box.Rect then
+			// equals visual rect (no transform involved), and popups /
+			// tooltips / drag-math that read Box.Rect work correctly.
 			//
-			// X/Y offsets shift the element away from the center via explicit
-			// margins on the relevant side.
+			// Fallback when parent dimensions are unknown (nested centered
+			// elements without explicit parent size): `transform: translate`
+			// to preserve visual centering. The popup-offset gap returns in
+			// this fallback case — documented as an edge-case limitation.
 			case SuiAnchor.TopCenter:
-				Emit( depth, "left", "0" );
-				Emit( depth, "right", "0" );
+				EmitCenterHorizontal( depth, l, el );
 				Emit( depth, "top", Px( l.Y ) );
-				Emit( depth, "margin-left", "auto" );
-				Emit( depth, "margin-right", "auto" );
-				if ( l.X != 0 ) Emit( depth, "transform", $"translateX({Px( l.X )})" );
 				break;
 
 			case SuiAnchor.BottomCenter:
-				Emit( depth, "left", "0" );
-				Emit( depth, "right", "0" );
+				EmitCenterHorizontal( depth, l, el );
 				Emit( depth, "bottom", Px( l.Y ) );
-				Emit( depth, "margin-left", "auto" );
-				Emit( depth, "margin-right", "auto" );
-				if ( l.X != 0 ) Emit( depth, "transform", $"translateX({Px( l.X )})" );
 				break;
 
 			case SuiAnchor.MiddleLeft:
 				Emit( depth, "left", Px( l.X ) );
-				Emit( depth, "top", "0" );
-				Emit( depth, "bottom", "0" );
-				Emit( depth, "margin-top", "auto" );
-				Emit( depth, "margin-bottom", "auto" );
-				if ( l.Y != 0 ) Emit( depth, "transform", $"translateY({Px( l.Y )})" );
+				EmitCenterVertical( depth, l, el );
 				break;
 
 			case SuiAnchor.MiddleRight:
 				Emit( depth, "right", Px( l.X ) );
-				Emit( depth, "top", "0" );
-				Emit( depth, "bottom", "0" );
-				Emit( depth, "margin-top", "auto" );
-				Emit( depth, "margin-bottom", "auto" );
-				if ( l.Y != 0 ) Emit( depth, "transform", $"translateY({Px( l.Y )})" );
+				EmitCenterVertical( depth, l, el );
 				break;
 
 			case SuiAnchor.MiddleCenter:
-				Emit( depth, "left", "0" );
-				Emit( depth, "right", "0" );
-				Emit( depth, "top", "0" );
-				Emit( depth, "bottom", "0" );
-				Emit( depth, "margin", "auto" );
-				if ( l.X != 0 || l.Y != 0 )
-					Emit( depth, "transform", $"translate({Px( l.X )}, {Px( l.Y )})" );
+				EmitCenterHorizontal( depth, l, el );
+				EmitCenterVertical( depth, l, el );
 				break;
 
 			case SuiAnchor.Stretch:
@@ -357,6 +372,45 @@ public sealed class SuiScssGenerator
 				Emit( depth, "bottom", "0" );
 				Emit( depth, "left", Px( l.X ) );
 				break;
+		}
+	}
+
+	/// <summary>
+	/// V1.5 M4 — emit horizontal centering. Pixel math when parent
+	/// dimensions known (engine Box.Rect = visual rect → popups correct);
+	/// transform fallback when unknown (popup offset gap returns).
+	/// </summary>
+	private void EmitCenterHorizontal( int depth, SuiLayoutData l, SuiElement el )
+	{
+		var parent = ResolveParentDimensions( el );
+		if ( parent.HasValue && l.Width > 0 )
+		{
+			var leftPx = (parent.Value.W - l.Width) * 0.5f + l.X;
+			Emit( depth, "left", Px( leftPx ) );
+		}
+		else
+		{
+			Emit( depth, "left", "50%" );
+			Emit( depth, "transform", $"translateX(-50%) translateX({Px( l.X )})" );
+		}
+	}
+
+	private void EmitCenterVertical( int depth, SuiLayoutData l, SuiElement el )
+	{
+		var parent = ResolveParentDimensions( el );
+		if ( parent.HasValue && l.Height > 0 )
+		{
+			var topPx = (parent.Value.H - l.Height) * 0.5f + l.Y;
+			Emit( depth, "top", Px( topPx ) );
+		}
+		else
+		{
+			// Compose with any existing transform from EmitCenterHorizontal.
+			// If both fallbacks fire (MiddleCenter without parent dims),
+			// we'd write 2 `transform` rules — the later one wins. So we
+			// merge here when both axes are unknown.
+			Emit( depth, "top", "50%" );
+			Emit( depth, "transform", $"translate(-50%, -50%) translate({Px( l.X )}, {Px( l.Y )})" );
 		}
 	}
 
