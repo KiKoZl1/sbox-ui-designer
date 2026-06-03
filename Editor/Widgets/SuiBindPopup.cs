@@ -291,6 +291,29 @@ public sealed class SuiBindPopup : Window
 
 		row.Layout.AddStretchCell();
 
+		// Issue #12 — step reordering. Up/Down swap with the neighbouring step.
+		// Disabled buttons (faded) at the ends communicate "no neighbour" without
+		// hiding the control set jumping around as the user rearranges.
+		var upBtn = new Button( "", "keyboard_arrow_up", row );
+		upBtn.FixedWidth = 18;
+		upBtn.FixedHeight = 22;
+		upBtn.Enabled = stepIndex > 0;
+		upBtn.SetStyles( upBtn.Enabled
+			? "background-color: transparent; border: none; color: #9ca3af;"
+			: "background-color: transparent; border: none; color: #374151;" );
+		upBtn.Clicked = () => SwapSteps( stepIndex, stepIndex - 1 );
+		row.Layout.Add( upBtn );
+
+		var downBtn = new Button( "", "keyboard_arrow_down", row );
+		downBtn.FixedWidth = 18;
+		downBtn.FixedHeight = 22;
+		downBtn.Enabled = stepIndex < _converterSteps.Count - 1;
+		downBtn.SetStyles( downBtn.Enabled
+			? "background-color: transparent; border: none; color: #9ca3af;"
+			: "background-color: transparent; border: none; color: #374151;" );
+		downBtn.Clicked = () => SwapSteps( stepIndex, stepIndex + 1 );
+		row.Layout.Add( downBtn );
+
 		var rmBtn = new Button( "", "close", row );
 		rmBtn.FixedWidth = 22;
 		rmBtn.FixedHeight = 22;
@@ -305,6 +328,17 @@ public sealed class SuiBindPopup : Window
 		row.Layout.Add( rmBtn );
 
 		return row;
+	}
+
+	private void SwapSteps( int a, int b )
+	{
+		if ( _converterSteps == null ) return;
+		if ( a < 0 || b < 0 || a >= _converterSteps.Count || b >= _converterSteps.Count ) return;
+		if ( a == b ) return;
+		(_converterSteps[a], _converterSteps[b]) = (_converterSteps[b], _converterSteps[a]);
+		FixChainRefsAfterMutation();
+		RebuildChainUI();
+		UpdateExpectsLabel();
 	}
 
 	private string ArgButtonText( SuiConverterArg arg, string paramName )
