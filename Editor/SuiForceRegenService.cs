@@ -133,7 +133,7 @@ public static class SuiForceRegenService
 	// ─────────────────────────────────────────────────────────────────────
 
 	private static void MigrateAndRecompileOne(
-		string fullPath, string rel, Func<string, string> resolver,
+		string fullPath, string rel, Func<string, SuiReferenceTarget> resolver,
 		RegenReport report, int index, int total )
 	{
 		// Inspect raw schema version BEFORE load so we can report what changed.
