@@ -847,9 +847,10 @@ public sealed class SuiCanvasRenderer
 			var tipFg = ParseColor( p.SliderTooltipTextColor ) ?? Color.White;
 			var label = p.SliderValue.ToString( "0.##" );
 
-			Editor.Paint.SetFont( Theme.DefaultFont, 12, 400 );
+			// Match SCSS: font-size: 14px; padding: 6px 12px; border-radius: 8px.
+			Editor.Paint.SetFont( Theme.DefaultFont, 14, 400 );
 			var textSize = Editor.Paint.MeasureText( new Rect( 0, 0, 9999, 9999 ), label, TextFlag.LeftTop );
-			const float padX = 8f, padY = 4f;
+			const float padX = 12f, padY = 6f;
 			var pillW = textSize.Width + padX * 2;
 			var pillH = textSize.Height + padY * 2;
 			var pillTop = rect.Top - pillH - 6;
@@ -857,7 +858,7 @@ public sealed class SuiCanvasRenderer
 
 			Editor.Paint.SetBrush( tipBg.WithAlpha( tipBg.a * opacity ) );
 			Editor.Paint.ClearPen();
-			DrawRect( pillRect, pillH * 0.4f );
+			DrawRect( pillRect, 8f );
 
 			Editor.Paint.SetPen( tipFg.WithAlpha( tipFg.a * opacity ) );
 			Editor.Paint.ClearBrush();

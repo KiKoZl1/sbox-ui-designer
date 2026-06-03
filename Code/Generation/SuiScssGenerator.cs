@@ -682,21 +682,34 @@ public sealed class SuiScssGenerator
 				break;
 
 			case SuiElementType.Slider:
-				// V1.5 M4 — Custom slider. EVERYTHING absolute-positioned so
-				// Sandbox.UI's flex quirks can't make track / fill / thumb
-				// collapse to zero. The wrapper is the positioning context.
+				// V1.5 M4 — Mirrors engine SliderControl 1:1 in STRUCTURE AND
+				// SELECTOR FORM. Critical: Sandbox.UI's CSS parser does NOT
+				// honor `> A > B > C` chains (verified against engine which
+				// uses descendant combinator `.slidercontrol .value-tooltip`
+				// + single-level `> .label` — never chains `>` more than once).
+				// So: 1-level `>` from wrapper to track; descendant (space) for
+				// fill / thumb / tooltip; single-level `>` from tooltip to its
+				// label/tail. Anything deeper silently fails to apply.
+				//
+				// Wrapper `flex-grow: 0` is INTENTIONAL — engine uses 1 because
+				// it expects the slider to sit in a flex ROW container; our
+				// authored cards are flex COLUMN so flex-grow: 1 would make
+				// the wrapper absorb all remaining vertical space and push
+				// every sibling apart. The track inside still has flex-grow: 1
+				// (row context) so it stretches horizontally as expected.
 				Emit( depth, "position", "relative" );
-				Emit( depth, "min-width", "50px" );
+				Emit( depth, "flex-direction", "row" );
+				Emit( depth, "align-items", "center" );
 				Emit( depth, "flex-grow", "0" );
+				Emit( depth, "min-width", "50px" );
 				var slInner = new string( ' ', depth * 2 );
 
-				// Track — vertically centered in the wrapper, full wrapper width.
+				// Track — RELATIVE (engine .track). Grows to fill wrapper width.
 				_sb.Append( slInner ).AppendLine( "> .sui-slider-track {" );
-				Emit( depth + 1, "position", "absolute" );
-				Emit( depth + 1, "left", "0" );
-				Emit( depth + 1, "right", "0" );
-				Emit( depth + 1, "top", "50%" );
-				Emit( depth + 1, "transform", "translateY(-50%)" );
+				Emit( depth + 1, "position", "relative" );
+				Emit( depth + 1, "flex-grow", "1" );
+				Emit( depth + 1, "flex-direction", "row" );
+				Emit( depth + 1, "align-items", "center" );
 				Emit( depth + 1, "height", "8px" );
 				Emit( depth + 1, "border-radius", "4px" );
 				if ( !string.IsNullOrEmpty( p.SliderTrackColor ) )
@@ -705,57 +718,58 @@ public sealed class SuiScssGenerator
 				Emit( depth + 1, "pointer-events", "all" );
 				_sb.Append( slInner ).AppendLine( "}" );
 
-				// Fill — absolute inside track. Inline width: N%.
-				_sb.Append( slInner ).AppendLine( "> .sui-slider-track > .sui-slider-fill {" );
+				// Fill — descendant (engine pattern `.slidercontrol .track-active`
+				// uses descendant; deeper `> > >` chains don't parse).
+				_sb.Append( slInner ).AppendLine( ".sui-slider-fill {" );
 				Emit( depth + 1, "position", "absolute" );
 				Emit( depth + 1, "left", "0" );
 				Emit( depth + 1, "top", "0" );
-				Emit( depth + 1, "bottom", "0" );
+				Emit( depth + 1, "height", "100%" );
 				Emit( depth + 1, "border-radius", "4px" );
 				if ( !string.IsNullOrEmpty( p.SliderFillColor ) )
 					Emit( depth + 1, "background-color", p.SliderFillColor );
 				Emit( depth + 1, "pointer-events", "none" );
 				_sb.Append( slInner ).AppendLine( "}" );
 
-				// Thumb — absolute centered on the track's vertical midline.
-				_sb.Append( slInner ).AppendLine( "> .sui-slider-track > .sui-slider-thumb {" );
-				Emit( depth + 1, "position", "absolute" );
-				Emit( depth + 1, "top", "50%" );
+				// Thumb — RELATIVE (engine .thumb). transform centers it on the
+				// `left: N%` offset point.
+				_sb.Append( slInner ).AppendLine( ".sui-slider-thumb {" );
+				Emit( depth + 1, "position", "relative" );
 				Emit( depth + 1, "width", "16px" );
 				Emit( depth + 1, "height", "16px" );
-				Emit( depth + 1, "border-radius", "50%" );
-				Emit( depth + 1, "transform", "translate(-50%, -50%)" );
+				Emit( depth + 1, "border-radius", "100px" );
+				Emit( depth + 1, "transform", "translateX(-50%)" );
 				if ( !string.IsNullOrEmpty( p.SliderHandleColor ) )
 					Emit( depth + 1, "background-color", p.SliderHandleColor );
 				Emit( depth + 1, "pointer-events", "none" );
 				_sb.Append( slInner ).AppendLine( "}" );
 
-				// Tooltip pill — absolute above the track.
-				_sb.Append( slInner ).AppendLine( "> .sui-slider-track > .sui-slider-tooltip {" );
+				// Tooltip pill — descendant, then 1-level `>` to label/tail.
+				_sb.Append( slInner ).AppendLine( ".sui-slider-tooltip {" );
 				Emit( depth + 1, "position", "absolute" );
-				Emit( depth + 1, "bottom", "100%" );
-				Emit( depth + 1, "margin-bottom", "8px" );
+				Emit( depth + 1, "bottom", "150%" );
 				Emit( depth + 1, "transform", "translateX(-50%)" );
 				Emit( depth + 1, "flex-direction", "column" );
 				Emit( depth + 1, "align-items", "center" );
 				Emit( depth + 1, "z-index", "10" );
 				Emit( depth + 1, "pointer-events", "none" );
 				_sb.Append( slInner ).AppendLine( "}" );
-				_sb.Append( slInner ).AppendLine( "> .sui-slider-track > .sui-slider-tooltip > label {" );
+				// Label gets an EXPLICIT class — tag-selector `> label` is less
+				// reliable across Sandbox.UI builds; engine SliderControl
+				// targets via the implicit `.label` class only because its
+				// markup uses `<label>` and Sandbox auto-assigns the tag as a
+				// class. We bypass the ambiguity with our own class.
+				_sb.Append( slInner ).AppendLine( ".sui-slider-tooltip-label {" );
 				if ( !string.IsNullOrEmpty( p.SliderTooltipBgColor ) )
 					Emit( depth + 1, "background-color", p.SliderTooltipBgColor );
 				if ( !string.IsNullOrEmpty( p.SliderTooltipTextColor ) )
 					Emit( depth + 1, "color", p.SliderTooltipTextColor );
-				Emit( depth + 1, "padding", "4px 8px" );
-				Emit( depth + 1, "border-radius", "6px" );
-				Emit( depth + 1, "font-size", "12px" );
-				_sb.Append( slInner ).AppendLine( "}" );
-				_sb.Append( slInner ).AppendLine( "> .sui-slider-track > .sui-slider-tooltip > .sui-slider-tooltip-tail {" );
-				Emit( depth + 1, "width", "8px" );
-				Emit( depth + 1, "height", "8px" );
-				if ( !string.IsNullOrEmpty( p.SliderTooltipBgColor ) )
-					Emit( depth + 1, "background-color", p.SliderTooltipBgColor );
-				Emit( depth + 1, "transform", "rotateZ(45deg) translateY(-4px)" );
+				Emit( depth + 1, "padding-top", "6px" );
+				Emit( depth + 1, "padding-right", "12px" );
+				Emit( depth + 1, "padding-bottom", "6px" );
+				Emit( depth + 1, "padding-left", "12px" );
+				Emit( depth + 1, "border-radius", "8px" );
+				Emit( depth + 1, "font-size", "14px" );
 				_sb.Append( slInner ).AppendLine( "}" );
 				break;
 

@@ -117,6 +117,12 @@ public sealed class SuiElement
 			SuiElementType.Button => SuiPointerEvents.All,
 			SuiElementType.InventorySlot => SuiPointerEvents.All,
 			SuiElementType.ScrollPanel => SuiPointerEvents.All,
+			// V1.5 M4 — input widgets need pointer events to receive
+			// focus/click/scroll. PRD 21 § 3.
+			SuiElementType.TextEntry => SuiPointerEvents.All,
+			SuiElementType.Slider => SuiPointerEvents.All,
+			SuiElementType.Toggle => SuiPointerEvents.All,
+			SuiElementType.DropDown => SuiPointerEvents.All,
 			_ => SuiPointerEvents.None,
 		};
 
@@ -174,6 +180,28 @@ public sealed class SuiElement
 				break;
 			case SuiElementType.Button:
 				if ( string.IsNullOrEmpty( Props.ButtonText ) ) Props.ButtonText = "Button";
+				break;
+
+			// V1.5 M4 — input widget defaults (PRD 21). Sensible starting
+			// dimensions so newly-dragged widgets are visible on the canvas.
+			case SuiElementType.TextEntry:
+				if ( Layout.Width <= 0 ) Layout.Width = 200;
+				if ( Layout.Height <= 0 ) Layout.Height = 32;
+				if ( string.IsNullOrEmpty( Props.PlaceholderText ) ) Props.PlaceholderText = "Type here...";
+				break;
+			case SuiElementType.Slider:
+				if ( Layout.Width <= 0 ) Layout.Width = 200;
+				if ( Layout.Height <= 0 ) Layout.Height = 24;
+				break;
+			case SuiElementType.Toggle:
+				if ( Layout.Width <= 0 ) Layout.Width = 24;
+				if ( Layout.Height <= 0 ) Layout.Height = 24;
+				break;
+			case SuiElementType.DropDown:
+				if ( Layout.Width <= 0 ) Layout.Width = 200;
+				if ( Layout.Height <= 0 ) Layout.Height = 32;
+				if ( Props.DropDownOptions == null || Props.DropDownOptions.Count == 0 )
+					Props.DropDownOptions = new System.Collections.Generic.List<string> { "Option 1", "Option 2", "Option 3" };
 				break;
 		}
 	}

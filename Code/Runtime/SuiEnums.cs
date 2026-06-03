@@ -27,6 +27,23 @@ public enum SuiElementType
 	// V1.5 additions:
 	/// <summary>Embeds another <c>.sui</c> document by GUID. PRD 19.</summary>
 	SuiReference,
+
+	// V1.5 M4 — Input widgets (PRD 21):
+	/// <summary>Text input. Backed by Sandbox.UI.TextEntry.</summary>
+	TextEntry,
+	/// <summary>Horizontal slider. Backed by Sandbox.UI.SliderControl.</summary>
+	Slider,
+	/// <summary>Boolean checkbox/toggle. Backed by Sandbox.UI.Checkbox.</summary>
+	Toggle,
+	/// <summary>Selection dropdown. Backed by Sandbox.UI.DropDown.</summary>
+	DropDown,
+}
+
+/// <summary>V1.5 M4 — placeholder for future widget orientation expansion. Currently Slider is horizontal-only.</summary>
+public enum SuiSliderOrientation
+{
+	Horizontal,
+	Vertical,
 }
 
 /// <summary>

@@ -101,6 +101,14 @@ public class SuiPaletteWidget : Widget
 			SuiElementType.Overlay,
 		}, separatorBefore: true );
 
+		AddCategory( "INPUT", new[]
+		{
+			SuiElementType.TextEntry,
+			SuiElementType.Slider,
+			SuiElementType.Toggle,
+			SuiElementType.DropDown,
+		}, separatorBefore: true );
+
 		AddCategory( "GAME UI (V1)", new[]
 		{
 			SuiElementType.ProgressBar,
