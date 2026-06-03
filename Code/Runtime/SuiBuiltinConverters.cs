@@ -234,8 +234,13 @@ public static class SuiBuiltinConverters
 
 	// ──────────────────────────────── Color ───────────────────────────────
 
-	[SuiConverter( "MakeColor", Category = "Color", Description = "Build a Color from r, g, b, a (0..1)" )]
-	public static Color MakeColor( float r, float g, float b, float a ) => new Color( r, g, b, a );
+	[SuiConverter( "MakeColor", Category = "Color", Description = "Build a Color from r, g, b, a (each clamped to 0..1)" )]
+	public static Color MakeColor( float r, float g, float b, float a )
+		=> new Color(
+			Math.Clamp( r, 0f, 1f ),
+			Math.Clamp( g, 0f, 1f ),
+			Math.Clamp( b, 0f, 1f ),
+			Math.Clamp( a, 0f, 1f ) );
 
 	[SuiConverter( "ColorFromHex", Category = "Color", Description = "Parse a hex string into a Color" )]
 	public static Color ColorFromHex( string hex )

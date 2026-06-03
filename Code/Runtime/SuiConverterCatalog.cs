@@ -191,7 +191,7 @@ public static class SuiConverterCatalog
 		C( "Split", "String", "Split s on every occurrence of delimiter", "String[]", ("s", "String", false), ("delimiter", "String", false) );
 
 		// ── Color ──
-		C( "MakeColor", "Color", "Build a Color from r, g, b, a (0..1)", "Color", ("r", "Single", false), ("g", "Single", false), ("b", "Single", false), ("a", "Single", false) );
+		C( "MakeColor", "Color", "Build a Color from r, g, b, a (each clamped to 0..1)", "Color", ("r", "Single", false), ("g", "Single", false), ("b", "Single", false), ("a", "Single", false) );
 		C( "ColorFromHex", "Color", "Parse a hex string into a Color", "Color", ("hex", "String", false) );
 		C( "ColorLerp", "Color", "Linear interpolation between two colors", "Color", ("a", "Color", false), ("b", "Color", false), ("t", "Single", false) );
 		C( "WithAlpha", "Color", "Color c with its alpha replaced", "Color", ("c", "Color", false), ("a", "Single", false) );
