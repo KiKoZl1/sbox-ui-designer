@@ -19,7 +19,13 @@ public sealed class SuiPreviewMount : Component
 
 	private GameObject _panelHost;
 
-	protected override void OnAwake()
+	// OnStart fires AFTER Play begins (whereas OnAwake fires at scene load,
+	// which is editor mode when the launcher opens the scene — at that point
+	// Components.Create doesn't drive OnEnabled synchronously, so the host's
+	// Panel field stays null). Switch entry hook so the mount logic runs in
+	// real Play-mode lifecycle. Matches V1.0 behaviour where the launcher
+	// flow happened to align with Play timing.
+	protected override void OnStart()
 	{
 		var fqn = SuiPreviewState.PendingTypeFullName;
 		if ( string.IsNullOrEmpty( fqn ) )
