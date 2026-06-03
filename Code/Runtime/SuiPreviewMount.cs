@@ -59,19 +59,19 @@ public sealed class SuiPreviewMount : Component
 			return;
 		}
 
-		// V1.5-M2-K7 (commit 7330416) — Panel subclasses generated from .razor
-		// only run their BuildRenderTree (which populates children from the
-		// <root> markup) when constructed via the Sandbox.UI factory path:
-		// AddChild<T>() / Add.Panel<T>(). Plain `new T()` or `typeDesc.Create`
-		// instantiates the Panel object but the template body stays empty.
-		// We don't have T at compile time here, so we call the non-generic
-		// AddChild(Type) overload which the engine threads to the same factory.
-		var renderedPanel = hostComponent.Panel.AddChild( typeDesc.TargetType ) as Panel;
-		if ( renderedPanel == null )
+		// V1.5-M2-K7 — generated class is a Panel subclass. We don't know T
+		// at compile time so we go through TypeLibrary's typeDesc.Create.
+		// Same pattern the editor-side SuiPreviewHost uses (which works for
+		// the Preview tab); BuildRenderTree fires when the Panel is attached
+		// to a live parent via AddChild.
+		var instance = typeDesc.Create<object>();
+		if ( instance is not Panel renderedPanel )
 		{
-			Log.Warning( $"[SuiPreviewMount] AddChild('{typeDesc.TargetType.FullName}') did not return a Panel — generated class shape mismatch." );
+			Log.Warning( $"[SuiPreviewMount] '{fqn}' is not a Panel (got {instance?.GetType().FullName ?? "null"}). Compile shape mismatch." );
 			return;
 		}
+
+		hostComponent.Panel.AddChild( renderedPanel );
 
 		MountedFqn = fqn;
 		Log.Info( $"[SuiPreviewMount] Mounted Panel '{fqn}' inside SuiHostPanelComponent." );
