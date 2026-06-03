@@ -1,5 +1,4 @@
-using System;
-using System.Reflection;
+using System.Threading.Tasks;
 using Sandbox;
 using Sandbox.UI;
 
@@ -22,6 +21,15 @@ public sealed class SuiPreviewMount : Component
 	private GameObject _panelHost;
 
 	protected override void OnAwake()
+	{
+		// Defer to a Task so we can await Task.Frame() and let the host
+		// component's OnEnabled fire naturally — Sandbox blocks reflection
+		// in the runtime whitelist, so we can't force-invoke OnEnabledInternal
+		// the way the editor-side SuiPreviewHost does.
+		_ = MountAsync();
+	}
+
+	private async Task MountAsync()
 	{
 		var fqn = SuiPreviewState.PendingTypeFullName;
 		if ( string.IsNullOrEmpty( fqn ) )
@@ -52,16 +60,19 @@ public sealed class SuiPreviewMount : Component
 			return;
 		}
 
-		// V1.5-M4 — `Components.Create` doesn't always fire OnEnabledInternal
-		// synchronously even in Play mode, so the host's `Panel` field can
-		// still be null when we check it. Force the lifecycle via reflection
-		// (same workaround SuiPreviewHost uses for editor scenes; harmless to
-		// call when OnEnabled has already fired).
-		TryInvokeLifecycle( hostComponent, "OnEnabledInternal" );
+		// V1.5-M4 — wait up to ~10 frames for the host's OnEnabled to fire.
+		// Components.Create returns synchronously but the engine's lifecycle
+		// chain (OnAwake → OnEnabled → EnsurePanelCreated) can take 1-2 frames
+		// to complete. Don't busy-loop forever — bail with a warning if Panel
+		// stays null past 10 frames (engine API regression).
+		for ( int i = 0; i < 10 && hostComponent.Panel == null; i++ )
+			await Task.Frame();
+
+		if ( !this.IsValid() || !hostComponent.IsValid() ) return;
 
 		if ( hostComponent.Panel == null )
 		{
-			Log.Warning( "[SuiPreviewMount] SuiHostPanelComponent.Panel still null after OnEnabledInternal invoke — engine API may have changed." );
+			Log.Warning( "[SuiPreviewMount] SuiHostPanelComponent.Panel still null after 10 frames — engine lifecycle may have changed." );
 			return;
 		}
 
@@ -80,37 +91,5 @@ public sealed class SuiPreviewMount : Component
 		// Clear so a future Play that wasn't initiated by the launcher doesn't
 		// silently reuse a stale FQN.
 		SuiPreviewState.Clear();
-	}
-
-	/// <summary>
-	/// Force-invoke a lifecycle method via reflection. Mirrors the editor-side
-	/// SuiPreviewHost helper. Safe no-op when the method has already fired —
-	/// PanelComponent's EnsurePanelCreated is idempotent.
-	/// </summary>
-	private static void TryInvokeLifecycle( Component target, string methodName )
-	{
-		if ( target == null ) return;
-		var bf = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
-		var type = target.GetType();
-		MethodInfo m = null;
-		while ( type != null )
-		{
-			m = type.GetMethod( methodName, bf | BindingFlags.DeclaredOnly );
-			if ( m != null ) break;
-			type = type.BaseType;
-		}
-		if ( m == null )
-		{
-			Log.Warning( $"[SuiPreviewMount] {target.GetType().Name}.{methodName} not found via reflection." );
-			return;
-		}
-		try
-		{
-			m.Invoke( target, null );
-		}
-		catch ( Exception ex )
-		{
-			Log.Warning( $"[SuiPreviewMount] {target.GetType().Name}.{methodName} threw: {ex.InnerException?.Message ?? ex.Message}" );
-		}
 	}
 }
