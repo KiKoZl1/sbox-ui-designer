@@ -150,6 +150,14 @@ public static class GameConverters
 			parameters.Append( MapTypeRef( config.Inputs[i].type ) );
 			parameters.Append( ' ' );
 			parameters.Append( config.Inputs[i].name );
+			// Issue #14 — emit the C# default if the user opted in. The literal
+			// is passed through verbatim so users can write '0', '"x"', 'true',
+			// or expression-level defaults like 'FloatToIntMode.Round'.
+			if ( config.Inputs[i].hasDefault && !string.IsNullOrEmpty( config.Inputs[i].defaultLiteral ) )
+			{
+				parameters.Append( " = " );
+				parameters.Append( config.Inputs[i].defaultLiteral );
+			}
 		}
 
 		var displayName = EscapeStringLiteral( config.Name );

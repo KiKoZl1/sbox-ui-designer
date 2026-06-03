@@ -18,12 +18,15 @@ namespace SboxUiDesigner.EditorUi.Widgets;
 /// </summary>
 public sealed class SuiCustomConverterDialog : Window
 {
+	/// <summary>One declared parameter — name, type, and optional C# default value (#14).</summary>
+	public sealed record InputSpec( string name, string type, bool hasDefault, string defaultLiteral );
+
 	/// <summary>Result of a successful dialog — the spec the scaffolder writes to disk.</summary>
 	public sealed record Config(
 		string Name,
 		string Category,
 		string Description,
-		List<(string name, string type)> Inputs,
+		List<InputSpec> Inputs,
 		string ReturnType );
 
 	public Action<Config> OnAccept;
@@ -32,6 +35,8 @@ public sealed class SuiCustomConverterDialog : Window
 	{
 		public string Name = "input";
 		public string Type = "float";
+		public bool HasDefault = false;
+		public string DefaultLiteral = "";
 	}
 
 	private static readonly string[] TypeChoices =
@@ -179,6 +184,28 @@ public sealed class SuiCustomConverterDialog : Window
 		}
 		row.Layout.Add( typeCombo, 1 );
 
+		// Issue #14 — optional C# default value. Checkbox + LineEdit pair:
+		// the LineEdit is disabled until HasDefault is on, so the user can't
+		// accidentally type a default into an input that will be marked required.
+		var hasDef = new Checkbox( "default", row );
+		hasDef.ToolTip = "Make this parameter optional with a C# default value (e.g. 'mode = FloatToIntMode.Round').";
+		hasDef.Value = def.HasDefault;
+		row.Layout.Add( hasDef );
+
+		var defaultEdit = new LineEdit( row ) { Text = def.DefaultLiteral ?? "" };
+		defaultEdit.PlaceholderText = "default literal (e.g. 0, \"x\", true)";
+		defaultEdit.FixedHeight = 24;
+		defaultEdit.SetStyles( FieldChrome );
+		defaultEdit.Enabled = def.HasDefault;
+		defaultEdit.TextEdited += t => def.DefaultLiteral = t ?? "";
+		row.Layout.Add( defaultEdit, 2 );
+
+		hasDef.Toggled = () =>
+		{
+			def.HasDefault = hasDef.Value;
+			defaultEdit.Enabled = def.HasDefault;
+		};
+
 		var rmBtn = new Button( "", "close", row );
 		rmBtn.FixedWidth = 22;
 		rmBtn.FixedHeight = 22;
@@ -209,9 +236,11 @@ public sealed class SuiCustomConverterDialog : Window
 
 		// Validate every input name + check for duplicates.
 		var seen = new HashSet<string>();
-		var collected = new List<(string name, string type)>();
-		foreach ( var i in _inputs )
+		var collected = new List<InputSpec>();
+		bool defaultSeen = false;
+		for ( int idx = 0; idx < _inputs.Count; idx++ )
 		{
+			var i = _inputs[idx];
 			var n = (i.Name ?? "").Trim();
 			if ( !SuiDocumentValidator.IsValidCSharpIdentifier( n ) )
 			{
@@ -223,7 +252,25 @@ public sealed class SuiCustomConverterDialog : Window
 				ShowError( $"Duplicate input name: '{n}'." );
 				return;
 			}
-			collected.Add( (n, i.Type ?? "float") );
+
+			// C# rule: once an optional parameter appears, every parameter to
+			// its right must also be optional. Surface this here rather than
+			// letting the engine choke on CS1737 after compile.
+			if ( i.HasDefault ) defaultSeen = true;
+			else if ( defaultSeen )
+			{
+				ShowError( $"Input '{n}' must have a default value because input #{idx} does (C# requires optional params at the end)." );
+				return;
+			}
+
+			var defaultLit = i.HasDefault ? (i.DefaultLiteral ?? "").Trim() : null;
+			if ( i.HasDefault && string.IsNullOrEmpty( defaultLit ) )
+			{
+				ShowError( $"Input '{n}' is marked as having a default, but no value was provided." );
+				return;
+			}
+
+			collected.Add( new InputSpec( n, i.Type ?? "float", i.HasDefault, defaultLit ) );
 		}
 
 		OnAccept?.Invoke( new Config( name, category, description, collected, _returnType ) );
