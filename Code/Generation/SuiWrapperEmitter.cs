@@ -341,8 +341,13 @@ public static class SuiWrapperEmitter
 
 	/// <summary>
 	/// V1.5 — for any TwoWay binding with <see cref="SuiBindingUpdateTrigger.Manual"/>
-	/// emit a <c>public void Commit&lt;FieldName&gt;()</c> on the wrapper that
-	/// forwards to the panel side. Pattern:
+	/// emit a nested <c>ApplyApi</c> sub-object exposed as <c>wrapper.Apply</c>
+	/// with one method per Manual-trigger field + <c>.All()</c> shortcut.
+	/// Generates NOTHING when the document has no Manual bindings, so the
+	/// wrapper API stays clean for documents that don't need it (autocomplete
+	/// only shows <c>Apply</c> when there's something to apply).
+	///
+	/// Pattern:
 	///   • TextEntry Manual: reads <c>view.<Name>Ref.Text</c> and writes the bound field
 	///   • Slider Manual: calls <c>view.Commit<Name>SliderValue()</c> (panel side
 	///     does the actual visual→commit copy)
@@ -351,45 +356,88 @@ public static class SuiWrapperEmitter
 	{
 		if ( doc?.Elements == null ) return;
 
+		// Collect manual-trigger fields first so we can decide whether to emit
+		// the Apply class at all + how to populate .All().
+		var manualFields = new System.Collections.Generic.List<(SuiElement El, SuiBinding Binding, string BaseName)>();
 		foreach ( var el in doc.Elements )
 		{
 			if ( el?.Bindings == null ) continue;
 			var baseName = el.Name ?? el.Id;
 			if ( string.IsNullOrEmpty( baseName ) ) continue;
-
 			foreach ( var b in el.Bindings )
 			{
-				if ( b == null || b.UpdateTrigger != SuiBindingUpdateTrigger.Manual ) continue;
-
-				if ( el.Type == SuiElementType.TextEntry && b.Property == "Value" )
-				{
-					var refName = SuiNameSanitizer.ToCSharpIdentifier( baseName + "Ref" );
-					var commitName = "Commit" + SuiNameSanitizer.ToCSharpIdentifier( baseName + "Value" );
-					var boundVarName = ResolveBindingVariableName( doc, b );
-					if ( string.IsNullOrEmpty( boundVarName ) ) continue;
-					sb.AppendLine();
-					sb.Append( "\tpublic void " ).Append( commitName ).AppendLine( "()" );
-					sb.AppendLine( "\t{" );
-					sb.AppendLine( "\t\tif ( View == null ) return;" );
-					sb.Append( "\t\tvar entry = View." ).Append( refName ).AppendLine( ";" );
-					sb.AppendLine( "\t\tif ( entry == null ) return;" );
-					// Assigning to the wrapper-side property fires its setter,
-					// which writes both backing field and View.<Name> for us.
-					sb.Append( "\t\t" ).Append( boundVarName ).AppendLine( " = entry.Text ?? \"\";" );
-					sb.AppendLine( "\t}" );
-				}
-				else if ( el.Type == SuiElementType.Slider && b.Property == "Value" )
-				{
-					var commitField = ResolveBindingVariableName( doc, b ) ?? SuiNameSanitizer.ToCSharpIdentifier( baseName + "SliderValue" );
-					var commitName = "Commit" + commitField;
-					sb.AppendLine();
-					sb.Append( "\tpublic void " ).Append( commitName ).AppendLine( "()" );
-					sb.AppendLine( "\t{" );
-					sb.Append( "\t\tView?." ).Append( commitName ).AppendLine( "();" );
-					sb.AppendLine( "\t}" );
-				}
+				if ( b?.UpdateTrigger != SuiBindingUpdateTrigger.Manual ) continue;
+				var isTextEntry = el.Type == SuiElementType.TextEntry && b.Property == "Value";
+				var isSlider = el.Type == SuiElementType.Slider && b.Property == "Value";
+				if ( !isTextEntry && !isSlider ) continue;
+				manualFields.Add( (el, b, baseName) );
 			}
 		}
+
+		if ( manualFields.Count == 0 ) return;
+
+		var className = doc?.Output?.ClassName;
+		if ( string.IsNullOrEmpty( className ) ) className = "Generated";
+		className = SuiNameSanitizer.ToCSharpIdentifier( className );
+
+		sb.AppendLine();
+		sb.AppendLine( "\t/// <summary>" );
+		sb.AppendLine( "\t/// Manual-commit API for bindings with UpdateTrigger=Manual." );
+		sb.AppendLine( "\t/// Call <c>Apply.&lt;FieldName&gt;()</c> to push the widget's current state" );
+		sb.AppendLine( "\t/// into its bound Variable; <c>Apply.All()</c> commits every Manual field at once." );
+		sb.AppendLine( "\t/// </summary>" );
+		sb.AppendLine( "\tprivate ApplyApi _apply;" );
+		sb.AppendLine( "\tpublic ApplyApi Apply => _apply ??= new ApplyApi( this );" );
+
+		sb.AppendLine();
+		sb.AppendLine( "\tpublic sealed class ApplyApi" );
+		sb.AppendLine( "\t{" );
+		sb.Append( "\t\tprivate readonly " ).Append( className ).AppendLine( " _w;" );
+		sb.Append( "\t\tinternal ApplyApi( " ).Append( className ).AppendLine( " w ) { _w = w; }" );
+
+		var methodNames = new System.Collections.Generic.List<string>();
+		foreach ( var (el, b, baseName) in manualFields )
+		{
+			if ( el.Type == SuiElementType.TextEntry )
+			{
+				var refName = SuiNameSanitizer.ToCSharpIdentifier( baseName + "Ref" );
+				var fieldName = SuiNameSanitizer.ToCSharpIdentifier( baseName + "Value" );
+				var boundVarName = ResolveBindingVariableName( doc, b );
+				if ( string.IsNullOrEmpty( boundVarName ) ) continue;
+				sb.AppendLine();
+				sb.Append( "\t\tpublic void " ).Append( fieldName ).AppendLine( "()" );
+				sb.AppendLine( "\t\t{" );
+				sb.AppendLine( "\t\t\tif ( _w.View == null ) return;" );
+				sb.Append( "\t\t\tvar entry = _w.View." ).Append( refName ).AppendLine( ";" );
+				sb.AppendLine( "\t\t\tif ( entry == null ) return;" );
+				// Wrapper-side property setter pushes backing field + View.<Name>.
+				sb.Append( "\t\t\t_w." ).Append( boundVarName ).AppendLine( " = entry.Text ?? \"\";" );
+				sb.AppendLine( "\t\t}" );
+				methodNames.Add( fieldName );
+			}
+			else if ( el.Type == SuiElementType.Slider )
+			{
+				var commitField = ResolveBindingVariableName( doc, b ) ?? SuiNameSanitizer.ToCSharpIdentifier( baseName + "SliderValue" );
+				var methodName = SuiNameSanitizer.ToCSharpIdentifier( baseName + "Value" );
+				sb.AppendLine();
+				sb.Append( "\t\tpublic void " ).Append( methodName ).AppendLine( "()" );
+				sb.AppendLine( "\t\t{" );
+				sb.Append( "\t\t\t_w.View?.Commit" ).Append( commitField ).AppendLine( "();" );
+				sb.AppendLine( "\t\t}" );
+				methodNames.Add( methodName );
+			}
+		}
+
+		// `All()` — invoke every field method in declaration order. Useful for
+		// "Save" buttons that want to flush every Manual widget at once.
+		sb.AppendLine();
+		sb.AppendLine( "\t\tpublic void All()" );
+		sb.AppendLine( "\t\t{" );
+		foreach ( var name in methodNames )
+			sb.Append( "\t\t\t" ).Append( name ).AppendLine( "();" );
+		sb.AppendLine( "\t\t}" );
+
+		sb.AppendLine( "\t}" );
 	}
 
 	private static string ResolveBindingVariableName( SuiDocument doc, SuiBinding b )
