@@ -19,9 +19,18 @@ public static class SuiConverterSuggester
 		if ( string.IsNullOrEmpty( sourceType ) || string.IsNullOrEmpty( targetType ) ) return null;
 		if ( TypesCompatible( sourceType, targetType ) ) return null; // direct bind — no converter needed
 
+		// Search built-ins first (deterministic + tested), then user-discovered
+		// converters so a game-specific HealthToColor shows up alongside the
+		// generic chips.
 		foreach ( var c in SuiConverterCatalog.GetBuiltins() )
 		{
 			if ( c.Inputs == null || c.Inputs.Length == 0 ) continue;
+			if ( !TypesCompatible( sourceType, c.Inputs[0].Type ) ) continue;
+			if ( TypesCompatible( c.ReturnType, targetType ) ) return c.Ref;
+		}
+		foreach ( var c in SuiConverterCatalog.GetUserConverters() )
+		{
+			if ( c?.Inputs == null || c.Inputs.Length == 0 ) continue;
 			if ( !TypesCompatible( sourceType, c.Inputs[0].Type ) ) continue;
 			if ( TypesCompatible( c.ReturnType, targetType ) ) return c.Ref;
 		}
