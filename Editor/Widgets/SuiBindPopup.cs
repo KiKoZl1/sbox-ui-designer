@@ -44,6 +44,7 @@ public sealed class SuiBindPopup : Window
 	private Label _expectsLabel;
 	private Widget _chainHost;
 	private Button _addConverterBtn;
+	private ComboBox _modeCombo;
 	private Label _error;
 
 	public SuiBindPopup( SuiDocument doc, SuiElement element = null, string lockedProperty = null, SuiBinding existing = null )
@@ -150,11 +151,11 @@ public sealed class SuiBindPopup : Window
 		AddChainSection();
 
 		// ── Mode ──
-		var modeCombo = AddComboRow( "Mode" );
+		_modeCombo = AddComboRow( "Mode" );
 		foreach ( var m in new[] { SuiBindingMode.OneWay, SuiBindingMode.OneTime, SuiBindingMode.TwoWay } )
 		{
 			var captured = m;
-			modeCombo.AddItem( m.ToString(), "swap_horiz", () => _mode = captured, null, m == _mode );
+			_modeCombo.AddItem( m.ToString(), "swap_horiz", () => _mode = captured, null, m == _mode );
 		}
 
 		_error = new Label( "", Canvas );
@@ -409,6 +410,29 @@ public sealed class SuiBindPopup : Window
 	{
 		if ( meta == null ) return;
 
+		// Issue #11 — TwoWay bindings can't carry a chain (round-trip semantics
+		// for chained transforms are undefined in V1.5, PRD 18 § 4.6). Rather
+		// than silently rejecting on Accept, prompt the user to switch to OneWay.
+		if ( _mode == SuiBindingMode.TwoWay )
+		{
+			SuiConfirmDialog.Show(
+				"Two-way bindings can't use converters",
+				"Two-way bindings cannot have a converter chain (round-trip semantics for chained transforms aren't defined). Switch this binding to OneWay so the converter can be added?",
+				okText: "Switch to OneWay",
+				onConfirm: () =>
+				{
+					_mode = SuiBindingMode.OneWay;
+					try { _modeCombo?.TrySelectNamed( "OneWay" ); } catch { /* best-effort */ }
+					AddStepInternal( meta );
+				} );
+			return;
+		}
+
+		AddStepInternal( meta );
+	}
+
+	private void AddStepInternal( SuiConverterMetadata meta )
+	{
 		var step = new SuiBindingConverterStep
 		{
 			ConverterRef = meta.Ref,
