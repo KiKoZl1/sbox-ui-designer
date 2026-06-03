@@ -64,11 +64,10 @@ The one **shape change** worth mentioning is in generated code, not in the API:
 - If you had a hand-edited `<Name>.partial.cs` referencing the renderer class by
   its old name, rename references from `<Name>` → `<Name>Panel`. (If you didn't
   write a `.partial.cs`, nothing to do.)
-- **Old `<Name>.razor` files** left over in the output folder from a very-early-alpha
-  build need to be deleted manually — they'll cause CS0111 duplicate `partial class`
-  errors against the new `<Name>Panel.razor`. Force Regen does NOT delete orphans
-  by design (we don't want to nuke unrelated `.razor` files); see the manual
-  cleanup step below if you hit this.
+- **Old `<Name>.razor` files** left over from a very-early-alpha build (where the
+  panel class still owned the bare name) are **deleted automatically** by Force
+  Regen — but only when the file carries our `SUI:GENERATED:BEGIN` header
+  comment. Hand-authored files that happen to share the name stay untouched.
 
 ---
 
@@ -170,11 +169,11 @@ rm -rf "<projectRoot>/Code/_sui_preview"
 
 The cache rebuilds on next Preview tab activation.
 
-### Delete a stale `<Name>.razor` left over from V1.0
+### A stale `<Name>.razor` orphan from V1.0 caused a CS0111 — what now?
 
-If you upgraded from a pre-M2-K6 alpha and have an old bare `<Name>.razor` file
-in your output folder alongside the new `<Name>Panel.razor`, the C# build will
-fail with CS0111. Delete the old file:
+Force Regen handles this automatically — but if you've already run it once and
+still hit the error (e.g. the file's `SUI:GENERATED:BEGIN` header was edited
+out by hand at some point), delete the old file manually:
 
 ```
 rm "<projectRoot>/Code/<output-folder>/<Name>.razor"

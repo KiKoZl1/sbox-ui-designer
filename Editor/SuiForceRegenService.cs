@@ -47,6 +47,7 @@ public static class SuiForceRegenService
 		public int CompileSkippedNoOutput;
 		public int CompileFailed;
 		public int FilesWritten;
+		public int OrphansDeleted;
 		public bool PreviewCacheDeleted;
 		public readonly List<string> Failures = new();
 	}
@@ -115,7 +116,8 @@ public static class SuiForceRegenService
 			$"[Sui] Force Regen done — total: {report.TotalSuiFound}, " +
 			$"migrated: {report.MigratedFromOlderSchema}, resaved: {report.Resaved}, " +
 			$"compiled OK: {report.CompiledOk}, no-output: {report.CompileSkippedNoOutput}, " +
-			$"failed: {report.CompileFailed}, files written: {report.FilesWritten}." );
+			$"failed: {report.CompileFailed}, files written: {report.FilesWritten}, " +
+			$"orphans deleted: {report.OrphansDeleted}." );
 
 		if ( report.Failures.Count > 0 )
 		{
@@ -225,6 +227,58 @@ public static class SuiForceRegenService
 		report.FilesWritten +=
 			(compile.Generated?.Count ?? 0) +
 			(compile.Preserved?.Count ?? 0);
+
+		// Cleanup pre-M2-K6 orphans. Generator used to emit `<Name>.razor`
+		// (+ `<Name>.razor.scss`) for the panel class itself. Post-K6 the
+		// panel is `<Name>Panel.razor` and the bare-name file became the
+		// wrapper `<Name>.cs`. The old `.razor` files left behind would
+		// CS0101 against the new wrapper (same class name, same namespace).
+		// Marker check ensures we ONLY touch files our generator wrote —
+		// user-authored files (without the marker) stay untouched.
+		var className = doc.Output?.ClassName;
+		if ( !string.IsNullOrEmpty( className ) && !string.IsNullOrEmpty( outputAbs ) )
+		{
+			if ( TryDeleteOrphan( outputAbs, $"{className}.razor", rel ) ) report.OrphansDeleted++;
+			if ( TryDeleteOrphan( outputAbs, $"{className}.razor.scss", rel ) ) report.OrphansDeleted++;
+		}
+	}
+
+	/// <summary>
+	/// Delete a pre-M2-K6 generator orphan only when we recognise our own
+	/// <c>SUI:GENERATED:BEGIN</c> marker in the file. Returns true on delete,
+	/// false when the file doesn't exist or doesn't carry the marker (user
+	/// code we must never touch).
+	/// </summary>
+	private static bool TryDeleteOrphan( string folder, string fileName, string sourceRel )
+	{
+		try
+		{
+			var path = Path.Combine( folder, fileName );
+			if ( !File.Exists( path ) ) return false;
+
+			// Marker check — first 4KB is enough to find the comment header
+			// our generator emits at the top of every output. We never blow
+			// away a hand-authored file even if its name happens to collide.
+			string head;
+			using ( var fs = new FileStream( path, FileMode.Open, FileAccess.Read, FileShare.Read ) )
+			using ( var sr = new StreamReader( fs ) )
+			{
+				var buf = new char[4096];
+				int n = sr.Read( buf, 0, buf.Length );
+				head = new string( buf, 0, n );
+			}
+			if ( head.IndexOf( "SUI:GENERATED:BEGIN", StringComparison.Ordinal ) < 0 )
+				return false;
+
+			File.Delete( path );
+			Log.Info( $"[Sui] Force Regen: removed pre-K6 orphan '{path}' (was generator output for '{sourceRel}')." );
+			return true;
+		}
+		catch ( Exception ex )
+		{
+			Log.Warning( $"[Sui] Force Regen: could not delete orphan '{fileName}' next to '{sourceRel}' — {ex.Message}" );
+			return false;
+		}
 	}
 
 	// ─────────────────────────────────────────────────────────────────────
