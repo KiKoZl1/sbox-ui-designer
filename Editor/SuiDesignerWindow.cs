@@ -289,30 +289,42 @@ public class SuiDesignerWindow : DockWindow, IAssetEditor
 				"Your .sui sources are NOT renamed or restructured — only re-saved with the new schema version. " +
 				"User-owned files (*.User.scss, *.partial.cs, GameConverters.cs) are never touched.";
 
-			SuiUpgradeDialog.Show(
-				title: $"Sbox UI Designer — schema upgrade detected",
-				body: body,
-				primaryText: "Migrate all",
-				secondaryText: "Skip for now",
-				tertiaryText: "Don't ask again",
-				onPrimary: RunForceRegenAndReload,
-				onSecondary: () =>
-				{
-					Log.Info( "[Sui] upgrade prompt skipped — will ask again on next editor session." );
-				},
-				onTertiary: () =>
-				{
-					var s = SuiDesignerState.Load();
-					s.DismissedUpgradePromptForVersion = SuiSchemaVersion.Current;
-					s.LastSeenSchemaVersion = SuiSchemaVersion.Current;
-					s.Save();
-					Log.Info( $"[Sui] upgrade prompt suppressed for schema V{SuiSchemaVersion.Current}. Re-enable via Tools → Force Regenerate All." );
-				} );
+			// Defer the actual Show: AssetOpen fires WHILE the Designer window
+			// is still completing its own activation/paint. If we Show the
+			// dialog inline, the Designer's subsequent paint covers it. A
+			// small async delay puts the dialog Show after the Designer is
+			// fully in foreground, so the dialog opens cleanly on top.
+			_ = ShowUpgradePromptDeferredAsync( body );
 		}
 		catch ( System.Exception ex )
 		{
 			Log.Warning( $"[Sui] upgrade scan failed: {ex.Message}" );
 		}
+	}
+
+	private async System.Threading.Tasks.Task ShowUpgradePromptDeferredAsync( string body )
+	{
+		await System.Threading.Tasks.Task.Delay( 200 );
+
+		SuiUpgradeDialog.Show(
+			title: $"Sbox UI Designer — schema upgrade detected",
+			body: body,
+			primaryText: "Migrate all",
+			secondaryText: "Skip for now",
+			tertiaryText: "Don't ask again",
+			onPrimary: RunForceRegenAndReload,
+			onSecondary: () =>
+			{
+				Log.Info( "[Sui] upgrade prompt skipped — will ask again on next editor session." );
+			},
+			onTertiary: () =>
+			{
+				var s = SuiDesignerState.Load();
+				s.DismissedUpgradePromptForVersion = SuiSchemaVersion.Current;
+				s.LastSeenSchemaVersion = SuiSchemaVersion.Current;
+				s.Save();
+				Log.Info( $"[Sui] upgrade prompt suppressed for schema V{SuiSchemaVersion.Current}. Re-enable via Tools → Force Regenerate All." );
+			} );
 	}
 
 	/// <summary>
