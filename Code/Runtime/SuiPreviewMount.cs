@@ -1,4 +1,3 @@
-using System.Threading.Tasks;
 using Sandbox;
 using Sandbox.UI;
 
@@ -22,15 +21,6 @@ public sealed class SuiPreviewMount : Component
 
 	protected override void OnAwake()
 	{
-		// Defer to a Task so we can await Task.Frame() and let the host
-		// component's OnEnabled fire naturally — Sandbox blocks reflection
-		// in the runtime whitelist, so we can't force-invoke OnEnabledInternal
-		// the way the editor-side SuiPreviewHost does.
-		_ = MountAsync();
-	}
-
-	private async Task MountAsync()
-	{
 		var fqn = SuiPreviewState.PendingTypeFullName;
 		if ( string.IsNullOrEmpty( fqn ) )
 		{
@@ -45,45 +35,43 @@ public sealed class SuiPreviewMount : Component
 			return;
 		}
 
-		_panelHost = new GameObject( true, "ScreenPanelHost" );
+		// V1.5-M4 fix — use Scene.CreateObject(true) (same as SuiPanel<TView>.Add)
+		// instead of `new GameObject(true,...)`. Scene.CreateObject attaches the
+		// GO to the scene synchronously and fires the OnAwake → OnEnabled chain
+		// inline, so Components.Create<SuiHostPanelComponent> below populates
+		// Host.Panel immediately. The `new GameObject` path produced an orphan
+		// whose lifecycle deferred to a later frame — the silent bug introduced
+		// at K7 (commit 523df4e) and only surfaced when the user finally tested
+		// Test-in-Play after M4.
+		_panelHost = Scene.CreateObject( true );
+		_panelHost.Name = "ScreenPanelHost";
 		_panelHost.SetParent( GameObject );
-		_panelHost.GetOrAddComponent<ScreenPanel>();
+		_panelHost.Components.Create<ScreenPanel>();
 
 		// V1.5-M2-K7 — the generated class is a Panel subclass, so we cannot
 		// Components.Create<TPanel>() (Panel isn't a Component). Instead, host
 		// a SuiHostPanelComponent (PanelComponent with empty render tree) and
 		// add the generated Panel as a child of its root.
 		var hostComponent = _panelHost.Components.Create<SuiHostPanelComponent>();
-		if ( hostComponent == null )
+		if ( hostComponent?.Panel == null )
 		{
-			Log.Warning( "[SuiPreviewMount] Components.Create<SuiHostPanelComponent> returned null." );
+			Log.Warning( "[SuiPreviewMount] SuiHostPanelComponent did not initialize its Panel (OnEnabled may not have fired)." );
 			return;
 		}
 
-		// V1.5-M4 — wait up to ~10 frames for the host's OnEnabled to fire.
-		// Components.Create returns synchronously but the engine's lifecycle
-		// chain (OnAwake → OnEnabled → EnsurePanelCreated) can take 1-2 frames
-		// to complete. Don't busy-loop forever — bail with a warning if Panel
-		// stays null past 10 frames (engine API regression).
-		for ( int i = 0; i < 10 && hostComponent.Panel == null; i++ )
-			await Task.Frame();
-
-		if ( !this.IsValid() || !hostComponent.IsValid() ) return;
-
-		if ( hostComponent.Panel == null )
+		// V1.5-M2-K7 (commit 7330416) — Panel subclasses generated from .razor
+		// only run their BuildRenderTree (which populates children from the
+		// <root> markup) when constructed via the Sandbox.UI factory path:
+		// AddChild<T>() / Add.Panel<T>(). Plain `new T()` or `typeDesc.Create`
+		// instantiates the Panel object but the template body stays empty.
+		// We don't have T at compile time here, so we call the non-generic
+		// AddChild(Type) overload which the engine threads to the same factory.
+		var renderedPanel = hostComponent.Panel.AddChild( typeDesc.TargetType ) as Panel;
+		if ( renderedPanel == null )
 		{
-			Log.Warning( "[SuiPreviewMount] SuiHostPanelComponent.Panel still null after 10 frames — engine lifecycle may have changed." );
+			Log.Warning( $"[SuiPreviewMount] AddChild('{typeDesc.TargetType.FullName}') did not return a Panel — generated class shape mismatch." );
 			return;
 		}
-
-		var instance = typeDesc.Create<object>();
-		if ( instance is not Panel renderedPanel )
-		{
-			Log.Warning( $"[SuiPreviewMount] '{fqn}' is not a Panel (got {instance?.GetType().FullName ?? "null"}). Compile shape mismatch." );
-			return;
-		}
-
-		hostComponent.Panel.AddChild( renderedPanel );
 
 		MountedFqn = fqn;
 		Log.Info( $"[SuiPreviewMount] Mounted Panel '{fqn}' inside SuiHostPanelComponent." );
