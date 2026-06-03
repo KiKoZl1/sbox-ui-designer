@@ -12,6 +12,15 @@ public sealed class SuiConverterParam
 
 	/// <summary>True if the parameter has a C# default and may be omitted in the chain.</summary>
 	public bool HasDefault { get; set; }
+
+	/// <summary>
+	/// True when the parameter is variadic (<c>params object[] args</c>). The
+	/// bind-popup renders a <c>+ Add Arg</c> button next to the step so the user
+	/// can append N additional arguments at runtime — codegen flattens them as
+	/// positional args; C# auto-wraps the tail into the actual <c>params</c> array.
+	/// Only meaningful on the LAST parameter (matches C# language rules).
+	/// </summary>
+	public bool IsParams { get; set; }
 }
 
 /// <summary>

@@ -167,7 +167,7 @@ public static class SuiBuiltinConverters
 	[SuiConverter( "Concat", Category = "String", Description = "a + b" )]
 	public static string Concat( string a, string b ) => (a ?? "") + (b ?? "");
 
-	[SuiConverter( "Format", Category = "String", Description = "string.Format(template, args)" )]
+	[SuiConverter( "Format", Category = "String", Description = "string.Format(template, args) — append N values via + Add Arg", LastParamIsVariadic = true )]
 	public static string Format( string template, params object[] args )
 		=> string.IsNullOrEmpty( template ) ? "" : string.Format( template, args ?? Array.Empty<object>() );
 

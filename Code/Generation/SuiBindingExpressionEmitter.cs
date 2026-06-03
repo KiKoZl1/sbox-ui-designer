@@ -38,12 +38,31 @@ public static class SuiBindingExpressionEmitter
 				return $"default /* unknown converter {step.ConverterRef} */";
 			}
 
-			var argCount = meta.Inputs?.Length ?? 0;
-			var args = new List<string>( argCount );
-			for ( int i = 0; i < argCount; i++ )
+			// Variadic detection: when the last meta input is `IsParams`, the
+			// element type for any additional user-added args is the array's
+			// element type (e.g. `Object[]` → `Object`). We iterate up to the
+			// user's actual arg count so all appended variadic values reach
+			// the call site — C# auto-wraps the tail into the params array.
+			var metaCount = meta.Inputs?.Length ?? 0;
+			var lastIdx = metaCount - 1;
+			var isVariadic = lastIdx >= 0 && meta.Inputs[lastIdx].IsParams;
+			var variadicElemType = isVariadic
+				? StripArraySuffix( meta.Inputs[lastIdx].Type )
+				: null;
+			var emitCount = isVariadic
+				? System.Math.Max( metaCount, step.Args?.Count ?? 0 )
+				: metaCount;
+
+			var args = new List<string>( emitCount );
+			for ( int i = 0; i < emitCount; i++ )
 			{
 				var arg = step.Args != null && i < step.Args.Count ? step.Args[i] : null;
-				args.Add( RenderArg( arg, current, doc, meta.Inputs[i]?.Type ) );
+				// Variadic slot uses the array's element type; fixed slots use
+				// the corresponding meta parameter type.
+				var paramType = isVariadic && i >= lastIdx
+					? variadicElemType
+					: (i < metaCount ? meta.Inputs[i]?.Type : null);
+				args.Add( RenderArg( arg, current, doc, paramType ) );
 			}
 			current = $"{fqn}({string.Join( ", ", args )})";
 		}
@@ -79,6 +98,14 @@ public static class SuiBindingExpressionEmitter
 		foreach ( var v in doc.Variables )
 			if ( v?.Id == id ) return v;
 		return null;
+	}
+
+	/// <summary>Strip trailing <c>[]</c> — used to resolve the element type of a variadic params slot.</summary>
+	private static string StripArraySuffix( string t )
+	{
+		if ( string.IsNullOrEmpty( t ) ) return t;
+		if ( t.EndsWith( "[]" ) ) return t.Substring( 0, t.Length - 2 );
+		return t;
 	}
 
 	/// <summary>

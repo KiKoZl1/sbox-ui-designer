@@ -20,6 +20,14 @@ public sealed class SuiConverterAttribute : Attribute
 	/// <summary>Short description shown in the bind-popup.</summary>
 	public string Description { get; set; } = "";
 
+	/// <summary>
+	/// Opt-in flag: when true and the LAST parameter is an array type, the
+	/// bind-popup treats it as a C# <c>params</c> array — user can append N
+	/// additional arguments at runtime via a <c>+ Add Arg</c> button. Set this
+	/// alongside <c>params Foo[] args</c> in the method signature.
+	/// </summary>
+	public bool LastParamIsVariadic { get; set; } = false;
+
 	public SuiConverterAttribute( string displayName = "" )
 	{
 		DisplayName = displayName;

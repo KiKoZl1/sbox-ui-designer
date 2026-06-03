@@ -258,9 +258,23 @@ public sealed class SuiBindPopup : Window
 		// Args for every input — arg 0 is the chain feed by convention, but the
 		// user can repoint it to a Variable or Literal (and feed the chain into
 		// a different arg index instead) via the per-arg picker.
+		//
+		// Variadic support: when meta.Inputs ends with an `IsParams` slot
+		// (e.g. Format's `params object[] args`), the user can append N extra
+		// arguments via a `+ Add Arg` button. Each extra slot has its own `×`
+		// remove button. The variadic element type is whatever the params
+		// array's element is (string, object, etc.).
+		var lastIdx = (meta?.Inputs?.Length ?? 0) - 1;
+		var isVariadic = lastIdx >= 0 && meta.Inputs[lastIdx].IsParams;
+		var variadicElemType = isVariadic
+			? StripArraySuffix( meta.Inputs[lastIdx].Type )
+			: null;
+		var fixedArgCount = isVariadic ? lastIdx : (meta?.Inputs?.Length ?? 0);
+
 		if ( meta?.Inputs != null && meta.Inputs.Length > 0 )
 		{
-			for ( int argIdx = 0; argIdx < meta.Inputs.Length; argIdx++ )
+			// Fixed args (everything before the variadic slot, or all args if no variadic).
+			for ( int argIdx = 0; argIdx < fixedArgCount; argIdx++ )
 			{
 				var capturedArgIdx = argIdx;
 				var input = meta.Inputs[argIdx];
@@ -287,6 +301,53 @@ public sealed class SuiBindPopup : Window
 				argBtn.Clicked = () => OpenArgPickerMenu( argBtn, step, capturedArgIdx, input?.Type );
 				row.Layout.Add( argBtn );
 			}
+
+			// Variadic args (only when meta has IsParams on last slot). Each
+			// rendered as `[value] [×]` pair; ensures `+ Add Arg` is the
+			// rightmost button before the step controls.
+			if ( isVariadic )
+			{
+				for ( int argIdx = fixedArgCount; argIdx < step.Args.Count; argIdx++ )
+				{
+					var capturedArgIdx = argIdx;
+					var argBtn = new Button( ArgButtonText( step.Args[argIdx], $"#{argIdx - fixedArgCount + 1}" ), ArgButtonIcon( step.Args[argIdx] ), row );
+					argBtn.FixedHeight = 22;
+					argBtn.SetStyles(
+						"background-color: rgb(24,24,23);" +
+						"border: 1px solid rgba(255,255,255,0.12);" +
+						"border-radius: 3px; padding: 0 6px;" +
+						"color: #e5e7eb; font-size: 10px;" );
+					argBtn.Clicked = () => OpenArgPickerMenu( argBtn, step, capturedArgIdx, variadicElemType );
+					row.Layout.Add( argBtn );
+
+					var removeArgBtn = new Button( "", "close", row );
+					removeArgBtn.FixedWidth = 16;
+					removeArgBtn.FixedHeight = 22;
+					removeArgBtn.SetStyles( "background-color: transparent; border: none; color: #6b7280; font-size: 10px;" );
+					removeArgBtn.Clicked = () =>
+					{
+						step.Args.RemoveAt( capturedArgIdx );
+						RebuildChainUI();
+						UpdateExpectsLabel();
+					};
+					row.Layout.Add( removeArgBtn );
+				}
+
+				var addArgBtn = new Button( "+ Add Arg", "add", row );
+				addArgBtn.FixedHeight = 22;
+				addArgBtn.SetStyles(
+					"background-color: rgba(59,130,246,0.15);" +
+					"border: 1px solid rgba(59,130,246,0.4);" +
+					"border-radius: 3px; padding: 0 8px;" +
+					"color: #93c5fd; font-size: 10px; font-weight: 600;" );
+				addArgBtn.Clicked = () =>
+				{
+					step.Args.Add( new SuiConverterArg { Kind = SuiConverterArgKind.Variable } );
+					RebuildChainUI();
+					UpdateExpectsLabel();
+				};
+				row.Layout.Add( addArgBtn );
+			}
 		}
 
 		row.Layout.AddStretchCell();
@@ -294,23 +355,27 @@ public sealed class SuiBindPopup : Window
 		// Issue #12 — step reordering. Up/Down swap with the neighbouring step.
 		// Disabled buttons (faded) at the ends communicate "no neighbour" without
 		// hiding the control set jumping around as the user rearranges.
+		// Enabled state uses bright white + subtle bg fill; disabled gets a
+		// dim opacity 35 % so the "can't click" state is unmistakable against
+		// the dark popup background. Previous low-contrast `#374151` blended
+		// with the popup row and looked identical to the enabled state.
 		var upBtn = new Button( "", "keyboard_arrow_up", row );
-		upBtn.FixedWidth = 18;
+		upBtn.FixedWidth = 22;
 		upBtn.FixedHeight = 22;
 		upBtn.Enabled = stepIndex > 0;
 		upBtn.SetStyles( upBtn.Enabled
-			? "background-color: transparent; border: none; color: #9ca3af;"
-			: "background-color: transparent; border: none; color: #374151;" );
+			? "background-color: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.18); border-radius: 3px; color: #e5e7eb;"
+			: "background-color: transparent; border: 1px dashed rgba(255,255,255,0.08); border-radius: 3px; color: rgba(229,231,235,0.25);" );
 		upBtn.Clicked = () => SwapSteps( stepIndex, stepIndex - 1 );
 		row.Layout.Add( upBtn );
 
 		var downBtn = new Button( "", "keyboard_arrow_down", row );
-		downBtn.FixedWidth = 18;
+		downBtn.FixedWidth = 22;
 		downBtn.FixedHeight = 22;
 		downBtn.Enabled = stepIndex < _converterSteps.Count - 1;
 		downBtn.SetStyles( downBtn.Enabled
-			? "background-color: transparent; border: none; color: #9ca3af;"
-			: "background-color: transparent; border: none; color: #374151;" );
+			? "background-color: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.18); border-radius: 3px; color: #e5e7eb;"
+			: "background-color: transparent; border: 1px dashed rgba(255,255,255,0.08); border-radius: 3px; color: rgba(229,231,235,0.25);" );
 		downBtn.Clicked = () => SwapSteps( stepIndex, stepIndex + 1 );
 		row.Layout.Add( downBtn );
 
@@ -368,6 +433,19 @@ public sealed class SuiBindPopup : Window
 			SuiConverterArgKind.Literal  => "edit",
 			_                            => "data_object",
 		};
+	}
+
+	/// <summary>
+	/// Strip the trailing <c>[]</c> from an array type name, returning the
+	/// element type — e.g. <c>"Object[]"</c> → <c>"Object"</c>. Used by the
+	/// variadic arg renderer to pick the right typed input dialog per extra
+	/// argument (each element of <c>params object[] args</c> is a single object).
+	/// </summary>
+	private static string StripArraySuffix( string t )
+	{
+		if ( string.IsNullOrEmpty( t ) ) return t;
+		if ( t.EndsWith( "[]" ) ) return t.Substring( 0, t.Length - 2 );
+		return t;
 	}
 
 	/// <summary>Compact preview of a literal value for the arg button label.</summary>
@@ -478,11 +556,16 @@ public sealed class SuiBindPopup : Window
 		var firstRef = _converterSteps.Count == 0 ? "Source" : "Previous";
 		step.Args.Add( new SuiConverterArg { Kind = SuiConverterArgKind.ChainRef, ChainRef = firstRef } );
 
-		// Reserve a Variable slot per additional input; the user fills these in
-		// via the per-arg button.
+		// Reserve a Variable slot per additional FIXED input. Variadic slots
+		// (params) start empty — user appends them via the `+ Add Arg` button
+		// in the chain row, otherwise the converter would always emit at least
+		// one extra arg the user can't see.
 		if ( meta.Inputs != null )
 		{
-			for ( int i = 1; i < meta.Inputs.Length; i++ )
+			var lastIdx = meta.Inputs.Length - 1;
+			var skipLast = lastIdx >= 0 && meta.Inputs[lastIdx].IsParams;
+			var fixedEnd = skipLast ? lastIdx : meta.Inputs.Length;
+			for ( int i = 1; i < fixedEnd; i++ )
 				step.Args.Add( new SuiConverterArg { Kind = SuiConverterArgKind.Variable } );
 		}
 

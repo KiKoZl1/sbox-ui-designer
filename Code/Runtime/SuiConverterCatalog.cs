@@ -74,14 +74,28 @@ public static class SuiConverterCatalog
 				var returnType  = method.ReturnType?.Name ?? "object";
 
 				var inputs = new List<SuiConverterParam>();
+				// Two-pass: count parameters first, then iterate so we can mark
+				// the LAST parameter as `IsParams` when it's an `object[]` and
+				// the user opted-in via SuiConverterAttribute.LastParamIsVariadic.
+				// (Sandbox TypeLibrary doesn't expose ParamArrayAttribute reliably
+				// on parameter descriptions, so we use explicit opt-in instead.)
+				int total = 0;
+				foreach ( var _ in method.Parameters ) total++;
+				int idx = 0;
 				foreach ( var p in method.Parameters )
 				{
+					var typeName = p.ParameterType?.Name ?? "object";
+					var isParams = idx == total - 1
+						&& attr.LastParamIsVariadic
+						&& typeName.EndsWith( "[]" );
 					inputs.Add( new SuiConverterParam
 					{
 						Name = p.Name,
-						Type = p.ParameterType?.Name ?? "object",
+						Type = typeName,
 						HasDefault = false,
+						IsParams = isParams,
 					} );
+					idx++;
 				}
 
 				list.Add( new SuiConverterMetadata
@@ -178,7 +192,24 @@ public static class SuiConverterCatalog
 
 		// ── String ──
 		C( "Concat", "String", "a + b", "String", ("a", "String", false), ("b", "String", false) );
-		C( "Format", "String", "string.Format(template, args)", "String", ("template", "String", false), ("args", "object[]", false) );
+		// Format takes a template + variadic `args` (params object[]). The
+		// bind-popup renders a `+ Add Arg` button on this step so the user
+		// can append N values; codegen flattens them as positional args and
+		// C# auto-wraps the tail into the params array.
+		list.Add( new SuiConverterMetadata
+		{
+			Ref = "builtin.Format",
+			DisplayName = "Format",
+			Category = "String",
+			Description = "string.Format(template, args) — append N values via + Add Arg",
+			Inputs = new[]
+			{
+				new SuiConverterParam { Name = "template", Type = "String", HasDefault = false, IsParams = false },
+				new SuiConverterParam { Name = "args",     Type = "Object", HasDefault = false, IsParams = true  },
+			},
+			ReturnType = "String",
+			IsBuiltin = true,
+		} );
 		C( "Uppercase", "String", "Convert v to UPPERCASE", "String", ("v", "String", false) );
 		C( "Lowercase", "String", "Convert v to lowercase", "String", ("v", "String", false) );
 		C( "TitleCase", "String", "Capitalise The First Letter Of Each Word", "String", ("v", "String", false) );
