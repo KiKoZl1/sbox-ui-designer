@@ -138,6 +138,12 @@ public static class SuiBuiltinConverters
 	[SuiConverter( "LessThan", Category = "Logic", Description = "a < b" )]
 	public static bool LessThan( float a, float b ) => a < b;
 
+	[SuiConverter( "GreaterOrEqual", Category = "Logic", Description = "a >= b" )]
+	public static bool GreaterOrEqual( float a, float b ) => a >= b;
+
+	[SuiConverter( "LessOrEqual", Category = "Logic", Description = "a <= b" )]
+	public static bool LessOrEqual( float a, float b ) => a <= b;
+
 	[SuiConverter( "If", Category = "Logic", Description = "cond ? ifTrue : ifFalse" )]
 	public static T If<T>( bool cond, T ifTrue, T ifFalse ) => cond ? ifTrue : ifFalse;
 

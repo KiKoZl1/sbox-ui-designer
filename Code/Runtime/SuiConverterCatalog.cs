@@ -167,6 +167,8 @@ public static class SuiConverterCatalog
 		C( "NotEqual", "Logic", "a != b", "Boolean", ("a", "T", false), ("b", "T", false) );
 		C( "GreaterThan", "Logic", "a > b", "Boolean", ("a", "Single", false), ("b", "Single", false) );
 		C( "LessThan", "Logic", "a < b", "Boolean", ("a", "Single", false), ("b", "Single", false) );
+		C( "GreaterOrEqual", "Logic", "a >= b", "Boolean", ("a", "Single", false), ("b", "Single", false) );
+		C( "LessOrEqual", "Logic", "a <= b", "Boolean", ("a", "Single", false), ("b", "Single", false) );
 		C( "If", "Logic", "cond ? ifTrue : ifFalse", "T", ("cond", "Boolean", false), ("ifTrue", "T", false), ("ifFalse", "T", false) );
 		C( "And", "Logic", "a && b", "Boolean", ("a", "Boolean", false), ("b", "Boolean", false) );
 		C( "Or", "Logic", "a || b", "Boolean", ("a", "Boolean", false), ("b", "Boolean", false) );
