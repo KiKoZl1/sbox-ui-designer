@@ -951,11 +951,15 @@ public sealed class SuiRazorGenerator
 						// an @ref to read the panel's .Text at the right
 						// moment. The ref field must exist on the panel even
 						// when the value field is owned by a Variable.
+						//
+						// Public visibility: the wrapper's Apply API reads
+						// `view.<Name>Ref.Text` from outside the panel class
+						// (D-029). Private would CS0122 the wrapper.
 						var trigger = TryGetBindUpdateTrigger( el, "Value" );
 						if ( trigger != SuiBindingUpdateTrigger.OnChange )
 						{
 							var refName = SuiNameSanitizer.ToCSharpIdentifier( baseName + "Ref" );
-							body.Append( "\tprivate global::Sandbox.UI.TextEntry " ).Append( refName ).AppendLine( ";" );
+							body.Append( "\tpublic global::Sandbox.UI.TextEntry " ).Append( refName ).AppendLine( ";" );
 						}
 
 						if ( TryGetBoundVariableName( el, "Value" ) != null ) break;
