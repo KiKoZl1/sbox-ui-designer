@@ -46,9 +46,15 @@ public sealed class SuiConfirmDialog : Window
 		buttons.Layout.Spacing = 8;
 		buttons.Layout.AddStretchCell();
 
-		var cancel = new Button( cancelText ?? "Cancel", buttons );
-		cancel.Clicked = Close;
-		buttons.Layout.Add( cancel );
+		// Pass a null/empty `cancelText` to render a single-button informational
+		// dialog (OK only). Used for post-action summary modals where the user
+		// has nothing to cancel — they just need to acknowledge.
+		if ( !string.IsNullOrEmpty( cancelText ) )
+		{
+			var cancel = new Button( cancelText, buttons );
+			cancel.Clicked = Close;
+			buttons.Layout.Add( cancel );
+		}
 
 		var ok = new Button( okText ?? "OK", buttons );
 		ok.Clicked = () => { var cb = OnConfirm; Close(); cb?.Invoke(); };

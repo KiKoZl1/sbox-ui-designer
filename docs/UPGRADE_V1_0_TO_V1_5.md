@@ -133,7 +133,19 @@ The Force Regen pass logs progress per document:
 Documents without an `Output.RootFolder` are resaved (schema bumped) but not
 recompiled — they're pure design-time sources you never compiled.
 
-### 6. Done
+### 6. Restart S&Box (recommended if you saw the ⚠ advisory)
+
+When Force Regen finishes, the editor shows a summary modal. If any documents
+were migrated from an older schema OR any orphan classes were deleted, the
+modal recommends a full editor restart. Reason: Sandbox's hot-reload handles
+new outputs perfectly, but renamed/deleted classes can leave stale references
+in TypeLibrary, scene files, or the Razor template cache. A restart guarantees
+a clean state.
+
+For minor regens (everything already V3, no orphans) the modal just confirms
+success and you can keep working — no restart needed.
+
+### 7. Done
 
 Reopen any `.sui` and click Compile to confirm everything still builds. The
 prompt won't reappear next session — the designer-state file remembers it

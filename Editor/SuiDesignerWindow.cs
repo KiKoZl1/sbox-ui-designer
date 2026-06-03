@@ -338,6 +338,34 @@ public class SuiDesignerWindow : DockWindow, IAssetEditor
 
 		var summary = $"Force Regen complete — migrated {report.MigratedFromOlderSchema}, compiled {report.CompiledOk}, failures {report.Failures.Count}.";
 		Log.Info( $"[Sui] {summary}" );
+
+		// Post-regen advisory. Hot-reload normally handles schema bumps + new
+		// generated outputs, but the aggressive cases (deleting orphan classes
+		// the scenes might still reference, renaming the panel class) leave
+		// edge cases where TypeLibrary / scene refs / Razor template caches
+		// hold stale state. Recommend a restart loudly when those scenarios
+		// hit; otherwise the user can keep working.
+		var aggressive = report.OrphansDeleted > 0 || report.MigratedFromOlderSchema > 0;
+		var body = aggressive
+			? $"Force Regen complete.\n\n" +
+				$"• Migrated:  {report.MigratedFromOlderSchema} document(s)\n" +
+				$"• Compiled:  {report.CompiledOk} document(s)\n" +
+				$"• Files written: {report.FilesWritten}\n" +
+				$"• Orphans removed: {report.OrphansDeleted}\n" +
+				$"• Failures: {report.Failures.Count}\n\n" +
+				"⚠ Restart S&Box recommended.\n" +
+				"Hot-reload handles most changes, but schema migration and orphan-class removal can leave stale references in scenes or TypeLibrary. A restart guarantees a clean state."
+			: $"Force Regen complete.\n\n" +
+				$"• Compiled:  {report.CompiledOk} document(s)\n" +
+				$"• Files written: {report.FilesWritten}\n" +
+				$"• Failures: {report.Failures.Count}\n\n" +
+				"No schema changes were needed. You can keep working normally.";
+
+		SboxUiDesigner.EditorUi.Widgets.SuiConfirmDialog.Show(
+			title: "SUI Designer — Regen complete",
+			body: body,
+			okText: "Got it",
+			cancelText: null );
 	}
 
 	/// <summary>
