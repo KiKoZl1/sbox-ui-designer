@@ -120,9 +120,9 @@ public static class SuiBuiltinConverters
 	public static string FloatToString( float v, int decimals = 2 )
 		=> v.ToString( "F" + (decimals < 0 ? 0 : decimals) );
 
-	[SuiConverter( "Parse", Category = "Conversion", Description = "string → float (0 if unparseable)" )]
+	[SuiConverter( "Parse", Category = "Conversion", Description = "string → float (0 if unparseable). Uses invariant culture so '.' is always the decimal separator regardless of OS locale (pt-BR/de-DE etc. would otherwise reject '1.5')." )]
 	public static float Parse( string v )
-		=> float.TryParse( v, out var f ) ? f : 0f;
+		=> float.TryParse( v, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var f ) ? f : 0f;
 
 	// ─────────────────────────── Comparison / Logic ───────────────────────
 
