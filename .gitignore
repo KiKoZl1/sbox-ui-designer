@@ -41,6 +41,9 @@ Temp/SuiPreview/
 # V1.5 — Asset Registry + Find Usages caches (PRD 22 § 3.8)
 .sui-cache/
 
+# V1.5 — Per-project SUI Designer state (upgrade-prompt dismissal etc.)
+.sui-designer-state.json
+
 # Generated backups
 *.generated.backup
 sui-generated-backups/
