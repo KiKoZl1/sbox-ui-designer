@@ -61,7 +61,7 @@ public static class SuiBuiltinConverters
 	[SuiConverter( "Clamp01", Category = "Range", Description = "Clamp v between 0 and 1" )]
 	public static float Clamp01( float v ) => v < 0f ? 0f : v > 1f ? 1f : v;
 
-	[SuiConverter( "Map", Category = "Range", Description = "Remap v from one range to another" )]
+	[SuiConverter( "Map", Category = "Range", Description = "Remap v from one range to another. Returns toMin when fromMin == fromMax (zero-width source range)." )]
 	public static float Map( float v, float fromMin, float fromMax, float toMin, float toMax )
 	{
 		var span = fromMax - fromMin;

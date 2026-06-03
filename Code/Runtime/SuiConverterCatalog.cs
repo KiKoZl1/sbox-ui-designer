@@ -146,7 +146,7 @@ public static class SuiConverterCatalog
 		// ── Range / Interpolation ──
 		C( "Clamp", "Range", "Clamp v between min and max", "Single", ("v", "Single", false), ("min", "Single", false), ("max", "Single", false) );
 		C( "Clamp01", "Range", "Clamp v between 0 and 1", "Single", ("v", "Single", false) );
-		C( "Map", "Range", "Remap v from one range to another", "Single", ("v", "Single", false), ("fromMin", "Single", false), ("fromMax", "Single", false), ("toMin", "Single", false), ("toMax", "Single", false) );
+		C( "Map", "Range", "Remap v from one range to another. Returns toMin when fromMin == fromMax (zero-width source range).", "Single", ("v", "Single", false), ("fromMin", "Single", false), ("fromMax", "Single", false), ("toMin", "Single", false), ("toMax", "Single", false) );
 		C( "Lerp", "Range", "Linear interpolation a to b by t", "Single", ("a", "Single", false), ("b", "Single", false), ("t", "Single", false) );
 		C( "InverseLerp", "Range", "Where v falls in the a to b range (0..1)", "Single", ("a", "Single", false), ("b", "Single", false), ("v", "Single", false) );
 		C( "SmoothStep", "Range", "Smooth (eased) interpolation a to b by t", "Single", ("a", "Single", false), ("b", "Single", false), ("t", "Single", false) );
