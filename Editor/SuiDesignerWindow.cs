@@ -153,6 +153,12 @@ public class SuiDesignerWindow : DockWindow, IAssetEditor
 		// cached <projectRoot>/.sui-cache/asset-registry.json.
 		SuiAssetRegistryService.Instance.EnsureInitialized();
 
+		// One-shot per editor session: if any .sui in the project is on an
+		// older schema, surface the upgrade prompt now. Doing this here (after
+		// the first AssetOpen completes) avoids racing the editor's hotload
+		// pipeline at boot.
+		MaybeShowUpgradePromptThisSession();
+
 		_controller.SetDocument( doc );
 		// Controller raises DocumentChanged + SelectionChanged synchronously,
 		// which pushes state to all region widgets.
@@ -228,6 +234,110 @@ public class SuiDesignerWindow : DockWindow, IAssetEditor
 
 		if ( deleted > 0 )
 			Log.Info( $"[Sui] auto-cleaned {deleted} legacy backup folder(s) under Code/. New backups now live at <projectRoot>/.sui-backups/." );
+	}
+
+	// ─────────────────────────────────────────────────────────────────────
+	//  Upgrade detection (V1.5)
+	// ─────────────────────────────────────────────────────────────────────
+
+	/// <summary>
+	/// One-shot session flag — set the first time any SuiDesignerWindow runs
+	/// the upgrade scan in this editor process. Resets only when the editor
+	/// restarts. Lets the user open ten docs back-to-back without ten prompts.
+	/// </summary>
+	private static bool _upgradePromptShownThisSession;
+
+	/// <summary>
+	/// If we haven't already prompted this session, scan the project for
+	/// out-of-date .sui documents. When at least one is found and the user
+	/// hasn't permanently dismissed the prompt for this schema version,
+	/// show the upgrade dialog with three options (migrate / skip / never).
+	/// </summary>
+	private void MaybeShowUpgradePromptThisSession()
+	{
+		if ( _upgradePromptShownThisSession ) return;
+		_upgradePromptShownThisSession = true;
+
+		try
+		{
+			var state = SuiDesignerState.Load();
+			if ( state.DismissedUpgradePromptForVersion == SuiSchemaVersion.Current )
+			{
+				// User said "don't ask" for this schema version. Honour it.
+				return;
+			}
+
+			var (total, outdated) = SuiForceRegenService.CountOutdated();
+			if ( outdated <= 0 )
+			{
+				// Nothing to migrate — record that we looked and bail quietly.
+				state.LastSeenSchemaVersion = SuiSchemaVersion.Current;
+				state.Save();
+				return;
+			}
+
+			Log.Info( $"[Sui] Upgrade scan: {outdated}/{total} .sui document(s) on older schema (current = V{SuiSchemaVersion.Current}). Prompting user." );
+
+			var body =
+				$"Found {outdated} of {total} .sui document(s) saved against an older schema " +
+				$"(current is V{SuiSchemaVersion.Current}).\n\n" +
+				"Migrate all now? This will:\n" +
+				"  - reload each .sui through the migration pipeline\n" +
+				"  - resave the updated JSON\n" +
+				"  - regenerate all outputs (.razor / .razor.scss / wrapper .cs)\n" +
+				"  - clear the preview cache (Code/_sui_preview/)\n\n" +
+				"Your .sui sources are NOT renamed or restructured — only re-saved with the new schema version. " +
+				"User-owned files (*.User.scss, *.partial.cs, GameConverters.cs) are never touched.";
+
+			SuiUpgradeDialog.Show(
+				title: $"Sbox UI Designer — schema upgrade detected",
+				body: body,
+				primaryText: "Migrate all",
+				secondaryText: "Skip for now",
+				tertiaryText: "Don't ask again",
+				onPrimary: RunForceRegenAndReload,
+				onSecondary: () =>
+				{
+					Log.Info( "[Sui] upgrade prompt skipped — will ask again on next editor session." );
+				},
+				onTertiary: () =>
+				{
+					var s = SuiDesignerState.Load();
+					s.DismissedUpgradePromptForVersion = SuiSchemaVersion.Current;
+					s.LastSeenSchemaVersion = SuiSchemaVersion.Current;
+					s.Save();
+					Log.Info( $"[Sui] upgrade prompt suppressed for schema V{SuiSchemaVersion.Current}. Re-enable via Tools → Force Regenerate All." );
+				} );
+		}
+		catch ( System.Exception ex )
+		{
+			Log.Warning( $"[Sui] upgrade scan failed: {ex.Message}" );
+		}
+	}
+
+	/// <summary>
+	/// Run the Force Regen pipeline and reload the currently-open document so
+	/// the editor sees the post-migration version. Wired both to the upgrade
+	/// dialog's primary button and the Tools menu.
+	/// </summary>
+	private void RunForceRegenAndReload()
+	{
+		var report = SuiForceRegenService.Run();
+
+		// Reload the open document so any schema bump applied to disk shows
+		// in the editor immediately (otherwise we'd be looking at the pre-migration
+		// in-memory tree until the user closes and reopens).
+		if ( _asset != null )
+		{
+			try { AssetOpen( _asset ); }
+			catch ( System.Exception ex )
+			{
+				Log.Warning( $"[Sui] reload after Force Regen failed: {ex.Message}" );
+			}
+		}
+
+		var summary = $"Force Regen complete — migrated {report.MigratedFromOlderSchema}, compiled {report.CompiledOk}, failures {report.Failures.Count}.";
+		Log.Info( $"[Sui] {summary}" );
 	}
 
 	/// <summary>
@@ -436,6 +546,8 @@ public class SuiDesignerWindow : DockWindow, IAssetEditor
 		tools.AddSeparator();
 		tools.AddOption( "Rebuild SUI Asset Registry", "inventory_2", RebuildAssetRegistry );
 		tools.AddOption( "Install Sample Documents", "library_books", InstallSamples );
+		tools.AddSeparator();
+		tools.AddOption( "Force Regenerate All (migrate + recompile)", "auto_fix_high", RunForceRegenAndReload );
 
 		var help = MenuBar.AddMenu( "Help" );
 		help.AddOption( "Open PRD", "menu_book", () => { } );
