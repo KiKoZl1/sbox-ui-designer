@@ -377,7 +377,6 @@ public sealed class SuiBindPopup : Window
 			downBtn.Clicked = () => SwapSteps( stepIndex, stepIndex + 1 );
 			row.Layout.Add( downBtn );
 		}
-		row.Layout.Add( downBtn );
 
 		var rmBtn = new Button( "", "close", row );
 		rmBtn.FixedWidth = 22;
