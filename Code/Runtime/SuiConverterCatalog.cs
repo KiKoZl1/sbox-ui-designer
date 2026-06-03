@@ -199,6 +199,10 @@ public static class SuiConverterCatalog
 		C( "WithAlpha", "Color", "Color c with its alpha replaced", "Color", ("c", "Color", false), ("a", "Single", false) );
 		C( "Darken", "Color", "Darken c by amount (0..1)", "Color", ("c", "Color", false), ("amount", "Single", false) );
 		C( "Lighten", "Color", "Lighten c toward white by amount (0..1)", "Color", ("c", "Color", false), ("amount", "Single", false) );
+		C( "ColorMultiply", "Color", "Multiply RGB channels by scalar (alpha preserved)", "Color", ("c", "Color", false), ("scalar", "Single", false) );
+		C( "GetAlpha", "Color", "Return the alpha channel of c", "Single", ("c", "Color", false) );
+		C( "Invert", "Color", "Invert RGB channels of c (alpha preserved)", "Color", ("c", "Color", false) );
+		C( "Grayscale", "Color", "Convert c to grayscale using NTSC luminance (0.299R + 0.587G + 0.114B)", "Color", ("c", "Color", false) );
 
 		// ── Collection ──
 		C( "Count", "Collection", "Number of items in list", "Int32", ("list", "List<T>", false) );

@@ -272,6 +272,24 @@ public static class SuiBuiltinConverters
 		return new Color( c.r + (1f - c.r) * k, c.g + (1f - c.g) * k, c.b + (1f - c.b) * k, c.a );
 	}
 
+	[SuiConverter( "ColorMultiply", Category = "Color", Description = "Multiply RGB channels by scalar (alpha preserved)" )]
+	public static Color ColorMultiply( Color c, float scalar )
+		=> new Color( c.r * scalar, c.g * scalar, c.b * scalar, c.a );
+
+	[SuiConverter( "GetAlpha", Category = "Color", Description = "Return the alpha channel of c" )]
+	public static float GetAlpha( Color c ) => c.a;
+
+	[SuiConverter( "Invert", Category = "Color", Description = "Invert RGB channels of c (alpha preserved)" )]
+	public static Color Invert( Color c )
+		=> new Color( 1f - c.r, 1f - c.g, 1f - c.b, c.a );
+
+	[SuiConverter( "Grayscale", Category = "Color", Description = "Convert c to grayscale using NTSC luminance (0.299R + 0.587G + 0.114B)" )]
+	public static Color Grayscale( Color c )
+	{
+		var y = 0.299f * c.r + 0.587f * c.g + 0.114f * c.b;
+		return new Color( y, y, y, c.a );
+	}
+
 	// ────────────────────────────── Collection ────────────────────────────
 
 	[SuiConverter( "Count", Category = "Collection", Description = "Number of items in list" )]
