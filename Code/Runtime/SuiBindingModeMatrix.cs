@@ -87,16 +87,16 @@ public static class SuiBindingModeMatrix
 		["ItemIcon.Tint"]           = new( true, true, false, SuiBindingMode.OneWay, "Color" ),
 
 		// ── Input widgets (PRD 21) — TwoWay-capable; TwoWay is the default ──
-		// NOTE: the exact DropDown TwoWay target is reworked at M4 (PRD 21 M0
-		// spike found DropDown has no SelectedIndex) — the entry is kept here
-		// per PRD 18 § 4.5 as written and patched alongside PRD 21 at M4.
-		["TextEntry.Value"]        = new( true, true, true,  SuiBindingMode.TwoWay, "string" ),
-		["TextEntry.Placeholder"]  = new( true, true, false, SuiBindingMode.OneWay, "string" ),
-		["Slider.Value"]           = new( true, true, true,  SuiBindingMode.TwoWay, "float" ),
-		["Slider.Min"]             = new( true, true, false, SuiBindingMode.OneWay, "float" ),
-		["Slider.Max"]             = new( true, true, false, SuiBindingMode.OneWay, "float" ),
-		["Toggle.Checked"]         = new( true, true, true,  SuiBindingMode.TwoWay, "bool" ),
-		["DropDown.SelectedIndex"] = new( true, true, true,  SuiBindingMode.TwoWay, "int" ),
+		// M4 fix: DropDown bind property is `Value` (Sandbox.UI engine), not
+		// `SelectedIndex`. Slider supports both float and int target Variables —
+		// the slider casts on read (`int` rounds, `float` passes through).
+		["TextEntry.Value"]       = new( true, true, true,  SuiBindingMode.TwoWay, "string" ),
+		["TextEntry.Placeholder"] = new( true, true, false, SuiBindingMode.OneWay, "string" ),
+		["Slider.Value"]          = new( true, true, true,  SuiBindingMode.TwoWay, "float" ),
+		["Slider.Min"]            = new( true, true, false, SuiBindingMode.OneWay, "float" ),
+		["Slider.Max"]            = new( true, true, false, SuiBindingMode.OneWay, "float" ),
+		["Toggle.Checked"]        = new( true, true, true,  SuiBindingMode.TwoWay, "bool" ),
+		["DropDown.Value"]        = new( true, true, true,  SuiBindingMode.TwoWay, "int" ),
 	};
 
 	// Properties bindable on ANY element type — style / layout / state knobs
@@ -177,5 +177,50 @@ public static class SuiBindingModeMatrix
 		}
 		foreach ( var key in _universal.Keys )
 			yield return key;
+	}
+
+	/// <summary>
+	/// Which write-back triggers apply to a given (element type, property)
+	/// pair. Drives the BindPopup's <c>Update Trigger</c> dropdown — when
+	/// the list has only one entry the dropdown is hidden entirely (no UI
+	/// noise for widgets that have no real choice). Always includes
+	/// <see cref="SuiBindingUpdateTrigger.OnChange"/> + <see cref="SuiBindingUpdateTrigger.Manual"/>.
+	/// </summary>
+	public static IReadOnlyList<SuiBindingUpdateTrigger> AllowedUpdateTriggers(
+		SuiElementType elementType, string property )
+	{
+		// TextEntry.Value supports per-keystroke OnChange, OnLostFocus
+		// (commit on blur), OnSubmit (commit on Enter), or Manual.
+		if ( elementType == SuiElementType.TextEntry && property == "Value" )
+		{
+			return new[]
+			{
+				SuiBindingUpdateTrigger.OnChange,
+				SuiBindingUpdateTrigger.OnLostFocus,
+				SuiBindingUpdateTrigger.OnSubmit,
+				SuiBindingUpdateTrigger.Manual,
+			};
+		}
+
+		// Slider.Value supports per-drag OnChange or OnRelease (defer until
+		// mouse-up — useful when the bound code is expensive). Manual leaves
+		// the wrapper field stale until user calls Commit.
+		if ( elementType == SuiElementType.Slider && property == "Value" )
+		{
+			return new[]
+			{
+				SuiBindingUpdateTrigger.OnChange,
+				SuiBindingUpdateTrigger.OnRelease,
+				SuiBindingUpdateTrigger.Manual,
+			};
+		}
+
+		// Everything else (Checkbox.Checked, DropDown.Value, anything else
+		// reading back from the UI) is atomic — only OnChange + Manual.
+		return new[]
+		{
+			SuiBindingUpdateTrigger.OnChange,
+			SuiBindingUpdateTrigger.Manual,
+		};
 	}
 }

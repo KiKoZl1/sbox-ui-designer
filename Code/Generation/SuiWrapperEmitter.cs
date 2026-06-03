@@ -76,6 +76,11 @@ public static class SuiWrapperEmitter
 		// fields that the user assigns (typically via the .partial.cs handler
 		// reference). Doo mode lands in Phase 3.
 		SuiEventEmitter.EmitWrapperProperties( doc, sb );
+		// V1.5 M4 — input widget bind mirrors were removed in favour of
+		// unified Variable bindings (Bindings tab → "Value" / "Checked" on
+		// the widget targets a doc Variable). Variables already produce
+		// public wrapper properties via EmitVariableProperties, so any input
+		// widget bound to a Variable is reachable as `widget.<VarName>`.
 
 		sb.AppendLine();
 		sb.AppendLine( $"\tprotected override void SyncFieldsTo( {className}Panel view )" );
@@ -84,6 +89,11 @@ public static class SuiWrapperEmitter
 		EmitChildReferenceAssignments( doc, ctx, sb, "view" );
 		SuiEventEmitter.EmitWrapperSyncAssignments( doc, sb, "view" );
 		sb.AppendLine( "\t}" );
+
+		// V1.5 — explicit commit methods for bindings with UpdateTrigger=Manual.
+		// User code calls `wrapper.Commit<Name>()` to push the current widget
+		// state into the bound Variable (e.g. from a Save button click).
+		EmitManualCommitMethods( doc, sb );
 
 		// V1.5-M2-K7-bugfix — recursive content hash. Without this, mutating a
 		// grandchild Variable doesn't change the grandparent Razor's BuildHash
@@ -122,21 +132,25 @@ public static class SuiWrapperEmitter
 			var group = v.Group ?? ( v.IsPublic ? "Public" : "Internal" );
 			var backing = "_" + char.ToLowerInvariant( v.Name[0] ) + v.Name.Substring( 1 );
 
-			// Backing field + property with a setter that pushes the new value
-			// into the live View if we're mounted. Without this push, the dev
-			// would have to remember to call Hud.RefreshView() after every
-			// mutation — `Hud.Health -= 10` would change the wrapper but the
-			// renderer's BuildHash() still saw the old value and skipped a
-			// re-render. The auto-push keeps the API expectation that simple
-			// property writes "just work" while keeping SyncFieldsTo authoritative
-			// for the cold-start path (Add() / Show() / RefreshView()).
+			// Backing field + property:
+			//
+			//   get — reads from the live View when mounted so two-way `:bind`
+			//         updates flow back automatically (M4). For one-way
+			//         bindings View.X mirrors the backing, so reading either
+			//         side gives the same answer — the View-first form is
+			//         correct for ALL modes.
+			//
+			//   set — writes the backing AND pushes into the View so the
+			//         renderer's BuildHash() sees the change and re-renders.
+			//         SyncFieldsTo handles the cold-start path on mount.
 			sb.Append( "\tprivate " ).Append( csType ).Append( ' ' ).Append( backing )
 				.Append( " = " ).Append( def ).AppendLine( ";" );
 
 			sb.Append( "\t[Property, Group( \"" ).Append( group.Replace( "\"", "\\\"" ) ).Append( "\" )] public " )
 				.Append( csType ).Append( ' ' ).Append( v.Name ).AppendLine();
 			sb.AppendLine( "\t{" );
-			sb.Append( "\t\tget => " ).Append( backing ).AppendLine( ";" );
+			sb.Append( "\t\tget => View != null ? View." ).Append( v.Name )
+				.Append( " : " ).Append( backing ).AppendLine( ";" );
 			sb.AppendLine( "\t\tset" );
 			sb.AppendLine( "\t\t{" );
 			sb.Append( "\t\t\t" ).Append( backing ).AppendLine( " = value;" );
@@ -198,6 +212,197 @@ public static class SuiWrapperEmitter
 	}
 
 	// ─────────────────────────────────────────────────────────────────────
+	//  Input widget bind mirrors (V1.5 M4)
+	// ─────────────────────────────────────────────────────────────────────
+	//
+	// For TextEntry / Checkbox / DropDown / Slider the wrapper mirrors the
+	// panel's bind field as a `[Property]` with auto-push semantics:
+	//   * `get` reads from the live View when mounted so the latest
+	//     user-edited value comes back, falling back to the backing field
+	//     when the wrapper isn't yet mounted.
+	//   * `set` writes to the backing field AND to the View, so user code
+	//     that pre-fills `widget.NameEntryValue = "x"` before Show() picks
+	//     the right initial value AND mutations after Show() take effect
+	//     without manual RefreshView.
+	// Matches the existing Variable pattern (see EmitVariableProperties).
+
+	private struct InputBindSpec
+	{
+		public string FieldName;     // matches panel field, e.g. "NameEntryValue"
+		public string CsType;        // "string" | "bool" | "int" | "float"
+		public string BackingName;   // "_nameEntryValue"
+		public string DefaultLit;    // initial literal
+	}
+
+	private static System.Collections.Generic.IEnumerable<InputBindSpec> CollectInputBinds( SuiDocument doc )
+	{
+		if ( doc?.Elements == null ) yield break;
+		var inv = System.Globalization.CultureInfo.InvariantCulture;
+
+		foreach ( var el in doc.Elements )
+		{
+			if ( el == null ) continue;
+			var baseName = el.Name ?? el.Id;
+			if ( string.IsNullOrEmpty( baseName ) ) continue;
+
+			switch ( el.Type )
+			{
+				case SuiElementType.TextEntry:
+					{
+						var name = SuiNameSanitizer.ToCSharpIdentifier( baseName + "Value" );
+						if ( string.IsNullOrEmpty( name ) ) break;
+						var def = el.Props?.PreviewValue ?? "";
+						yield return new InputBindSpec
+						{
+							FieldName = name,
+							CsType = "string",
+							BackingName = "_" + char.ToLowerInvariant( name[0] ) + name.Substring( 1 ),
+							DefaultLit = "\"" + def.Replace( "\\", "\\\\" ).Replace( "\"", "\\\"" ) + "\"",
+						};
+					}
+					break;
+
+				case SuiElementType.Toggle:
+					{
+						var name = SuiNameSanitizer.ToCSharpIdentifier( baseName + "Checked" );
+						if ( string.IsNullOrEmpty( name ) ) break;
+						yield return new InputBindSpec
+						{
+							FieldName = name,
+							CsType = "bool",
+							BackingName = "_" + char.ToLowerInvariant( name[0] ) + name.Substring( 1 ),
+							DefaultLit = el.Props?.ToggleChecked == true ? "true" : "false",
+						};
+					}
+					break;
+
+				case SuiElementType.DropDown:
+					{
+						var name = SuiNameSanitizer.ToCSharpIdentifier( baseName + "Value" );
+						if ( string.IsNullOrEmpty( name ) ) break;
+						yield return new InputBindSpec
+						{
+							FieldName = name,
+							CsType = "int",
+							BackingName = "_" + char.ToLowerInvariant( name[0] ) + name.Substring( 1 ),
+							DefaultLit = (el.Props?.DropDownSelectedIndex ?? 0).ToString( inv ),
+						};
+					}
+					break;
+
+				case SuiElementType.Slider:
+					{
+						var name = SuiNameSanitizer.ToCSharpIdentifier( baseName + "SliderValue" );
+						if ( string.IsNullOrEmpty( name ) ) break;
+						yield return new InputBindSpec
+						{
+							FieldName = name,
+							CsType = "float",
+							BackingName = "_" + char.ToLowerInvariant( name[0] ) + name.Substring( 1 ),
+							DefaultLit = (el.Props?.SliderValue ?? 0f).ToString( "0.###", inv ) + "f",
+						};
+					}
+					break;
+			}
+		}
+	}
+
+	private static void EmitInputBindProperties( SuiDocument doc, StringBuilder sb )
+	{
+		foreach ( var s in CollectInputBinds( doc ) )
+		{
+			sb.Append( "\tprivate " ).Append( s.CsType ).Append( ' ' ).Append( s.BackingName )
+				.Append( " = " ).Append( s.DefaultLit ).AppendLine( ";" );
+
+			sb.Append( "\t[Property, Group( \"Inputs\" )] public " ).Append( s.CsType )
+				.Append( ' ' ).Append( s.FieldName ).AppendLine();
+			sb.AppendLine( "\t{" );
+			// Read from live View when mounted — that's where two-way `:bind`
+			// puts the user-edited value. Fall back to backing field pre-mount.
+			sb.Append( "\t\tget => View != null ? View." ).Append( s.FieldName )
+				.Append( " : " ).Append( s.BackingName ).AppendLine( ";" );
+			sb.AppendLine( "\t\tset" );
+			sb.AppendLine( "\t\t{" );
+			sb.Append( "\t\t\t" ).Append( s.BackingName ).AppendLine( " = value;" );
+			sb.Append( "\t\t\tif ( View != null ) View." ).Append( s.FieldName ).AppendLine( " = value;" );
+			sb.AppendLine( "\t\t}" );
+			sb.AppendLine( "\t}" );
+		}
+	}
+
+	private static void EmitInputBindAssignments( SuiDocument doc, StringBuilder sb, string viewVar )
+	{
+		foreach ( var s in CollectInputBinds( doc ) )
+		{
+			sb.Append( "\t\t" ).Append( viewVar ).Append( '.' ).Append( s.FieldName )
+				.Append( " = " ).Append( s.BackingName ).AppendLine( ";" );
+		}
+	}
+
+	/// <summary>
+	/// V1.5 — for any TwoWay binding with <see cref="SuiBindingUpdateTrigger.Manual"/>
+	/// emit a <c>public void Commit&lt;FieldName&gt;()</c> on the wrapper that
+	/// forwards to the panel side. Pattern:
+	///   • TextEntry Manual: reads <c>view.<Name>Ref.Text</c> and writes the bound field
+	///   • Slider Manual: calls <c>view.Commit<Name>SliderValue()</c> (panel side
+	///     does the actual visual→commit copy)
+	/// </summary>
+	private static void EmitManualCommitMethods( SuiDocument doc, StringBuilder sb )
+	{
+		if ( doc?.Elements == null ) return;
+
+		foreach ( var el in doc.Elements )
+		{
+			if ( el?.Bindings == null ) continue;
+			var baseName = el.Name ?? el.Id;
+			if ( string.IsNullOrEmpty( baseName ) ) continue;
+
+			foreach ( var b in el.Bindings )
+			{
+				if ( b == null || b.UpdateTrigger != SuiBindingUpdateTrigger.Manual ) continue;
+
+				if ( el.Type == SuiElementType.TextEntry && b.Property == "Value" )
+				{
+					var refName = SuiNameSanitizer.ToCSharpIdentifier( baseName + "Ref" );
+					var commitName = "Commit" + SuiNameSanitizer.ToCSharpIdentifier( baseName + "Value" );
+					var boundVarName = ResolveBindingVariableName( doc, b );
+					if ( string.IsNullOrEmpty( boundVarName ) ) continue;
+					sb.AppendLine();
+					sb.Append( "\tpublic void " ).Append( commitName ).AppendLine( "()" );
+					sb.AppendLine( "\t{" );
+					sb.AppendLine( "\t\tif ( View == null ) return;" );
+					sb.Append( "\t\tvar entry = View." ).Append( refName ).AppendLine( ";" );
+					sb.AppendLine( "\t\tif ( entry == null ) return;" );
+					// Assigning to the wrapper-side property fires its setter,
+					// which writes both backing field and View.<Name> for us.
+					sb.Append( "\t\t" ).Append( boundVarName ).AppendLine( " = entry.Text ?? \"\";" );
+					sb.AppendLine( "\t}" );
+				}
+				else if ( el.Type == SuiElementType.Slider && b.Property == "Value" )
+				{
+					var commitField = ResolveBindingVariableName( doc, b ) ?? SuiNameSanitizer.ToCSharpIdentifier( baseName + "SliderValue" );
+					var commitName = "Commit" + commitField;
+					sb.AppendLine();
+					sb.Append( "\tpublic void " ).Append( commitName ).AppendLine( "()" );
+					sb.AppendLine( "\t{" );
+					sb.Append( "\t\tView?." ).Append( commitName ).AppendLine( "();" );
+					sb.AppendLine( "\t}" );
+				}
+			}
+		}
+	}
+
+	private static string ResolveBindingVariableName( SuiDocument doc, SuiBinding b )
+	{
+		if ( b?.Source == null || string.IsNullOrEmpty( b.Source.VariableId ) ) return null;
+		if ( doc?.Variables == null ) return null;
+		foreach ( var v in doc.Variables )
+			if ( v?.Id == b.Source.VariableId )
+				return SuiNameSanitizer.ToCSharpIdentifier( v.Name );
+		return null;
+	}
+
+	// ─────────────────────────────────────────────────────────────────────
 	//  ContentHash override — recursive aggregate for nested re-render
 	// ─────────────────────────────────────────────────────────────────────
 
@@ -225,6 +430,7 @@ public static class SuiWrapperEmitter
 				sb.Append( "\t\th.Add( " ).Append( v.Name ).AppendLine( " );" );
 			}
 		}
+
 
 		// Recursive child wrappers — single → ContentHash(); ForEach → Count
 		// plus a per-item ContentHash() so mutations inside a list item

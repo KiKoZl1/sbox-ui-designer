@@ -27,6 +27,14 @@ public sealed class SuiBinding
 	/// <summary>How the binding flows. Defaults to <see cref="SuiBindingMode.OneWay"/>.</summary>
 	public SuiBindingMode Mode { get; set; } = SuiBindingMode.OneWay;
 
+	/// <summary>
+	/// When TwoWay (or OneWayToSource) — defines WHEN the UI commits its
+	/// current value back to the source Variable. Defaults to
+	/// <see cref="SuiBindingUpdateTrigger.OnChange"/> (realtime). Ignored
+	/// for OneWay / OneTime modes which never write back.
+	/// </summary>
+	public SuiBindingUpdateTrigger UpdateTrigger { get; set; } = SuiBindingUpdateTrigger.OnChange;
+
 	/// <summary>The data origin — a document Variable.</summary>
 	public SuiBindingSource Source { get; set; } = new();
 
@@ -53,6 +61,7 @@ public sealed class SuiBinding
 			Id = Id,
 			Property = Property,
 			Mode = Mode,
+			UpdateTrigger = UpdateTrigger,
 			Source = Source?.Clone() ?? new(),
 			FallbackValue = FallbackValue?.DeepClone(),
 		};

@@ -35,6 +35,7 @@ public sealed class SuiBindPopup : Window
 	private string _property;
 	private string _sourceVariableId;
 	private SuiBindingMode _mode = SuiBindingMode.OneWay;
+	private SuiBindingUpdateTrigger _updateTrigger = SuiBindingUpdateTrigger.OnChange;
 
 	// V1.5 converter chain — applied source → step₀ → step₁ → … → property.
 	private List<SuiBindingConverterStep> _converterSteps = new();
@@ -45,6 +46,8 @@ public sealed class SuiBindPopup : Window
 	private Widget _chainHost;
 	private Button _addConverterBtn;
 	private ComboBox _modeCombo;
+	private ComboBox _triggerCombo;
+	private Widget _triggerRow;
 	private Label _error;
 
 	public SuiBindPopup( SuiDocument doc, SuiElement element = null, string lockedProperty = null, SuiBinding existing = null )
@@ -56,6 +59,7 @@ public sealed class SuiBindPopup : Window
 		_editingBindingId = existing?.Id;
 		_sourceVariableId = existing?.Source?.VariableId;
 		_mode = existing?.Mode ?? SuiBindingMode.OneWay;
+		_updateTrigger = existing?.UpdateTrigger ?? SuiBindingUpdateTrigger.OnChange;
 
 		// Clone an existing chain so edits inside the popup don't mutate the live
 		// binding until OK is pressed.
@@ -155,8 +159,15 @@ public sealed class SuiBindPopup : Window
 		foreach ( var m in new[] { SuiBindingMode.OneWay, SuiBindingMode.OneTime, SuiBindingMode.TwoWay } )
 		{
 			var captured = m;
-			_modeCombo.AddItem( m.ToString(), "swap_horiz", () => _mode = captured, null, m == _mode );
+			_modeCombo.AddItem( m.ToString(), "swap_horiz", () => { _mode = captured; RebuildTriggerRowVisibility(); }, null, m == _mode );
 		}
+
+		// ── Update Trigger ── (only shown for TwoWay binds on widgets that
+		// support more than one trigger — TextEntry and Slider). Hidden
+		// otherwise so the dialog doesn't waste a row on a useless single-
+		// option dropdown.
+		BuildTriggerRow();
+		RebuildTriggerRowVisibility();
 
 		_error = new Label( "", Canvas );
 		_error.SetStyles( "color: #ef4444; font-size: 11px;" );
@@ -842,6 +853,7 @@ public sealed class SuiBindPopup : Window
 			_propertyBtn.Text = FormatPropertyButtonText( el, _property );
 		UpdatePropertyButtonStyle();
 		UpdateExpectsLabel();
+		RebuildTriggerRowVisibility();
 	}
 
 	// ─────────────────────────────────────────────────────────────────────
@@ -891,8 +903,10 @@ public sealed class SuiBindPopup : Window
 				if ( _propertyBtn != null )
 					_propertyBtn.Text = FormatPropertyButtonText( _element, captured );
 				_mode = SuiBindingModeMatrix.DefaultMode( _element.Type, captured );
+				try { _modeCombo?.TrySelectNamed( _mode.ToString() ); } catch { /* best-effort */ }
 				UpdatePropertyButtonStyle();
 				UpdateExpectsLabel();
+				RebuildTriggerRowVisibility();
 			} );
 			any = true;
 		}
@@ -980,6 +994,7 @@ public sealed class SuiBindPopup : Window
 			Id = _editingBindingId ?? SuiBinding.NewBindingId(),
 			Property = _property,
 			Mode = _mode,
+			UpdateTrigger = _mode == SuiBindingMode.TwoWay ? _updateTrigger : SuiBindingUpdateTrigger.OnChange,
 			Source = new SuiBindingSource { VariableId = _sourceVariableId },
 		};
 		if ( _converterSteps != null )
@@ -1150,6 +1165,82 @@ public sealed class SuiBindPopup : Window
 		Canvas.Layout.Add( row );
 		return combo;
 	}
+
+	/// <summary>
+	/// Build the Update Trigger row + combo (kept as fields so we can hide
+	/// the whole row when not applicable — see <see cref="RebuildTriggerRowVisibility"/>).
+	/// </summary>
+	private void BuildTriggerRow()
+	{
+		_triggerRow = new Widget( Canvas );
+		_triggerRow.Layout = Layout.Row();
+		_triggerRow.Layout.Spacing = 8;
+		var lbl = new Label( "Update Trigger", _triggerRow ) { FixedWidth = 90 };
+		lbl.SetStyles( "color: #9ca3af; font-size: 11px;" );
+		_triggerRow.Layout.Add( lbl );
+
+		_triggerCombo = new ComboBox( _triggerRow );
+		_triggerCombo.FixedHeight = 26;
+		_triggerCombo.SetStyles( FieldChrome );
+		_triggerRow.Layout.Add( _triggerCombo, 1 );
+
+		Canvas.Layout.Add( _triggerRow );
+	}
+
+	/// <summary>
+	/// Hide the Update Trigger row when it has nothing to offer:
+	///   • binding mode is not TwoWay (no write-back, no trigger concept)
+	///   • OR the (element type, property) allows only ONE trigger
+	///     (typically OnChange-only widgets like Checkbox / DropDown).
+	/// Rebuilds the combo entries each time so changing element / property /
+	/// mode reflects immediately without stale options.
+	/// </summary>
+	private void RebuildTriggerRowVisibility()
+	{
+		if ( _triggerRow == null || _triggerCombo == null ) return;
+
+		var triggers = _element != null && !string.IsNullOrEmpty( _property )
+			? SuiBindingModeMatrix.AllowedUpdateTriggers( _element.Type, _property )
+			: null;
+
+		var show = _mode == SuiBindingMode.TwoWay
+			&& triggers != null
+			&& triggers.Count > 1;
+
+		_triggerRow.Visible = show;
+		if ( !show )
+		{
+			// Reset to OnChange when the row is hidden so a stale OnLostFocus
+			// from a previous element doesn't get persisted invisibly.
+			_updateTrigger = SuiBindingUpdateTrigger.OnChange;
+			return;
+		}
+
+		_triggerCombo.Clear();
+		// If the current trigger isn't in the allowed list (changed element),
+		// fall back to OnChange.
+		var current = _updateTrigger;
+		bool currentAllowed = false;
+		foreach ( var t in triggers ) if ( t == current ) { currentAllowed = true; break; }
+		if ( !currentAllowed ) current = SuiBindingUpdateTrigger.OnChange;
+
+		foreach ( var t in triggers )
+		{
+			var captured = t;
+			_triggerCombo.AddItem( t.ToString(), TriggerIcon( t ), () => _updateTrigger = captured, null, t == current );
+		}
+		_updateTrigger = current;
+	}
+
+	private static string TriggerIcon( SuiBindingUpdateTrigger t ) => t switch
+	{
+		SuiBindingUpdateTrigger.OnChange      => "bolt",
+		SuiBindingUpdateTrigger.OnLostFocus   => "input",
+		SuiBindingUpdateTrigger.OnSubmit      => "keyboard_return",
+		SuiBindingUpdateTrigger.OnRelease     => "mouse",
+		SuiBindingUpdateTrigger.Manual        => "pan_tool",
+		_                                     => "settings",
+	};
 
 	private void AddReadonlyRow( string label, string value )
 	{

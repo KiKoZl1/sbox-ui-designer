@@ -130,6 +130,15 @@ public sealed class SuiRazorGenerator
 		foreach ( var expr in sliderValueExprs )
 			childHashExprs.Add( expr );
 
+		// V1.5 M4 — Two-way bind backing fields for TextEntry / Checkbox /
+		// DropDown. Each widget gets a public field that user code reads /
+		// writes; Razor `Value:bind` / `Checked:bind` keeps it in sync with
+		// the widget. Included in BuildHash so author-side mutations
+		// trigger a re-render.
+		var inputBindExprs = EmitInputBindFields( body );
+		foreach ( var expr in inputBindExprs )
+			childHashExprs.Add( expr );
+
 		// V1.5-M2-K4 — named-instance fields for every SuiReference. Single
 		// instance → [Property] FieldType FieldName = new(); ForEach → List<>.
 		// Parent code reads/writes parent.FieldName.VarName; the Razor markup
@@ -679,15 +688,22 @@ public sealed class SuiRazorGenerator
 	}
 
 	/// <summary>
-	/// V1.5 M4 — emit per-Slider state on the renderer:
+	/// V1.5 M4 — emit per-Slider state on the renderer, mirroring engine
+	/// SliderControl exactly:
 	/// <list type="bullet">
-	///   <item>`<Name>SliderValue` — the current value, bound to the
-	///         tooltip + fill + thumb position via inline style.</item>
-	///   <item>`<Name>SliderValue_OnTrackPress` — mouse-down handler that
-	///         starts the drag.</item>
-	///   <item>Single shared `Tick()` override that loops over every
-	///         slider's drag state. Only emitted when at least one
-	///         slider is present in the document.</item>
+	///   <item>`<Name>SliderValue` — backing value (settable for binding).</item>
+	///   <item>`<Name>SliderPosition` — computed property used in the
+	///         inline `style="left: @(<Name>SliderPosition)%;"`. Engine
+	///         uses this exact form; complex inline expressions with `%`
+	///         confuse the Sandbox.UI Razor parser.</item>
+	///   <item>`<Name>SliderValue_OnTrackInput` — mousedown handler. Jumps
+	///         to the click position.</item>
+	///   <item>`<Name>SliderValue_OnTrackMove` — mousemove handler. Engine
+	///         pattern: only updates while `HasActive` is true (mouse
+	///         button held after pressing on this panel). HasActive is
+	///         the right signal in UI mode — `Input.Down("attack1")` is
+	///         only valid in cursor-locked game mode and silently
+	///         returns false in UI cursor mode.</item>
 	/// </list>
 	/// Returns the value field names so BuildHash picks them up.
 	/// </summary>
@@ -697,80 +713,285 @@ public sealed class SuiRazorGenerator
 		if ( _doc?.Elements == null ) return hashes;
 
 		var inv = System.Globalization.CultureInfo.InvariantCulture;
-		var sliders = new System.Collections.Generic.List<(string Field, string Min, string Max, string Step)>();
+
+		bool needsTickOverride = false;
+		var sliderTickEntries = new System.Collections.Generic.List<(string Field, string Visual, string Cast, bool ReleaseCommit)>();
 
 		foreach ( var el in _doc.Elements )
 		{
 			if ( el == null || el.Type != SuiElementType.Slider ) continue;
-			var fieldName = SuiNameSanitizer.ToCSharpIdentifier( ( el.Name ?? el.Id ) + "SliderValue" );
-			if ( string.IsNullOrEmpty( fieldName ) ) continue;
+			var baseName = el.Name ?? el.Id;
+			// V1.5 M4 — if bound, the "commit field" is the Variable's name
+			// (declared elsewhere by SuiVariableEmitter). If unbound, we
+			// declare a local public field as the commit target.
+			var boundVar = TryGetBoundVariableName( el, "Value" );
+			var trigger = TryGetBindUpdateTrigger( el, "Value" );
+			var commitField = boundVar ?? SuiNameSanitizer.ToCSharpIdentifier( baseName + "SliderValue" );
+			var posName = SuiNameSanitizer.ToCSharpIdentifier( baseName + "SliderPosition" );
+			if ( string.IsNullOrEmpty( commitField ) ) continue;
 
 			var defaultLit = (el.Props?.SliderValue ?? 0f).ToString( "0.###", inv );
 			var minLit = (el.Props?.SliderMin ?? 0f).ToString( "0.###", inv );
 			var maxLit = (el.Props?.SliderMax ?? 100f).ToString( "0.###", inv );
 			var stepLit = (el.Props?.SliderStep ?? 1f).ToString( "0.###", inv );
 
-			body.Append( "\tpublic float " ).Append( fieldName )
-				.Append( " { get; set; } = " ).Append( defaultLit ).AppendLine( "f;" );
-			body.Append( "\tprivate global::Sandbox.UI.Panel " ).Append( fieldName ).AppendLine( "_TrackPanel;" );
-			body.Append( "\tprivate bool " ).Append( fieldName ).AppendLine( "_Dragging;" );
-			// Engine invokes Razor `onmousedown` callbacks with the base
-			// PanelEvent; we cast to MousePanelEvent inside (declaring the
-			// handler directly with MousePanelEvent fails CS1503).
+			// OnChange (or unbound) writes straight to the commit field. The
+			// visual position reads the same field — no buffer needed.
 			//
-			// Math mirrors engine SliderControl.ScreenPosToValue:
-			//   normalized = LerpInverse(Mouse.Position.x, Box.Left, Box.Right)
-			// Box.Left/Right are screen-pixel coordinates of the track.
-			body.Append( "\tprivate void " ).Append( fieldName ).AppendLine( "_OnTrackPress( global::Sandbox.UI.PanelEvent baseEvent )" );
+			// OnRelease / Manual need a SEPARATE visual buffer so dragging
+			// updates the position locally without committing the Variable
+			// each frame. The commit happens on mouseup (OnRelease) or via
+			// an explicit wrapper.Commit<Name>SliderValue() call (Manual).
+			var useVisualBuffer = boundVar != null &&
+				( trigger == SuiBindingUpdateTrigger.OnRelease
+					|| trigger == SuiBindingUpdateTrigger.Manual );
+			var visualField = useVisualBuffer
+				? "_" + char.ToLowerInvariant( commitField[0] ) + commitField.Substring( 1 ) + "Visual"
+				: commitField;
+
+			var boundV = TryGetBoundVariable( el, "Value" );
+			var castPrefix = boundV != null && boundV.Type == "int" ? "(int)" : "";
+
+			// Backing field: emit ONLY when unbound (no Variable to back it).
+			// Bound sliders write into the Variable's public property which
+			// SuiVariableEmitter already declared.
+			if ( boundVar == null )
+			{
+				body.Append( "\tpublic float " ).Append( commitField )
+					.Append( " { get; set; } = " ).Append( defaultLit ).AppendLine( "f;" );
+			}
+			// Visual buffer for deferred-commit triggers. Initialised to the
+			// default; we resync from the Variable on idle Ticks so external
+			// code can still drive the displayed position.
+			if ( useVisualBuffer )
+			{
+				body.Append( "\tprivate float " ).Append( visualField )
+					.Append( " = " ).Append( defaultLit ).AppendLine( "f;" );
+			}
+			body.Append( "\tprivate float " ).Append( posName )
+				.Append( " => global::Sandbox.MathX.LerpInverse( (float)" ).Append( visualField )
+				.Append( ", " ).Append( minLit ).Append( "f, " ).Append( maxLit )
+				.AppendLine( "f, true ) * 100f;" );
+			body.Append( "\tprivate global::Sandbox.UI.Panel " ).Append( commitField ).AppendLine( "_TrackPanel;" );
+
+			// mousedown: capture track panel, jump value to click position.
+			body.Append( "\tprivate void " ).Append( commitField ).AppendLine( "_OnTrackInput( global::Sandbox.UI.PanelEvent baseEvent )" );
 			body.AppendLine( "\t{" );
 			body.AppendLine( "\t\tif ( baseEvent is not global::Sandbox.UI.MousePanelEvent e ) return;" );
 			body.AppendLine( "\t\tif ( e.Button != \"mouseleft\" ) return;" );
 			body.AppendLine( "\t\tif ( e.Target == null || !e.Target.IsValid() ) return;" );
-			body.Append( "\t\t" ).Append( fieldName ).AppendLine( "_TrackPanel = e.Target;" );
-			body.Append( "\t\t" ).Append( fieldName ).AppendLine( "_Dragging = true;" );
-			body.Append( "\t\t" ).Append( fieldName ).Append( "_UpdateFromMouseScreen( global::Sandbox.Mouse.Position.x );" ).AppendLine();
+			body.Append( "\t\t" ).Append( commitField ).AppendLine( "_TrackPanel = e.Target;" );
+			body.Append( "\t\t" ).Append( commitField ).Append( "_ScreenToValue( global::Sandbox.Mouse.Position );" ).AppendLine();
 			body.AppendLine( "\t}" );
-			body.Append( "\tprivate void " ).Append( fieldName ).AppendLine( "_UpdateFromMouseScreen( float mouseScreenX )" );
+
+			// mousemove: only update while target has active (mouse held after pressing).
+			body.Append( "\tprivate void " ).Append( commitField ).AppendLine( "_OnTrackMove( global::Sandbox.UI.PanelEvent baseEvent )" );
 			body.AppendLine( "\t{" );
-			body.Append( "\t\tvar track = " ).Append( fieldName ).AppendLine( "_TrackPanel;" );
+			body.AppendLine( "\t\tif ( baseEvent is not global::Sandbox.UI.MousePanelEvent e ) return;" );
+			body.AppendLine( "\t\tif ( e.Target == null || !e.Target.IsValid() ) return;" );
+			body.AppendLine( "\t\tif ( !e.Target.HasActive ) return;" );
+			body.Append( "\t\t" ).Append( commitField ).AppendLine( "_TrackPanel = e.Target;" );
+			body.Append( "\t\t" ).Append( commitField ).Append( "_ScreenToValue( global::Sandbox.Mouse.Position );" ).AppendLine();
+			body.AppendLine( "\t}" );
+
+			// Math mirrors engine SliderControl.ScreenPosToValue exactly.
+			// Writes go to the VISUAL buffer (which equals the commit field
+			// when the trigger is OnChange — so per-frame updates flow
+			// straight to the Variable). For OnRelease/Manual the visual
+			// buffer is separate; the commit happens later.
+			body.Append( "\tprivate void " ).Append( commitField ).AppendLine( "_ScreenToValue( global::Vector2 pos )" );
+			body.AppendLine( "\t{" );
+			body.Append( "\t\tvar track = " ).Append( commitField ).AppendLine( "_TrackPanel;" );
 			body.AppendLine( "\t\tif ( track == null || !track.IsValid() ) return;" );
-			body.AppendLine( "\t\tvar normalized = global::Sandbox.MathX.LerpInverse( mouseScreenX, track.Box.Left, track.Box.Right, true );" );
+			body.AppendLine( "\t\tvar normalized = global::Sandbox.MathX.LerpInverse( pos.x, track.Box.Left, track.Box.Right, true );" );
 			body.Append( "\t\tvar v = global::Sandbox.MathX.LerpTo( " ).Append( minLit ).Append( "f, " ).Append( maxLit ).AppendLine( "f, normalized, true );" );
 			body.Append( "\t\tvar step = " ).Append( stepLit ).AppendLine( "f;" );
 			body.AppendLine( "\t\tif ( step > 0 ) v = global::System.MathF.Round( v / step ) * step;" );
-			body.Append( "\t\t" ).Append( fieldName ).AppendLine( " = v;" );
+			// VISUAL field is float-typed; cast only when committing to a
+			// typed bound Variable (int Variable needs the cast).
+			body.Append( "\t\t" ).Append( visualField ).Append( " = " );
+			if ( useVisualBuffer )
+				body.AppendLine( "v;" );
+			else
+				body.Append( castPrefix ).AppendLine( "v;" );
 			body.AppendLine( "\t\tStateHasChanged();" );
 			body.AppendLine( "\t}" );
 
-			sliders.Add( (fieldName, minLit, maxLit, stepLit) );
-			hashes.Add( fieldName );
+			// Manual commit method for user code to call from a button handler.
+			if ( useVisualBuffer && trigger == SuiBindingUpdateTrigger.Manual )
+			{
+				body.Append( "\tpublic void Commit" ).Append( commitField ).AppendLine( "()" );
+				body.AppendLine( "\t{" );
+				body.Append( "\t\t" ).Append( commitField ).Append( " = " ).Append( castPrefix ).Append( visualField ).AppendLine( ";" );
+				body.AppendLine( "\t\tStateHasChanged();" );
+				body.AppendLine( "\t}" );
+			}
+
+			if ( useVisualBuffer )
+			{
+				needsTickOverride = true;
+				sliderTickEntries.Add( (commitField, visualField, castPrefix, trigger == SuiBindingUpdateTrigger.OnRelease) );
+			}
+
+			hashes.Add( useVisualBuffer ? visualField : commitField );
 		}
 
-		// Single shared Tick that drives every slider's drag. While left-mouse
-		// is held + we're dragging, update from the current mouse position
-		// using engine-style screen-pixel math (Box.Left/Right, no scaling).
-		if ( sliders.Count > 0 )
+		// Shared Tick override for any slider that uses a visual buffer:
+		// detects HasActive transitions (mouse press → release) and either
+		// commits to the bound Variable (OnRelease) or resyncs the visual
+		// buffer from the Variable (when idle, to pick up external writes).
+		if ( needsTickOverride )
 		{
 			body.AppendLine( "\tpublic override void Tick()" );
 			body.AppendLine( "\t{" );
 			body.AppendLine( "\t\tbase.Tick();" );
-			body.AppendLine( "\t\tvar mouseDown = global::Sandbox.Input.Down( \"attack1\" );" );
-			foreach ( var s in sliders )
+			foreach ( var entry in sliderTickEntries )
 			{
-				body.Append( "\t\tif ( " ).Append( s.Field ).AppendLine( "_Dragging )" );
+				var wasActive = "_" + entry.Field + "WasActive";
+				body.Append( "\t\tvar " ).Append( wasActive ).Append( "Now = " )
+					.Append( entry.Field ).AppendLine( "_TrackPanel?.HasActive ?? false;" );
+				if ( entry.ReleaseCommit )
+				{
+					body.Append( "\t\tif ( _" ).Append( entry.Field ).Append( "WasActive && !" ).Append( wasActive ).AppendLine( "Now )" );
+					body.AppendLine( "\t\t{" );
+					body.Append( "\t\t\t" ).Append( entry.Field ).Append( " = " ).Append( entry.Cast ).Append( entry.Visual ).AppendLine( ";" );
+					body.AppendLine( "\t\t}" );
+					body.Append( "\t\telse if ( !" ).Append( wasActive ).Append( "Now && (float)" ).Append( entry.Visual ).Append( " != (float)" ).Append( entry.Field ).AppendLine( " )" );
+				}
+				else
+				{
+					body.Append( "\t\tif ( !" ).Append( wasActive ).Append( "Now && (float)" ).Append( entry.Visual ).Append( " != (float)" ).Append( entry.Field ).AppendLine( " )" );
+				}
 				body.AppendLine( "\t\t{" );
-				body.Append( "\t\t\tvar tp = " ).Append( s.Field ).AppendLine( "_TrackPanel;" );
-				body.AppendLine( "\t\t\tif ( tp == null || !tp.IsValid() || !mouseDown )" );
-				body.AppendLine( "\t\t\t{" );
-				body.Append( "\t\t\t\t" ).Append( s.Field ).AppendLine( "_Dragging = false;" );
-				body.AppendLine( "\t\t\t}" );
-				body.AppendLine( "\t\t\telse" );
-				body.AppendLine( "\t\t\t{" );
-				body.Append( "\t\t\t\t" ).Append( s.Field ).AppendLine( "_UpdateFromMouseScreen( global::Sandbox.Mouse.Position.x );" );
-				body.AppendLine( "\t\t\t}" );
+				body.Append( "\t\t\t" ).Append( entry.Visual ).Append( " = (float)" ).Append( entry.Field ).AppendLine( ";" );
 				body.AppendLine( "\t\t}" );
+				body.Append( "\t\t_" ).Append( entry.Field ).Append( "WasActive = " ).Append( wasActive ).AppendLine( "Now;" );
 			}
 			body.AppendLine( "\t}" );
+
+			// _<Field>WasActive private bools tracked across frames.
+			foreach ( var entry in sliderTickEntries )
+				body.Append( "\tprivate bool _" ).Append( entry.Field ).AppendLine( "WasActive;" );
+		}
+
+		return hashes;
+	}
+
+	/// <summary>
+	/// V1.5 M4 — if the element has a TwoWay binding on <paramref name="property"/>
+	/// to a Variable, returns the Variable's name (sanitized C# identifier).
+	/// Returns null when no binding exists — caller falls back to a private
+	/// local field so the widget remains interactive but the value stays
+	/// internal (Unreal-style "no binding = silently functional").
+	/// </summary>
+	private string TryGetBoundVariableName( SuiElement el, string property )
+	{
+		var v = TryGetBoundVariable( el, property );
+		return v == null ? null : SuiNameSanitizer.ToCSharpIdentifier( v.Name );
+	}
+
+	private SuiVariable TryGetBoundVariable( SuiElement el, string property )
+	{
+		if ( el?.Bindings == null || _doc?.Variables == null ) return null;
+		foreach ( var b in el.Bindings )
+		{
+			if ( b == null || b.Property != property ) continue;
+			if ( b.Source == null || string.IsNullOrEmpty( b.Source.VariableId ) ) continue;
+			foreach ( var v in _doc.Variables )
+			{
+				if ( v?.Id == b.Source.VariableId ) return v;
+			}
+		}
+		return null;
+	}
+
+	/// <summary>
+	/// Returns the configured <see cref="SuiBindingUpdateTrigger"/> for a
+	/// (element, property) binding pair, or <see cref="SuiBindingUpdateTrigger.OnChange"/>
+	/// when no binding exists. Used by the TextEntry / Slider emit paths to
+	/// choose between realtime, blur, submit, release, or manual write-back.
+	/// </summary>
+	private SuiBindingUpdateTrigger TryGetBindUpdateTrigger( SuiElement el, string property )
+	{
+		if ( el?.Bindings == null ) return SuiBindingUpdateTrigger.OnChange;
+		foreach ( var b in el.Bindings )
+		{
+			if ( b == null || b.Property != property ) continue;
+			return b.UpdateTrigger;
+		}
+		return SuiBindingUpdateTrigger.OnChange;
+	}
+
+	/// <summary>
+	/// V1.5 M4 — emit PRIVATE backing fields for input widgets that have NO
+	/// binding. Bound widgets reach the public Variable directly through
+	/// `:bind="@<VarName>"` and don't need a local field. Unbound widgets
+	/// still need somewhere to store their interactive state so the user
+	/// can click/type, but the value never leaves the panel.
+	/// </summary>
+	private System.Collections.Generic.List<string> EmitInputBindFields( System.Text.StringBuilder body )
+	{
+		var hashes = new System.Collections.Generic.List<string>();
+		if ( _doc?.Elements == null ) return hashes;
+
+		foreach ( var el in _doc.Elements )
+		{
+			if ( el == null ) continue;
+			var baseName = el.Name ?? el.Id;
+			if ( string.IsNullOrEmpty( baseName ) ) continue;
+
+			// Skip widgets that have a Variable binding — the Variable
+			// supplies its own field; we'd be duplicating.
+			switch ( el.Type )
+			{
+				case SuiElementType.TextEntry:
+					{
+						// When the binding uses a non-realtime trigger
+						// (OnLostFocus/OnSubmit/Manual), the markup captures
+						// an @ref to read the panel's .Text at the right
+						// moment. The ref field must exist on the panel even
+						// when the value field is owned by a Variable.
+						var trigger = TryGetBindUpdateTrigger( el, "Value" );
+						if ( trigger != SuiBindingUpdateTrigger.OnChange )
+						{
+							var refName = SuiNameSanitizer.ToCSharpIdentifier( baseName + "Ref" );
+							body.Append( "\tprivate global::Sandbox.UI.TextEntry " ).Append( refName ).AppendLine( ";" );
+						}
+
+						if ( TryGetBoundVariableName( el, "Value" ) != null ) break;
+						var fieldName = SuiNameSanitizer.ToCSharpIdentifier( baseName + "Value" );
+						if ( string.IsNullOrEmpty( fieldName ) ) continue;
+						var initial = el.Props?.PreviewValue ?? "";
+						body.Append( "\tprivate string " ).Append( fieldName )
+							.Append( " = \"" ).Append( EscapeForAttr( initial ) ).AppendLine( "\";" );
+						hashes.Add( fieldName );
+					}
+					break;
+
+				case SuiElementType.Toggle:
+					{
+						if ( TryGetBoundVariableName( el, "Checked" ) != null ) break;
+						var fieldName = SuiNameSanitizer.ToCSharpIdentifier( baseName + "Checked" );
+						if ( string.IsNullOrEmpty( fieldName ) ) continue;
+						var initial = el.Props?.ToggleChecked == true ? "true" : "false";
+						body.Append( "\tprivate bool " ).Append( fieldName )
+							.Append( " = " ).Append( initial ).AppendLine( ";" );
+						hashes.Add( fieldName );
+					}
+					break;
+
+				case SuiElementType.DropDown:
+					{
+						if ( TryGetBoundVariableName( el, "Value" ) != null ) break;
+						var fieldName = SuiNameSanitizer.ToCSharpIdentifier( baseName + "Value" );
+						if ( string.IsNullOrEmpty( fieldName ) ) continue;
+						var idx = el.Props?.DropDownSelectedIndex ?? 0;
+						body.Append( "\tprivate int " ).Append( fieldName )
+							.Append( " = " ).Append( idx ).AppendLine( ";" );
+						hashes.Add( fieldName );
+					}
+					break;
+			}
 		}
 
 		return hashes;
@@ -828,22 +1049,27 @@ public sealed class SuiRazorGenerator
 	};
 
 	/// <summary>
-	/// V1.5 M4 (PRD 21) — Slider markup is 100% ours. NO engine SliderControl —
-	/// the engine slider's value-tooltip can't be recolored from user-side
-	/// SCSS (parser doesn't honor compound class selectors), so we build the
-	/// entire control: track, fill, thumb, tooltip pill. Drag math lives in
-	/// the renderer's @code helper (`OnSliderMouseDown/Move/Up`) which
-	/// updates the authored Value via the bound property.
+	/// V1.5 M4 (PRD 21) — Slider markup mirrors engine SliderControl.razor
+	/// exactly (just our own class names): a positioned `<Name>Position`
+	/// helper property fed into `style="left: @(<Name>Position)%;"` (note
+	/// the trailing semicolon — engine uses this form and Sandbox.UI's
+	/// Razor parser appears to need it for the inline % to resolve).
+	///
+	/// Drag handling mirrors engine: `onmousedown` jumps to the click
+	/// position; `onmousemove` checks `e.Target.HasActive` (true while the
+	/// mouse stays pressed on the track) and updates the value. No Tick
+	/// polling — engine itself doesn't need it.
 	/// </summary>
 	private void EmitSliderWithTooltip( SuiElement el, string className, string indent, string dataAttrs, string styleBody )
 	{
 		var p = el.Props;
-		var inv = System.Globalization.CultureInfo.InvariantCulture;
-		var valueField = SuiNameSanitizer.ToCSharpIdentifier( ( el.Name ?? el.Id ) + "SliderValue" );
-		var minLit = (p?.SliderMin ?? 0f).ToString( "0.###", inv );
-		var maxLit = (p?.SliderMax ?? 100f).ToString( "0.###", inv );
+		// V1.5 M4 — if the Slider is bound to a Variable, the user-visible
+		// name is the Variable name (`Volume`). Otherwise we fall back to a
+		// private local field (widget interacts but value stays internal).
+		var boundVar = TryGetBoundVariableName( el, "Value" );
+		var valueField = boundVar ?? SuiNameSanitizer.ToCSharpIdentifier( ( el.Name ?? el.Id ) + "SliderValue" );
+		var posProp = SuiNameSanitizer.ToCSharpIdentifier( ( el.Name ?? el.Id ) + "SliderPosition" );
 
-		// Wrapper carries the authored position/size + sui-el-X class.
 		_sb.Append( indent ).Append( "<div class=\"" ).Append( className ).Append( " sui-slider\"" ).Append( dataAttrs );
 		if ( styleBody.Length > 0 )
 			_sb.Append( " style=\"" ).Append( styleBody ).Append( "\"" );
@@ -853,29 +1079,23 @@ public sealed class SuiRazorGenerator
 
 		var inner = new string( ' ', (indent.Length / 2 + 1) * 2 );
 
-		// Track — captures mousedown/move to drive the value. The
-		// renderer's helper method computes Value from the mouse X
-		// position relative to track bounds.
-		_sb.Append( inner ).Append( "<div class=\"sui-slider-track\" onmousedown=@(e => " )
-			.Append( valueField ).Append( "_OnTrackPress(e))>" ).AppendLine();
+		// Track. onmousedown jumps, onmousemove updates while HasActive on
+		// the same panel (engine convention).
+		_sb.Append( inner ).Append( "<div class=\"sui-slider-track\"" )
+			.Append( " onmousedown=@(e => " ).Append( valueField ).Append( "_OnTrackInput(e))" )
+			.Append( " onmousemove=@(e => " ).Append( valueField ).Append( "_OnTrackMove(e))>" ).AppendLine();
 
-		// Fill bar — width follows the value via inline style. `bottom`/`top`
-		// shorthand not needed; flex parent stacks horizontally.
-		var posExpr = $"({valueField} - {minLit}f) / ({maxLit}f - {minLit}f) * 100";
 		_sb.Append( inner ).Append( "  <div class=\"sui-slider-fill\" style=\"width: @(" )
-			.Append( posExpr ).AppendLine( ")%\"></div>" );
+			.Append( posProp ).AppendLine( ")%;\"></div>" );
 
-		// Thumb — left position follows the same expression.
 		_sb.Append( inner ).Append( "  <div class=\"sui-slider-thumb\" style=\"left: @(" )
-			.Append( posExpr ).AppendLine( ")%\"></div>" );
+			.Append( posProp ).AppendLine( ")%;\"></div>" );
 
-		// Tooltip pill above the thumb — only when the author wants it.
 		if ( p?.SliderShowValue == true )
 		{
 			_sb.Append( inner ).Append( "  <div class=\"sui-slider-tooltip\" style=\"left: @(" )
-				.Append( posExpr ).AppendLine( ")%\">" );
-			_sb.Append( inner ).Append( "    <label>@(" ).Append( valueField ).AppendLine( ".ToString(\"0.##\"))</label>" );
-			_sb.Append( inner ).AppendLine( "    <div class=\"sui-slider-tooltip-tail\"></div>" );
+				.Append( posProp ).AppendLine( ")%;\">" );
+			_sb.Append( inner ).Append( "    <label class=\"sui-slider-tooltip-label\">@(" ).Append( valueField ).AppendLine( ".ToString(\"0.##\"))</label>" );
 			_sb.Append( inner ).AppendLine( "  </div>" );
 		}
 
@@ -900,6 +1120,7 @@ public sealed class SuiRazorGenerator
 
 		var p = el.Props;
 		var inv = System.Globalization.CultureInfo.InvariantCulture;
+		var baseName = el.Name ?? el.Id;
 		switch ( el.Type )
 		{
 			case SuiElementType.TextEntry:
@@ -911,6 +1132,47 @@ public sealed class SuiRazorGenerator
 					_sb.Append( " MaxLength=\"@(" ).Append( p.MaxLength ).Append( ")\"" );
 				if ( p != null && p.ReadOnly )
 					_sb.Append( " ReadOnly=\"@true\"" );
+				{
+					// Two-way bind target: the bound Variable's name when one
+					// exists, else the private local field emitted by
+					// EmitInputBindFields (widget interacts but value stays
+					// internal — Unreal-style "unbound = silently functional").
+					var teTarget = TryGetBoundVariableName( el, "Value" )
+						?? SuiNameSanitizer.ToCSharpIdentifier( baseName + "Value" );
+					var trigger = TryGetBindUpdateTrigger( el, "Value" );
+					var refName = SuiNameSanitizer.ToCSharpIdentifier( baseName + "Ref" );
+
+					switch ( trigger )
+					{
+						case SuiBindingUpdateTrigger.OnChange:
+							// Realtime — engine's `Value:bind` fires per keystroke.
+							_sb.Append( " Value:bind=\"@" ).Append( teTarget ).Append( "\"" );
+							break;
+
+						case SuiBindingUpdateTrigger.OnLostFocus:
+							// One-way pre-fill + onblur captures the typed text
+							// and commits to the bound field.
+							_sb.Append( " Value=\"@" ).Append( teTarget ).Append( "\"" )
+								.Append( " @ref=\"" ).Append( refName ).Append( "\"" )
+								.Append( " onblur=@(e => " ).Append( teTarget ).Append( " = " ).Append( refName ).Append( "?.Text ?? \"\")" );
+							break;
+
+						case SuiBindingUpdateTrigger.OnSubmit:
+							// Same as OnLostFocus but waits for Enter (engine
+							// `onsubmit` fires only on the Enter key).
+							_sb.Append( " Value=\"@" ).Append( teTarget ).Append( "\"" )
+								.Append( " @ref=\"" ).Append( refName ).Append( "\"" )
+								.Append( " onsubmit=@(e => " ).Append( teTarget ).Append( " = " ).Append( refName ).Append( "?.Text ?? \"\")" );
+							break;
+
+						case SuiBindingUpdateTrigger.Manual:
+							// Pre-fill only. The wrapper exposes Commit<Name>()
+							// that reads the panel ref's .Text and writes the bound field.
+							_sb.Append( " Value=\"@" ).Append( teTarget ).Append( "\"" )
+								.Append( " @ref=\"" ).Append( refName ).Append( "\"" );
+							break;
+					}
+				}
 				break;
 
 			case SuiElementType.Slider:
@@ -937,11 +1199,11 @@ public sealed class SuiRazorGenerator
 			case SuiElementType.Toggle:
 				if ( !string.IsNullOrEmpty( p?.ToggleLabelText ) )
 					_sb.Append( " LabelText=\"" ).Append( EscapeForAttr( p.ToggleLabelText ) ).Append( "\"" );
-				// Initial state — emit Checked when authoring-time true so the
-				// engine's `.checked` class fires on first paint (canvas+Play
-				// match without user code).
-				if ( p != null && p.ToggleChecked )
-					_sb.Append( " Checked=\"@true\"" );
+				{
+					var toggleTarget = TryGetBoundVariableName( el, "Checked" )
+						?? SuiNameSanitizer.ToCSharpIdentifier( baseName + "Checked" );
+					_sb.Append( " Checked:bind=\"@" ).Append( toggleTarget ).Append( "\"" );
+				}
 				break;
 
 			case SuiElementType.DropDown:
@@ -950,15 +1212,12 @@ public sealed class SuiRazorGenerator
 				// Options is deferred to V1.6 per PRD 21 § 11 #4.
 				if ( p?.DropDownOptions != null && p.DropDownOptions.Count > 0 )
 				{
-					var optsField = SuiNameSanitizer.ToCSharpIdentifier( ( el.Name ?? el.Id ) + "Options" );
+					var optsField = SuiNameSanitizer.ToCSharpIdentifier( baseName + "Options" );
 					_sb.Append( " Options=@" ).Append( optsField );
 
-					// Pre-select Value so the DropDown shows the option title
-					// from its first paint. Engine resolves Value -> Selected
-					// via Option.Value lookup; we use the numeric index (the
-					// same Option.Value we set in EmitDropDownOptions).
-					if ( p.DropDownSelectedIndex >= 0 && p.DropDownSelectedIndex < p.DropDownOptions.Count )
-						_sb.Append( " Value=\"@(" ).Append( p.DropDownSelectedIndex ).Append( ")\"" );
+					var ddTarget = TryGetBoundVariableName( el, "Value" )
+						?? SuiNameSanitizer.ToCSharpIdentifier( baseName + "Value" );
+					_sb.Append( " Value:bind=\"@" ).Append( ddTarget ).Append( "\"" );
 				}
 				break;
 		}
