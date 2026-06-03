@@ -395,18 +395,132 @@ public static class SuiDocumentValidator
 				if ( b.Mode == SuiBindingMode.TwoWay && b.Converters != null && b.Converters.Count > 0 )
 					r.Errors.Add( $"{where}: TwoWay bindings cannot have converters" );
 
-				// Each converter step must name a converter (deep type-composition
-				// validation lands in M1-C with the converter catalog).
+				// Each converter step must name a converter, and each converter
+				// ref must resolve via the catalog. Cross-step type composition
+				// (PRD 18 § 4.10 rules 4–6) follows.
 				if ( b.Converters != null )
 				{
-					for ( int i = 0; i < b.Converters.Count; i++ )
-					{
-						if ( string.IsNullOrEmpty( b.Converters[i]?.ConverterRef ) )
-							r.Errors.Add( $"{where}: converter step {i} has no ConverterRef" );
-					}
+					ValidateConverterChain( where, b, sourceVarId, doc, r );
 				}
 			}
 		}
+	}
+
+	/// <summary>
+	/// Validate a binding's converter chain — every step must reference a real
+	/// converter, and the return type of step N must be compatible with the first
+	/// input type of step N+1. The very first step's first input must accept the
+	/// source Variable's type. Generic placeholders (<c>T</c>) match anything.
+	/// </summary>
+	private static void ValidateConverterChain( string where, SuiBinding b, string sourceVarId, SuiDocument doc, Result r )
+	{
+		SuiConverterMetadata prevMeta = null;
+		string prevReturnType = null;
+
+		// Source variable type feeds the first step's chain input.
+		if ( !string.IsNullOrEmpty( sourceVarId ) )
+		{
+			var sourceVar = FindVariableById( doc, sourceVarId );
+			if ( sourceVar != null )
+				prevReturnType = NormalizeTypeName( sourceVar.Type );
+		}
+
+		for ( int i = 0; i < b.Converters.Count; i++ )
+		{
+			var step = b.Converters[i];
+			if ( step == null )
+			{
+				r.Errors.Add( $"{where}: converter step {i} is null" );
+				continue;
+			}
+
+			if ( string.IsNullOrEmpty( step.ConverterRef ) )
+			{
+				r.Errors.Add( $"{where}: converter step {i} has no ConverterRef" );
+				prevMeta = null;
+				prevReturnType = null;
+				continue;
+			}
+
+			var meta = SuiConverterCatalog.Find( step.ConverterRef );
+			if ( meta == null )
+			{
+				r.Errors.Add( $"{where}: converter step {i} references unknown converter '{step.ConverterRef}'" );
+				prevMeta = null;
+				prevReturnType = null;
+				continue;
+			}
+
+			// Type compatibility: meta.Inputs[0] consumes the chain input
+			// (either source variable for step 0, or previous step's return).
+			if ( meta.Inputs != null && meta.Inputs.Length > 0 && prevReturnType != null )
+			{
+				var expected = NormalizeTypeName( meta.Inputs[0]?.Type );
+				if ( !AreTypesCompatible( prevReturnType, expected ) )
+				{
+					var producer = i == 0
+						? "source variable"
+						: $"step #{i} ({prevMeta?.DisplayName ?? prevMeta?.Ref ?? "?"})";
+					r.Errors.Add( $"{where}: step #{i + 1} ('{meta.DisplayName ?? meta.Ref}') expects input type '{expected}', but {producer} returns '{prevReturnType}'" );
+				}
+			}
+
+			prevMeta = meta;
+			prevReturnType = NormalizeTypeName( meta.ReturnType );
+		}
+	}
+
+	private static SuiVariable FindVariableById( SuiDocument doc, string id )
+	{
+		if ( doc?.Variables == null || string.IsNullOrEmpty( id ) ) return null;
+		foreach ( var v in doc.Variables )
+			if ( v?.Id == id ) return v;
+		return null;
+	}
+
+	/// <summary>
+	/// Normalize a type name so SUI TypeRef ("float", "int", "string") and
+	/// C# type names ("Single", "Int32", "String") compare equal. Anything
+	/// unknown is returned as-is so user-defined types still match by name.
+	/// </summary>
+	private static string NormalizeTypeName( string t )
+	{
+		if ( string.IsNullOrEmpty( t ) ) return null;
+		return t switch
+		{
+			"Single"  => "float",
+			"Double"  => "double",
+			"Int32"   => "int",
+			"Int64"   => "long",
+			"Boolean" => "bool",
+			"String"  => "string",
+			"Byte"    => "byte",
+			"Char"    => "char",
+			_         => t,
+		};
+	}
+
+	/// <summary>
+	/// True if a value of type <paramref name="produced"/> can flow into a
+	/// parameter of type <paramref name="expected"/>. Identity, generic
+	/// placeholder ('T'), and the narrow set of obvious numeric widenings
+	/// (int→float, int→double, long→double, float→double) are allowed.
+	/// </summary>
+	private static bool AreTypesCompatible( string produced, string expected )
+	{
+		if ( string.IsNullOrEmpty( produced ) || string.IsNullOrEmpty( expected ) ) return true;
+		if ( produced == expected ) return true;
+		// Generic placeholders accept anything.
+		if ( expected == "T" || produced == "T" ) return true;
+		if ( expected == "object" || expected == "object[]" ) return true;
+
+		// Numeric widenings are silent and unambiguous.
+		bool Widen( string from, string to )
+			=> (from == "int"   && (to == "float" || to == "double" || to == "long"))
+			|| (from == "long"  && (to == "float" || to == "double"))
+			|| (from == "float" && to == "double");
+
+		return Widen( produced, expected );
 	}
 
 	// ---------- Sanitizers ----------
