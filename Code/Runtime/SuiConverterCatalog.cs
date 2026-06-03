@@ -210,6 +210,23 @@ public static class SuiConverterCatalog
 			ReturnType = "String",
 			IsBuiltin = true,
 		} );
+		// Compose: easier alternative to Format — no {N} placeholders, user just
+		// lists parts (literals + variables) in order and the system concatenates.
+		// The BindPopup detects `Ref == "builtin.Compose"` and renders a special
+		// 2-button row (+ Text / + Var) instead of the generic +Add Arg popup.
+		list.Add( new SuiConverterMetadata
+		{
+			Ref = "builtin.Compose",
+			DisplayName = "Compose",
+			Category = "String",
+			Description = "Build a string from ordered parts (literals + variables) — no {N} placeholders.",
+			Inputs = new[]
+			{
+				new SuiConverterParam { Name = "parts", Type = "Object", HasDefault = false, IsParams = true },
+			},
+			ReturnType = "String",
+			IsBuiltin = true,
+		} );
 		C( "Uppercase", "String", "Convert v to UPPERCASE", "String", ("v", "String", false) );
 		C( "Lowercase", "String", "Convert v to lowercase", "String", ("v", "String", false) );
 		C( "TitleCase", "String", "Capitalise The First Letter Of Each Word", "String", ("v", "String", false) );

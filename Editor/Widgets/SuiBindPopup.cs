@@ -333,20 +333,66 @@ public sealed class SuiBindPopup : Window
 					row.Layout.Add( removeArgBtn );
 				}
 
-				var addArgBtn = new Button( "+ Add Arg", "add", row );
-				addArgBtn.FixedHeight = 22;
-				addArgBtn.SetStyles(
-					"background-color: rgba(59,130,246,0.15);" +
-					"border: 1px solid rgba(59,130,246,0.4);" +
-					"border-radius: 3px; padding: 0 8px;" +
-					"color: #93c5fd; font-size: 10px; font-weight: 600;" );
-				addArgBtn.Clicked = () =>
+				// Compose gets dedicated buttons (+ Text / + Var) for the
+				// "easy mode" UX — no need to pick "Variable" vs "Literal"
+				// from a sub-menu. Other variadic converters keep the
+				// generic + Add Arg which opens the full picker.
+				if ( meta.Ref == "builtin.Compose" )
 				{
-					step.Args.Add( new SuiConverterArg { Kind = SuiConverterArgKind.Variable } );
-					RebuildChainUI();
-					UpdateExpectsLabel();
-				};
-				row.Layout.Add( addArgBtn );
+					var addTextBtn = new Button( "+ Text", "text_fields", row );
+					addTextBtn.FixedHeight = 22;
+					addTextBtn.SetStyles(
+						"background-color: rgba(34,197,94,0.15);" +
+						"border: 1px solid rgba(34,197,94,0.4);" +
+						"border-radius: 3px; padding: 0 8px;" +
+						"color: #86efac; font-size: 10px; font-weight: 600;" );
+					addTextBtn.Clicked = () =>
+					{
+						step.Args.Add( new SuiConverterArg
+						{
+							Kind = SuiConverterArgKind.Literal,
+							Literal = System.Text.Json.Nodes.JsonValue.Create( "" ),
+						} );
+						RebuildChainUI();
+						UpdateExpectsLabel();
+						// Auto-open the literal editor for the new part so the
+						// user can type immediately instead of digging to it.
+						OpenLiteralInputDialog( step, step.Args.Count - 1, "String" );
+					};
+					row.Layout.Add( addTextBtn );
+
+					var addVarBtn = new Button( "+ Var", "data_object", row );
+					addVarBtn.FixedHeight = 22;
+					addVarBtn.SetStyles(
+						"background-color: rgba(59,130,246,0.15);" +
+						"border: 1px solid rgba(59,130,246,0.4);" +
+						"border-radius: 3px; padding: 0 8px;" +
+						"color: #93c5fd; font-size: 10px; font-weight: 600;" );
+					addVarBtn.Clicked = () =>
+					{
+						step.Args.Add( new SuiConverterArg { Kind = SuiConverterArgKind.Variable } );
+						RebuildChainUI();
+						UpdateExpectsLabel();
+					};
+					row.Layout.Add( addVarBtn );
+				}
+				else
+				{
+					var addArgBtn = new Button( "+ Add Arg", "add", row );
+					addArgBtn.FixedHeight = 22;
+					addArgBtn.SetStyles(
+						"background-color: rgba(59,130,246,0.15);" +
+						"border: 1px solid rgba(59,130,246,0.4);" +
+						"border-radius: 3px; padding: 0 8px;" +
+						"color: #93c5fd; font-size: 10px; font-weight: 600;" );
+					addArgBtn.Clicked = () =>
+					{
+						step.Args.Add( new SuiConverterArg { Kind = SuiConverterArgKind.Variable } );
+						RebuildChainUI();
+						UpdateExpectsLabel();
+					};
+					row.Layout.Add( addArgBtn );
+				}
 			}
 		}
 
@@ -550,22 +596,30 @@ public sealed class SuiBindPopup : Window
 			Args = new List<SuiConverterArg>(),
 		};
 
-		// Args[0] is fed by the chain — "Source" for the first step, "Previous"
-		// for every step after.
-		var firstRef = _converterSteps.Count == 0 ? "Source" : "Previous";
-		step.Args.Add( new SuiConverterArg { Kind = SuiConverterArgKind.ChainRef, ChainRef = firstRef } );
+		// Compose is special: it has NO fixed args and ignores the chain (it's
+		// a pure "build a string from parts" composer). The user adds Text /
+		// Variable parts via dedicated buttons; no implicit Source feed.
+		var isCompose = meta.Ref == "builtin.Compose";
 
-		// Reserve a Variable slot per additional FIXED input. Variadic slots
-		// (params) start empty — user appends them via the `+ Add Arg` button
-		// in the chain row, otherwise the converter would always emit at least
-		// one extra arg the user can't see.
-		if ( meta.Inputs != null )
+		if ( !isCompose )
 		{
-			var lastIdx = meta.Inputs.Length - 1;
-			var skipLast = lastIdx >= 0 && meta.Inputs[lastIdx].IsParams;
-			var fixedEnd = skipLast ? lastIdx : meta.Inputs.Length;
-			for ( int i = 1; i < fixedEnd; i++ )
-				step.Args.Add( new SuiConverterArg { Kind = SuiConverterArgKind.Variable } );
+			// Args[0] is fed by the chain — "Source" for the first step,
+			// "Previous" for every step after.
+			var firstRef = _converterSteps.Count == 0 ? "Source" : "Previous";
+			step.Args.Add( new SuiConverterArg { Kind = SuiConverterArgKind.ChainRef, ChainRef = firstRef } );
+
+			// Reserve a Variable slot per additional FIXED input. Variadic
+			// slots (params) start empty — user appends them via the +Add Arg
+			// button, otherwise the converter would always emit at least one
+			// extra arg the user can't see.
+			if ( meta.Inputs != null )
+			{
+				var lastIdx = meta.Inputs.Length - 1;
+				var skipLast = lastIdx >= 0 && meta.Inputs[lastIdx].IsParams;
+				var fixedEnd = skipLast ? lastIdx : meta.Inputs.Length;
+				for ( int i = 1; i < fixedEnd; i++ )
+					step.Args.Add( new SuiConverterArg { Kind = SuiConverterArgKind.Variable } );
+			}
 		}
 
 		_converterSteps.Add( step );

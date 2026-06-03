@@ -171,6 +171,15 @@ public static class SuiBuiltinConverters
 	public static string Format( string template, params object[] args )
 		=> string.IsNullOrEmpty( template ) ? "" : string.Format( template, args ?? Array.Empty<object>() );
 
+	/// <summary>
+	/// V1.5 — "easy mode" string composition. Lists parts in order; literals
+	/// and variable references interleaved. No {0}/{1} placeholders to worry
+	/// about — the order in the parts list IS the order in the output.
+	/// </summary>
+	[SuiConverter( "Compose", Category = "String", Description = "Build a string from ordered parts (literals + variables) — no {N} placeholders.", LastParamIsVariadic = true )]
+	public static string Compose( params object[] parts )
+		=> parts == null ? "" : string.Concat( parts );
+
 	[SuiConverter( "Uppercase", Category = "String", Description = "Convert v to UPPERCASE" )]
 	public static string Uppercase( string v ) => v?.ToUpperInvariant() ?? "";
 
