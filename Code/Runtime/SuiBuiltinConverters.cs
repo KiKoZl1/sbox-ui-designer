@@ -195,6 +195,37 @@ public static class SuiBuiltinConverters
 	public static string Replace( string v, string oldStr, string newStr )
 		=> string.IsNullOrEmpty( v ) || string.IsNullOrEmpty( oldStr ) ? (v ?? "") : v.Replace( oldStr, newStr ?? "" );
 
+	[SuiConverter( "Contains", Category = "String", Description = "True if haystack contains needle" )]
+	public static bool Contains( string haystack, string needle )
+		=> haystack?.Contains( needle ?? "" ) ?? false;
+
+	[SuiConverter( "StartsWith", Category = "String", Description = "True if s starts with prefix" )]
+	public static bool StartsWith( string s, string prefix )
+		=> s?.StartsWith( prefix ?? "" ) ?? false;
+
+	[SuiConverter( "EndsWith", Category = "String", Description = "True if s ends with suffix" )]
+	public static bool EndsWith( string s, string suffix )
+		=> s?.EndsWith( suffix ?? "" ) ?? false;
+
+	[SuiConverter( "Trim", Category = "String", Description = "Strip leading + trailing whitespace from s" )]
+	public static string Trim( string s ) => s?.Trim() ?? "";
+
+	[SuiConverter( "IndexOf", Category = "String", Description = "Index of needle in s, or -1 if not found" )]
+	public static int IndexOf( string s, string needle )
+	{
+		if ( string.IsNullOrEmpty( s ) ) return -1;
+		if ( needle == null ) return -1;
+		return s.IndexOf( needle );
+	}
+
+	[SuiConverter( "Split", Category = "String", Description = "Split s on every occurrence of delimiter" )]
+	public static string[] Split( string s, string delimiter )
+	{
+		if ( string.IsNullOrEmpty( s ) ) return Array.Empty<string>();
+		if ( string.IsNullOrEmpty( delimiter ) ) return new[] { s };
+		return s.Split( new[] { delimiter }, StringSplitOptions.None );
+	}
+
 	// ──────────────────────────────── Color ───────────────────────────────
 
 	[SuiConverter( "MakeColor", Category = "Color", Description = "Build a Color from r, g, b, a (0..1)" )]

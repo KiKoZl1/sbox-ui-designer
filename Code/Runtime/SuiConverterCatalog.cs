@@ -181,6 +181,12 @@ public static class SuiConverterCatalog
 		C( "Length", "String", "Character count of v", "Int32", ("v", "String", false) );
 		C( "Substring", "String", "Slice of v from start, length chars", "String", ("v", "String", false), ("start", "Int32", false), ("length", "Int32", false) );
 		C( "Replace", "String", "Replace every oldStr in v with newStr", "String", ("v", "String", false), ("oldStr", "String", false), ("newStr", "String", false) );
+		C( "Contains", "String", "True if haystack contains needle", "Boolean", ("haystack", "String", false), ("needle", "String", false) );
+		C( "StartsWith", "String", "True if s starts with prefix", "Boolean", ("s", "String", false), ("prefix", "String", false) );
+		C( "EndsWith", "String", "True if s ends with suffix", "Boolean", ("s", "String", false), ("suffix", "String", false) );
+		C( "Trim", "String", "Strip leading + trailing whitespace from s", "String", ("s", "String", false) );
+		C( "IndexOf", "String", "Index of needle in s, or -1 if not found", "Int32", ("s", "String", false), ("needle", "String", false) );
+		C( "Split", "String", "Split s on every occurrence of delimiter", "String[]", ("s", "String", false), ("delimiter", "String", false) );
 
 		// ── Color ──
 		C( "MakeColor", "Color", "Build a Color from r, g, b, a (0..1)", "Color", ("r", "Single", false), ("g", "Single", false), ("b", "Single", false), ("a", "Single", false) );
