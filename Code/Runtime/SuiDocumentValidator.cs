@@ -488,15 +488,22 @@ public static class SuiDocumentValidator
 		if ( string.IsNullOrEmpty( t ) ) return null;
 		return t switch
 		{
-			"Single"  => "float",
-			"Double"  => "double",
-			"Int32"   => "int",
-			"Int64"   => "long",
-			"Boolean" => "bool",
-			"String"  => "string",
-			"Byte"    => "byte",
-			"Char"    => "char",
-			_         => t,
+			"Single"   => "float",
+			"Double"   => "double",
+			"Int32"    => "int",
+			"Int64"    => "long",
+			"Boolean"  => "bool",
+			"String"   => "string",
+			"Byte"     => "byte",
+			"Char"     => "char",
+			// CLR `Object` / `Object[]` (used by `params object[]` slots like
+			// Compose/Format) normalise to lowercase so the universal-supertype
+			// rule in AreTypesCompatible matches them. Without this, a `string`
+			// source flowing into a `params object[]` would (incorrectly)
+			// raise a cross-step type mismatch error.
+			"Object"   => "object",
+			"Object[]" => "object[]",
+			_          => t,
 		};
 	}
 
