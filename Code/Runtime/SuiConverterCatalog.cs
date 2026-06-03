@@ -142,6 +142,8 @@ public static class SuiConverterCatalog
 		C( "Power", "Math", "baseV raised to exp", "Single", ("baseV", "Single", false), ("exp", "Single", false) );
 		C( "Absolute", "Math", "Absolute value of v", "Single", ("v", "Single", false) );
 		C( "Negate", "Math", "-v", "Single", ("v", "Single", false) );
+		C( "Min", "Math", "min(a, b)", "Single", ("a", "Single", false), ("b", "Single", false) );
+		C( "Max", "Math", "max(a, b)", "Single", ("a", "Single", false), ("b", "Single", false) );
 
 		// ── Range / Interpolation ──
 		C( "Clamp", "Range", "Clamp v between min and max", "Single", ("v", "Single", false), ("min", "Single", false), ("max", "Single", false) );

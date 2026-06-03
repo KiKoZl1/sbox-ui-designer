@@ -52,6 +52,12 @@ public static class SuiBuiltinConverters
 	[SuiConverter( "Negate", Category = "Math", Description = "-v" )]
 	public static float Negate( float v ) => -v;
 
+	[SuiConverter( "Min", Category = "Math", Description = "min(a, b)" )]
+	public static float Min( float a, float b ) => MathF.Min( a, b );
+
+	[SuiConverter( "Max", Category = "Math", Description = "max(a, b)" )]
+	public static float Max( float a, float b ) => MathF.Max( a, b );
+
 	// ───────────────────────── Range / Interpolation ──────────────────────
 
 	[SuiConverter( "Clamp", Category = "Range", Description = "Clamp v between min and max" )]
