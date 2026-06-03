@@ -241,9 +241,22 @@ public sealed class SuiPreviewHost
 					Log.Info( $"[Sui preview] '{fullName}' is a Panel — mounting via SuiHostPanelComponent" );
 
 					var host = _uiHost.Components.Create<SboxUiDesigner.Runtime.SuiHostPanelComponent>();
-					if ( host?.Panel == null )
+					if ( host == null )
 					{
-						Log.Warning( $"[Sui preview] SuiHostPanelComponent.Panel is null — OnEnabled may not have fired yet." );
+						Log.Warning( "[Sui preview] Components.Create<SuiHostPanelComponent> returned null." );
+						return false;
+					}
+
+					// Editor scenes don't auto-fire PanelComponent lifecycle (see
+					// SuiPanel<TView> + memory note). OnEnabledInternal is what
+					// creates the host's .Panel via EnsurePanelCreated. Without
+					// this call, Panel stays null and we'd fall through to the
+					// timeout the user reported on 2026-06-03.
+					TryInvokeLifecycle( host, "OnEnabledInternal" );
+
+					if ( host.Panel == null )
+					{
+						Log.Warning( "[Sui preview] SuiHostPanelComponent.Panel still null after OnEnabledInternal invoke — engine API may have changed." );
 						return false;
 					}
 
