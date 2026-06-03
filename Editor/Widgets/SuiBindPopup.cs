@@ -355,28 +355,28 @@ public sealed class SuiBindPopup : Window
 		// Issue #12 — step reordering. Up/Down swap with the neighbouring step.
 		// Disabled buttons (faded) at the ends communicate "no neighbour" without
 		// hiding the control set jumping around as the user rearranges.
-		// Enabled state uses bright white + subtle bg fill; disabled gets a
-		// dim opacity 35 % so the "can't click" state is unmistakable against
-		// the dark popup background. Previous low-contrast `#374151` blended
-		// with the popup row and looked identical to the enabled state.
-		var upBtn = new Button( "", "keyboard_arrow_up", row );
-		upBtn.FixedWidth = 22;
-		upBtn.FixedHeight = 22;
-		upBtn.Enabled = stepIndex > 0;
-		upBtn.SetStyles( upBtn.Enabled
-			? "background-color: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.18); border-radius: 3px; color: #e5e7eb;"
-			: "background-color: transparent; border: 1px dashed rgba(255,255,255,0.08); border-radius: 3px; color: rgba(229,231,235,0.25);" );
-		upBtn.Clicked = () => SwapSteps( stepIndex, stepIndex - 1 );
-		row.Layout.Add( upBtn );
+		// Step reorder buttons appear ONLY when they can do something — hide
+		// when at the end of the chain instead of showing a faded disabled
+		// state, which was being mistaken for "broken" arg-reorder controls.
+		if ( stepIndex > 0 )
+		{
+			var upBtn = new Button( "", "keyboard_arrow_up", row );
+			upBtn.FixedWidth = 22;
+			upBtn.FixedHeight = 22;
+			upBtn.SetStyles( "background-color: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.18); border-radius: 3px; color: #e5e7eb;" );
+			upBtn.Clicked = () => SwapSteps( stepIndex, stepIndex - 1 );
+			row.Layout.Add( upBtn );
+		}
 
-		var downBtn = new Button( "", "keyboard_arrow_down", row );
-		downBtn.FixedWidth = 22;
-		downBtn.FixedHeight = 22;
-		downBtn.Enabled = stepIndex < _converterSteps.Count - 1;
-		downBtn.SetStyles( downBtn.Enabled
-			? "background-color: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.18); border-radius: 3px; color: #e5e7eb;"
-			: "background-color: transparent; border: 1px dashed rgba(255,255,255,0.08); border-radius: 3px; color: rgba(229,231,235,0.25);" );
-		downBtn.Clicked = () => SwapSteps( stepIndex, stepIndex + 1 );
+		if ( stepIndex < _converterSteps.Count - 1 )
+		{
+			var downBtn = new Button( "", "keyboard_arrow_down", row );
+			downBtn.FixedWidth = 22;
+			downBtn.FixedHeight = 22;
+			downBtn.SetStyles( "background-color: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.18); border-radius: 3px; color: #e5e7eb;" );
+			downBtn.Clicked = () => SwapSteps( stepIndex, stepIndex + 1 );
+			row.Layout.Add( downBtn );
+		}
 		row.Layout.Add( downBtn );
 
 		var rmBtn = new Button( "", "close", row );
