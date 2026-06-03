@@ -123,18 +123,33 @@ public sealed class SuiBindingsWidget : Widget
 
 	private Widget BuildRow( SuiElement el, SuiBinding b )
 	{
+		// Broken-binding detection (#9). A row is broken when the source
+		// Variable id no longer resolves OR a converter step references a
+		// converter that doesn't exist in the catalog.
+		var brokenReason = DetectBroken( b );
+		var isBroken = !string.IsNullOrEmpty( brokenReason );
+
 		var row = new Widget( _listHost );
-		row.SetStyles(
-			"background-color: rgb(28,28,27);" +
-			"border: 1px solid rgba(255,255,255,0.06);" +
-			"border-radius: 4px;" );
+		row.SetStyles( isBroken
+			? "background-color: rgba(239,68,68,0.08); border: 1px solid rgba(239,68,68,0.55); border-radius: 4px;"
+			: "background-color: rgb(28,28,27); border: 1px solid rgba(255,255,255,0.06); border-radius: 4px;" );
 		row.Layout = Layout.Row();
 		row.Layout.Margin = new Sandbox.UI.Margin( 8, 4, 4, 4 );
 		row.Layout.Spacing = 6;
 		row.FixedHeight = 30;
 
-		var elLbl = new Label( el.Name ?? el.Id, row ) { FixedWidth = 92 };
+		if ( isBroken )
+		{
+			// Leading warning icon — colored red so a row stands out at a glance.
+			var warn = new Label( "⚠", row ) { FixedWidth = 16 };
+			warn.SetStyles( "color: #ef4444; font-size: 14px; font-weight: 800;" );
+			warn.ToolTip = brokenReason;
+			row.Layout.Add( warn );
+		}
+
+		var elLbl = new Label( el.Name ?? el.Id, row ) { FixedWidth = isBroken ? 76 : 92 };
 		elLbl.SetStyles( "color: #e5e7eb; font-size: 11px; font-weight: 600;" );
+		if ( isBroken ) elLbl.ToolTip = brokenReason;
 		row.Layout.Add( elLbl );
 
 		var propLbl = new Label( b.Property ?? "?", row ) { FixedWidth = 84 };
@@ -146,7 +161,10 @@ public sealed class SuiBindingsWidget : Widget
 		row.Layout.Add( arrow );
 
 		var srcLbl = new Label( SourceName( b ), row );
-		srcLbl.SetStyles( "color: #c4b5fd; font-size: 11px;" );
+		srcLbl.SetStyles( isBroken
+			? "color: #ef4444; font-size: 11px; font-weight: 600;"
+			: "color: #c4b5fd; font-size: 11px;" );
+		if ( isBroken ) srcLbl.ToolTip = brokenReason;
 		row.Layout.Add( srcLbl, 1 );
 
 		var modeLbl = new Label( b.Mode.ToString(), row ) { FixedWidth = 64 };
@@ -168,6 +186,45 @@ public sealed class SuiBindingsWidget : Widget
 		row.Layout.Add( delBtn );
 
 		return row;
+	}
+
+	/// <summary>
+	/// Return a human-readable reason if the binding references something that
+	/// no longer exists (Variable deleted, converter ref missing). Empty string
+	/// means the binding is healthy.
+	/// </summary>
+	private string DetectBroken( SuiBinding b )
+	{
+		if ( b == null ) return "binding is null";
+
+		// Source variable id must still resolve.
+		var sourceId = b.Source?.VariableId;
+		if ( string.IsNullOrEmpty( sourceId ) )
+			return "Binding has no source Variable.";
+
+		bool found = false;
+		if ( _document?.Variables != null )
+		{
+			foreach ( var v in _document.Variables )
+				if ( v?.Id == sourceId ) { found = true; break; }
+		}
+		if ( !found )
+			return $"Source Variable '{sourceId}' was deleted or renamed (id missing from this document).";
+
+		// Every converter ref in the chain must resolve to a real converter.
+		if ( b.Converters != null )
+		{
+			for ( int i = 0; i < b.Converters.Count; i++ )
+			{
+				var step = b.Converters[i];
+				if ( step == null || string.IsNullOrEmpty( step.ConverterRef ) )
+					return $"Converter step #{i + 1} has no ConverterRef.";
+				if ( SuiConverterCatalog.Find( step.ConverterRef ) == null )
+					return $"Converter step #{i + 1} references unknown converter '{step.ConverterRef}'.";
+			}
+		}
+
+		return null;
 	}
 
 	private void AddEmpty( string msg )
