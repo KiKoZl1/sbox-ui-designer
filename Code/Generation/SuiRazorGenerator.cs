@@ -837,9 +837,13 @@ public sealed class SuiRazorGenerator
 		}
 
 		// Shared Tick override for any slider that uses a visual buffer:
-		// detects HasActive transitions (mouse press → release) and either
-		// commits to the bound Variable (OnRelease) or resyncs the visual
-		// buffer from the Variable (when idle, to pick up external writes).
+		//   • OnRelease commits visual → Variable on the HasActive true→false
+		//     transition (the moment the user releases the mouse).
+		//   • BOTH modes resync visual ← Variable when an EXTERNAL write
+		//     changed the Variable. "External" = changed since the previous
+		//     Tick frame's snapshot; this protects Manual mode from the
+		//     "drag, release, visual jumps back" bug where the persistent
+		//     visual-vs-Variable diff was misread as a resync need.
 		if ( needsTickOverride )
 		{
 			body.AppendLine( "\tpublic override void Tick()" );
@@ -848,30 +852,42 @@ public sealed class SuiRazorGenerator
 			foreach ( var entry in sliderTickEntries )
 			{
 				var wasActive = "_" + entry.Field + "WasActive";
+				var lastSeen = "_" + entry.Field + "LastSeen";
 				body.Append( "\t\tvar " ).Append( wasActive ).Append( "Now = " )
 					.Append( entry.Field ).AppendLine( "_TrackPanel?.HasActive ?? false;" );
+
+				// OnRelease commit on transition.
 				if ( entry.ReleaseCommit )
 				{
 					body.Append( "\t\tif ( _" ).Append( entry.Field ).Append( "WasActive && !" ).Append( wasActive ).AppendLine( "Now )" );
 					body.AppendLine( "\t\t{" );
 					body.Append( "\t\t\t" ).Append( entry.Field ).Append( " = " ).Append( entry.Cast ).Append( entry.Visual ).AppendLine( ";" );
 					body.AppendLine( "\t\t}" );
-					body.Append( "\t\telse if ( !" ).Append( wasActive ).Append( "Now && (float)" ).Append( entry.Visual ).Append( " != (float)" ).Append( entry.Field ).AppendLine( " )" );
 				}
-				else
-				{
-					body.Append( "\t\tif ( !" ).Append( wasActive ).Append( "Now && (float)" ).Append( entry.Visual ).Append( " != (float)" ).Append( entry.Field ).AppendLine( " )" );
-				}
+
+				// Idle external-write detection: resync visual ONLY when the
+				// Variable's value actually moved between Ticks (someone else
+				// wrote to it). A persistent Manual-mode diff doesn't count
+				// because LastSeen also stays at the diverged value.
+				body.Append( "\t\tif ( !" ).Append( wasActive ).Append( "Now && (float)" ).Append( entry.Field ).Append( " != (float)" ).Append( lastSeen ).AppendLine( " )" );
 				body.AppendLine( "\t\t{" );
 				body.Append( "\t\t\t" ).Append( entry.Visual ).Append( " = (float)" ).Append( entry.Field ).AppendLine( ";" );
 				body.AppendLine( "\t\t}" );
+
+				// Snapshot the Variable for next-frame comparison + advance
+				// the active-state edge tracker.
+				body.Append( "\t\t" ).Append( lastSeen ).Append( " = (float)" ).Append( entry.Field ).AppendLine( ";" );
 				body.Append( "\t\t_" ).Append( entry.Field ).Append( "WasActive = " ).Append( wasActive ).AppendLine( "Now;" );
 			}
 			body.AppendLine( "\t}" );
 
-			// _<Field>WasActive private bools tracked across frames.
+			// Per-slider state across frames: active edge + last-seen Variable.
 			foreach ( var entry in sliderTickEntries )
+			{
 				body.Append( "\tprivate bool _" ).Append( entry.Field ).AppendLine( "WasActive;" );
+				body.Append( "\tprivate float _" ).Append( entry.Field ).Append( "LastSeen = " )
+					.Append( entry.Visual.StartsWith( "_" ) ? "0f" : "float.NaN" ).AppendLine( ";" );
+			}
 		}
 
 		return hashes;
