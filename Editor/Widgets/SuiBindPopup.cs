@@ -254,25 +254,36 @@ public sealed class SuiBindPopup : Window
 		nameLbl.SetStyles( $"color: {accent}; font-size: 11px; font-weight: 600;" );
 		row.Layout.Add( nameLbl );
 
-		// Args for inputs past the implicit chain-fed first one.
-		if ( meta?.Inputs != null && meta.Inputs.Length > 1 )
+		// Args for every input — arg 0 is the chain feed by convention, but the
+		// user can repoint it to a Variable or Literal (and feed the chain into
+		// a different arg index instead) via the per-arg picker.
+		if ( meta?.Inputs != null && meta.Inputs.Length > 0 )
 		{
-			for ( int argIdx = 1; argIdx < meta.Inputs.Length; argIdx++ )
+			for ( int argIdx = 0; argIdx < meta.Inputs.Length; argIdx++ )
 			{
 				var capturedArgIdx = argIdx;
 				var input = meta.Inputs[argIdx];
 
 				while ( step.Args.Count <= argIdx )
-					step.Args.Add( new SuiConverterArg { Kind = SuiConverterArgKind.Variable } );
+				{
+					var defaultKind = step.Args.Count == 0
+						? SuiConverterArgKind.ChainRef
+						: SuiConverterArgKind.Variable;
+					step.Args.Add( new SuiConverterArg
+					{
+						Kind = defaultKind,
+						ChainRef = defaultKind == SuiConverterArgKind.ChainRef ? "Source" : null,
+					} );
+				}
 
-				var argBtn = new Button( ArgButtonText( step.Args[argIdx], input.Name ), "data_object", row );
+				var argBtn = new Button( ArgButtonText( step.Args[argIdx], input.Name ), ArgButtonIcon( step.Args[argIdx] ), row );
 				argBtn.FixedHeight = 22;
 				argBtn.SetStyles(
 					"background-color: rgb(24,24,23);" +
 					"border: 1px solid rgba(255,255,255,0.12);" +
 					"border-radius: 3px; padding: 0 6px;" +
 					"color: #e5e7eb; font-size: 10px;" );
-				argBtn.Clicked = () => OpenArgPickerMenu( argBtn, step, capturedArgIdx );
+				argBtn.Clicked = () => OpenArgPickerMenu( argBtn, step, capturedArgIdx, input?.Type );
 				row.Layout.Add( argBtn );
 			}
 		}
@@ -297,13 +308,41 @@ public sealed class SuiBindPopup : Window
 
 	private string ArgButtonText( SuiConverterArg arg, string paramName )
 	{
-		if ( arg?.Kind == SuiConverterArgKind.Variable && !string.IsNullOrEmpty( arg.VariableId ) )
+		if ( arg == null ) return $"{paramName}: (pick…)";
+		switch ( arg.Kind )
 		{
-			foreach ( var v in _doc?.Variables ?? new List<SuiVariable>() )
-				if ( v?.Id == arg.VariableId ) return $"{paramName}: {v.Name}";
-			return $"{paramName}: (missing)";
+			case SuiConverterArgKind.ChainRef:
+				return $"{paramName}: ⛓ {(string.IsNullOrEmpty( arg.ChainRef ) ? "Chain" : arg.ChainRef)}";
+			case SuiConverterArgKind.Variable:
+				if ( string.IsNullOrEmpty( arg.VariableId ) ) return $"{paramName}: (pick…)";
+				foreach ( var v in _doc?.Variables ?? new List<SuiVariable>() )
+					if ( v?.Id == arg.VariableId ) return $"{paramName}: {v.Name}";
+				return $"{paramName}: (missing)";
+			case SuiConverterArgKind.Literal:
+				return $"{paramName}: ={LiteralPreview( arg.Literal )}";
+			default:
+				return $"{paramName}: (pick…)";
 		}
-		return $"{paramName}: (pick…)";
+	}
+
+	private static string ArgButtonIcon( SuiConverterArg arg )
+	{
+		return arg?.Kind switch
+		{
+			SuiConverterArgKind.ChainRef => "link",
+			SuiConverterArgKind.Literal  => "edit",
+			_                            => "data_object",
+		};
+	}
+
+	/// <summary>Compact preview of a literal value for the arg button label.</summary>
+	private static string LiteralPreview( System.Text.Json.Nodes.JsonNode node )
+	{
+		if ( node == null ) return "null";
+		var s = node.ToJsonString();
+		if ( string.IsNullOrEmpty( s ) ) return "\"\"";
+		if ( s.Length > 12 ) s = s.Substring( 0, 11 ) + "…";
+		return s;
 	}
 
 	private void OpenAddConverterMenu()
@@ -394,13 +433,25 @@ public sealed class SuiBindPopup : Window
 		UpdateExpectsLabel();
 	}
 
-	private void OpenArgPickerMenu( Button anchor, SuiBindingConverterStep step, int argIdx )
+	private void OpenArgPickerMenu( Button anchor, SuiBindingConverterStep step, int argIdx, string paramType = null )
 	{
 		var menu = new Menu( anchor );
+
+		// ── 1) Chain refs — Source / Previous ──
+		// Allowing the user to put the chain feed in any arg slot fixes the
+		// long-standing "Concat reorder" friction (arg 0 is no longer the only
+		// position that can receive the chain output).
+		var fromChainSub = menu.AddMenu( "From Chain", "link" );
+		fromChainSub.AddOption( "⛓ Source  (binding's variable)", "link", () => SetArgToChain( step, argIdx, "Source" ) );
+		fromChainSub.AddOption( "⛓ Previous  (last step's output)", "link", () => SetArgToChain( step, argIdx, "Previous" ) );
+
+		// ── 2) Variables — tinted by compatibility with paramType (#15) ──
 		var vars = _doc?.Variables ?? new List<SuiVariable>();
+		var varCompat = new List<string>();
 		if ( vars.Count == 0 )
 		{
 			menu.AddOption( "(no variables in this document)", null, null );
+			varCompat.Add( null );
 		}
 		else
 		{
@@ -408,22 +459,130 @@ public sealed class SuiBindPopup : Window
 			{
 				if ( v == null ) continue;
 				var captured = v;
-				menu.AddOption( $"{v.Name}  ({v.Type})", SuiTypeRegistry.Icon( v.Type ), () =>
-				{
-					while ( step.Args.Count <= argIdx )
-						step.Args.Add( new SuiConverterArg { Kind = SuiConverterArgKind.Variable } );
-					step.Args[argIdx] = new SuiConverterArg
-					{
-						Kind = SuiConverterArgKind.Variable,
-						VariableId = captured.Id,
-					};
-					RebuildChainUI();
-					UpdateExpectsLabel();
-				} );
+				menu.AddOption( $"{v.Name}  ({v.Type})", SuiTypeRegistry.Icon( v.Type ),
+					() => SetArgToVariable( step, argIdx, captured.Id ) );
+				varCompat.Add( CompatRating( v.Type, paramType ) );
 			}
 		}
+		menu.AddSeparator();
+
+		// ── 3) Literal — typed input dialog per paramType ──
+		menu.AddOption( "Literal…", "edit",
+			() => OpenLiteralInputDialog( step, argIdx, paramType ) );
+
+		// Best-effort tint variables by compatibility with paramType (#15).
+		TintVariableMenuItems( menu, varCompat );
+
 		menu.OpenAtCursor( true );
 	}
+
+	private void SetArgToChain( SuiBindingConverterStep step, int argIdx, string chainRef )
+	{
+		while ( step.Args.Count <= argIdx )
+			step.Args.Add( new SuiConverterArg { Kind = SuiConverterArgKind.Variable } );
+		step.Args[argIdx] = new SuiConverterArg
+		{
+			Kind = SuiConverterArgKind.ChainRef,
+			ChainRef = chainRef,
+		};
+		// Don't re-run FixChainRefsAfterMutation here — that helper assumes
+		// arg 0 is the chain feed. Now that arg position is editable, we
+		// respect whatever the user picked.
+		RebuildChainUI();
+		UpdateExpectsLabel();
+	}
+
+	private void SetArgToVariable( SuiBindingConverterStep step, int argIdx, string variableId )
+	{
+		while ( step.Args.Count <= argIdx )
+			step.Args.Add( new SuiConverterArg { Kind = SuiConverterArgKind.Variable } );
+		step.Args[argIdx] = new SuiConverterArg
+		{
+			Kind = SuiConverterArgKind.Variable,
+			VariableId = variableId,
+		};
+		RebuildChainUI();
+		UpdateExpectsLabel();
+	}
+
+	private void OpenLiteralInputDialog( SuiBindingConverterStep step, int argIdx, string paramType )
+	{
+		var existing = ( step?.Args != null && argIdx < step.Args.Count ) ? step.Args[argIdx] : null;
+		var existingLiteral = existing?.Kind == SuiConverterArgKind.Literal ? existing.Literal : null;
+
+		var dlg = new SuiLiteralInputDialog( paramType, existingLiteral );
+		dlg.OnAccept = json =>
+		{
+			while ( step.Args.Count <= argIdx )
+				step.Args.Add( new SuiConverterArg { Kind = SuiConverterArgKind.Variable } );
+			step.Args[argIdx] = new SuiConverterArg
+			{
+				Kind = SuiConverterArgKind.Literal,
+				Literal = json,
+			};
+			RebuildChainUI();
+			UpdateExpectsLabel();
+		};
+	}
+
+	/// <summary>
+	/// Tint the variable rows in the arg picker by how well each variable's
+	/// type matches the expected parameter type (#15). Insertion order at the
+	/// top level: [fromChainSubMenu, …vars…, literalOption]. The sub-menu
+	/// counts as a single child, so we skip 1 leading entry and then read up
+	/// to <c>ratings.Count</c> rows.
+	/// </summary>
+	private static void TintVariableMenuItems( Menu menu, List<string> ratings )
+	{
+		if ( menu == null || ratings == null || ratings.Count == 0 ) return;
+		const int leading = 1;
+		int idx = 0;
+		foreach ( var child in menu.Children )
+		{
+			if ( idx < leading ) { idx++; continue; }
+			int varIdx = idx - leading;
+			if ( varIdx >= ratings.Count ) break;
+			var rating = ratings[varIdx];
+			if ( !string.IsNullOrEmpty( rating ) )
+			{
+				try { child.SetStyles( $"color: {rating};" ); }
+				catch { /* best-effort */ }
+			}
+			idx++;
+		}
+	}
+
+	/// <summary>
+	/// Color-code a variable's compatibility with a target parameter type. Green
+	/// for exact match, yellow for safe widening (int→float etc.), red for clear
+	/// mismatches, null when we can't tell.
+	/// </summary>
+	private static string CompatRating( string variableType, string paramType )
+	{
+		if ( string.IsNullOrEmpty( paramType ) || string.IsNullOrEmpty( variableType ) ) return null;
+		if ( paramType == "T" || paramType == "object" || paramType == "object[]" ) return "#9ca3af";
+		var vn = NormalizeCsType( variableType );
+		var pn = NormalizeCsType( paramType );
+		if ( vn == pn ) return "#34d399"; // green
+		if ( IsSafeWidening( vn, pn ) ) return "#fbbf24"; // yellow
+		return "#ef4444"; // red
+	}
+
+	private static string NormalizeCsType( string t ) => t switch
+	{
+		"Single"  => "float",
+		"Double"  => "double",
+		"Int32"   => "int",
+		"Int64"   => "long",
+		"Boolean" => "bool",
+		"String"  => "string",
+		_         => t,
+	};
+
+	private static bool IsSafeWidening( string from, string to )
+		=> (from == "int"   && (to == "long" || to == "float" || to == "double"))
+		|| (from == "long"  && (to == "float" || to == "double"))
+		|| (from == "float" && to == "double");
 
 	/// <summary>
 	/// After inserting or removing a step, fix the implicit chain-fed first arg
