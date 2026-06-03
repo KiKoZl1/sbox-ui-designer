@@ -333,48 +333,43 @@ public sealed class SuiBindPopup : Window
 					row.Layout.Add( removeArgBtn );
 				}
 
-				// Compose gets dedicated buttons (+ Text / + Var) for the
-				// "easy mode" UX — no need to pick "Variable" vs "Literal"
-				// from a sub-menu. Other variadic converters keep the
-				// generic + Add Arg which opens the full picker.
+				// Compose gets a single `+` button that opens a small menu
+				// with Text / Variable options — cleaner than two side-by-side
+				// buttons and leaves headroom to add more part kinds later
+				// (e.g. chain ref) without crowding the row.
 				if ( meta.Ref == "builtin.Compose" )
 				{
-					var addTextBtn = new Button( "+ Text", "text_fields", row );
-					addTextBtn.FixedHeight = 22;
-					addTextBtn.SetStyles(
-						"background-color: rgba(34,197,94,0.15);" +
-						"border: 1px solid rgba(34,197,94,0.4);" +
-						"border-radius: 3px; padding: 0 8px;" +
-						"color: #86efac; font-size: 10px; font-weight: 600;" );
-					addTextBtn.Clicked = () =>
-					{
-						step.Args.Add( new SuiConverterArg
-						{
-							Kind = SuiConverterArgKind.Literal,
-							Literal = System.Text.Json.Nodes.JsonValue.Create( "" ),
-						} );
-						RebuildChainUI();
-						UpdateExpectsLabel();
-						// Auto-open the literal editor for the new part so the
-						// user can type immediately instead of digging to it.
-						OpenLiteralInputDialog( step, step.Args.Count - 1, "String" );
-					};
-					row.Layout.Add( addTextBtn );
-
-					var addVarBtn = new Button( "+ Var", "data_object", row );
-					addVarBtn.FixedHeight = 22;
-					addVarBtn.SetStyles(
+					var addBtn = new Button( "+", "add", row );
+					addBtn.FixedWidth = 28;
+					addBtn.FixedHeight = 22;
+					addBtn.SetStyles(
 						"background-color: rgba(59,130,246,0.15);" +
 						"border: 1px solid rgba(59,130,246,0.4);" +
-						"border-radius: 3px; padding: 0 8px;" +
-						"color: #93c5fd; font-size: 10px; font-weight: 600;" );
-					addVarBtn.Clicked = () =>
+						"border-radius: 3px;" +
+						"color: #93c5fd; font-size: 12px; font-weight: 700;" );
+					addBtn.Clicked = () =>
 					{
-						step.Args.Add( new SuiConverterArg { Kind = SuiConverterArgKind.Variable } );
-						RebuildChainUI();
-						UpdateExpectsLabel();
+						var menu = new Menu( addBtn );
+						menu.AddOption( "Text", "text_fields", () =>
+						{
+							step.Args.Add( new SuiConverterArg
+							{
+								Kind = SuiConverterArgKind.Literal,
+								Literal = System.Text.Json.Nodes.JsonValue.Create( "" ),
+							} );
+							RebuildChainUI();
+							UpdateExpectsLabel();
+							OpenLiteralInputDialog( step, step.Args.Count - 1, "String" );
+						} );
+						menu.AddOption( "Variable", "data_object", () =>
+						{
+							step.Args.Add( new SuiConverterArg { Kind = SuiConverterArgKind.Variable } );
+							RebuildChainUI();
+							UpdateExpectsLabel();
+						} );
+						menu.OpenAtCursor( true );
 					};
-					row.Layout.Add( addVarBtn );
+					row.Layout.Add( addBtn );
 				}
 				else
 				{
