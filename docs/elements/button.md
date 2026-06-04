@@ -97,6 +97,15 @@ When the Button has a background image (either Normal or per-state):
 
 The Details panel also offers a **Snap to image aspect** button that resizes the element to match the image's aspect ratio in one click.
 
+## Bindable properties
+
+| Property | Mode | Target type |
+|---|---|---|
+| `ButtonText` | OneTime / OneWay | string |
+| Style + Universal | OneWay | per [matrix]({% link reference/binding-mode-matrix.md %}) |
+
+Note: `IsDisabled` is **not** in the binding matrix as of V1.5 — bind the universal `Enabled` property (bool, inverted semantics) instead. Tracked for V1.6.
+
 ## Wiring an OnClick
 
 V1.5 ships first-class event wiring through the [Events tab]({% link workflows/events-and-refs.md %}). Two modes:

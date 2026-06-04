@@ -45,9 +45,7 @@ V1.5 ships static options (authored in the Designer). **Dynamic options** (bind 
 
 ## Events surfaced
 
-| Event | Signature |
-|---|---|
-| `OnValueChanged` | `Action<int>` |
+**None in V1.5.** `SuiEventMatrix` has no entry for `DropDown` — the Events tab won't show any slots and codegen emits no event `[Property]` on the wrapper. Wire reactivity via the TwoWay `Value` binding (int index) with `UpdateTrigger.OnChange` — DropDown is atomic (1 pick = 1 commit), so the bound Variable updates the instant the user picks an option.
 
 ## Why int, not string
 
@@ -98,9 +96,12 @@ Two things to note:
 ```csharp
 [Property] public Game.UI.SettingsPanel Settings { get; set; } = new();
 
+// User-declared enum in your gameplay code (matches option order: Low=0, Medium=1, High=2, Ultra=3).
+public enum GraphicsQuality { Low = 0, Medium = 1, High = 2, Ultra = 3 }
+
 void OnApplyClick()
 {
-    var preset = (GraphicsPreset)Settings.GraphicsPreset;  // cast int → enum
+    var preset = (GraphicsQuality)Settings.GraphicsPreset;  // cast bound int → user enum
     GraphicsSystem.ApplyPreset( preset );
 }
 ```

@@ -25,8 +25,9 @@ typed handle to `@ref`. Two interaction shapes today:
 2. Pick the element (the popup pre-selects whatever is selected in the
    canvas / hierarchy).
 3. Pick the event from the type's matrix (Button → `OnClick / OnHover /
-   OnUnhover`; Panel-like → adds `OnRightClick`; InventorySlot → also
-   `OnDoubleClick`).
+   OnUnhover`; Panel-like → `OnClick / OnRightClick / OnHover /
+   OnUnhover`; InventorySlot → `OnClick / OnRightClick / OnDoubleClick /
+   OnHover`).
 4. Pick **Code** or **Doo**.
 5. Type the handler name. The popup pre-suggests `On<Element><EventSuffix>`
    (e.g. `OnFireButtonClick`).
@@ -68,7 +69,16 @@ The wrapper class (`InteractiveHud.cs`):
 ```csharp
 public sealed class InteractiveHud : SuiPanel<InteractiveHudPanel>
 {
-    [Property, Group("Public")] public int Health { get; set; } = 100;
+    private int _health = 100;
+    [Property, Group("Public")] public int Health
+    {
+        get => View != null ? View.Health : _health;
+        set
+        {
+            _health = value;
+            if ( View != null ) View.Health = value;
+        }
+    }
 
     [Property, Group("Events")] public Action OnFireClick { get; set; }
     [Property, Group("Events")] public global::Sandbox.Doo OnFireHover { get; set; }
@@ -82,6 +92,12 @@ public sealed class InteractiveHud : SuiPanel<InteractiveHudPanel>
     }
 }
 ```
+
+The Variable property is emitted with a backing field + View-aware
+accessors (see `Code/Generation/SuiWrapperEmitter.cs` —
+`EmitVariableProperties`) so two-way `:bind` updates flow back from the
+live View when mounted. `SyncFieldsTo` handles the cold-start push on
+mount.
 
 The renderer (`InteractiveHudPanel.razor`):
 

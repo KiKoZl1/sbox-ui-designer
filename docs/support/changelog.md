@@ -76,7 +76,7 @@ First public release.
 - **`.User.scss` sidecar** — User-owned customization file created once, never overwritten. Imported by the generated SCSS so user rules cascade-win.
 - **Backups + recovery** — Every overwrite backs up to `.sui-backups/` outside `Code/` to keep the engine compiler happy.
 - **Allowed-property whitelist** — Generator validates every CSS property against an explicit allowed list. Catches engine-unsupported properties at compile time instead of silently failing at runtime.
-- **5 sample `.sui` files** — Survival HUD, death modal, loot pickup, inventory screen, quest log. Cover all 15 visible element types.
+- **5 sample `.sui` files** — Survival HUD, death modal, loot pickup, inventory screen, quest log. Cover all 15 user-visible element types (Tooltip is hidden at runtime — see [Element types]({% link reference/element-types.md %})).
 
 ### Elements
 
@@ -92,8 +92,8 @@ All 16 types: Canvas, Panel, Overlay, Text, Image, Button, HorizontalBox, Vertic
 
 ### Known issues at release
 
-- [ISSUE-004]({% link reference/known-issues.md %}#issue-004-label-background-color-rgba-alpha-ignored-in-runtime) — `<label>` rgba alpha ignored by runtime CSS engine. Workaround: wrap Text in Panel.
-- [ISSUE-005]({% link reference/known-issues.md %}#issue-005-previewcount-badges-not-emitted-in-runtime) — PreviewCount badges shown in canvas but not emitted in Razor.
+- [ISSUE-004]({% link reference/known-issues.md %}#issue-004) — `<label>` rgba alpha ignored by runtime CSS engine. Workaround: wrap Text in Panel.
+- [ISSUE-005]({% link reference/known-issues.md %}#issue-005) — PreviewCount badges shown in canvas but not emitted in Razor.
 
 ### Resolved during V1.0 development
 

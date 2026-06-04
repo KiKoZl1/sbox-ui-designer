@@ -43,12 +43,19 @@ If you don't have git:
 4. Move the folder into your project's `Libraries/` directory.
 5. Restart the s&box editor.
 
+## Required companion library: dooeditor
+
+V1.5 events can be wired to a visual [Doo](https://docs.facepunch.com/s/sbox-dev/doc/doo) graph stored inside the `.sui` document. The editor UI for Doo bodies is provided by Facepunch's `local.dooeditor` library, which SUI Designer declares as an `EditorReferences` entry in its `.sbproj`.
+
+If you don't already have it, install it the same way you installed SUI Designer (place it under `Libraries/` so the engine mounts it as `local.dooeditor`). Without it, the **Events** Details section still works in **Code** mode but the **Doo** mode picker will be unavailable.
+
 ## Verify the install
 
 After restart, in the s&box editor:
 
 1. Open **File → Library Manager** — `kikozl.sbox_ui_designer` should be listed and enabled.
 2. Open the **Asset Browser** → right-click any folder → **New** — you should see **Sbox UI Document** under the UI category.
+3. Library Manager also lists `local.dooeditor` (or you accept that Doo-mode events will be unavailable).
 
 If the entry is missing, the library failed to load. Check:
 

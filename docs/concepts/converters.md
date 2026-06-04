@@ -8,7 +8,7 @@ nav_order: 8
 # Converters
 {: .no_toc }
 
-Pure functions that transform a value as it flows from a Variable to an element property. SUI Designer ships 64 builtins and lets you add your own with one `[SuiConverter]` attribute.
+Pure functions that transform a value as it flows from a Variable to an element property. SUI Designer ships 66 builtins and lets you add your own with one `[SuiConverter]` attribute.
 {: .fs-6 .fw-300 }
 
 ## Table of contents
@@ -37,7 +37,7 @@ Variable Health (int)
 
 Each step is a pure function. The chain output's type must satisfy the target property's expected type — the validator catches mismatches at compile time.
 
-## Builtin catalog (64)
+## Builtin catalog (66)
 
 Seven categories:
 
@@ -94,7 +94,7 @@ Compose( "HP: ", Health, " / ", MaxHealth )
    → "HP: 75 / 100"
 ```
 
-The Bind popup detects `Ref == "builtin.Compose"` and renders a single **+** button that opens a menu (Text / Variable) instead of the generic `+ Add Arg` Variable picker; the Text path auto-opens the literal editor so the user starts typing immediately. The chain feed is **not** consumed automatically — Compose is a pure composer.
+The Bind popup detects `ConverterRef == "builtin.Compose"` and renders a single **+** button that opens a menu (Text / Variable) instead of the generic `+ Add Arg` Variable picker; the Text path auto-opens the literal editor so the user starts typing immediately. The chain feed is **not** consumed automatically — Compose is a pure composer.
 
 ### `Format(string template, params object[] args) → string`
 
@@ -159,6 +159,12 @@ Converters can't round-trip — `Map(0, 100, 0, 1)` has no automatic inverse. Wh
 Every builtin's identity is `builtin.<Name>` (e.g. `builtin.Clamp`). User converters' identity is `user.<MethodName>` by default.
 
 Identities are **forward-compatible** — once shipped, a builtin never has its name changed. Retired builtins keep the old name (deprecated) and gain a new name for the replacement. This protects existing `.sui` bindings from silently breaking on engine updates (PRD 17 § 2.3 invariant C3).
+
+## Doo-authored custom converters (deferred)
+
+M3 D-017 retargeted SUI Designer's visual-scripting integration from ActionGraph to **Doo**. For custom converters specifically, the Doo authoring path was deferred — M3 focused on Doo-backed [events]({% link concepts/events-and-actions.md %}) (handlers + bodies). V1.5 ships C# `[SuiConverter]`-tagged methods only as the supported custom-converter authoring surface.
+
+Doo-based custom converters land in a future milestone alongside additional Doo integration polish. Until then, if you need a non-builtin transform, use the [`[SuiConverter]`](#custom-converters-via-suiconverter) attribute (or the **+ New custom converter** dialog) to scaffold a static method — those compose with builtins exactly the same way.
 
 ## See also
 

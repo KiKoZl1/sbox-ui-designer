@@ -39,6 +39,8 @@ Drop one onto the canvas in three ways:
 
 The element holds a `SourceGuid` pointing at the target `.sui`. The target is resolved via `SuiAssetRegistry` — GUID-based, so renaming or moving the target doesn't break the embed.
 
+The USER WIDGETS palette section subscribes to `SuiAssetRegistry` events — adding, deleting, or renaming a `.sui` in your project (or pulling new ones from git) updates the palette in real time without a Designer restart. The currently-open document is always filtered out of its own USER WIDGETS listing to prevent the obvious one-step embedding cycle.
+
 ## Recursive paint on the canvas
 
 V1.5 M2-K0 (DEVIATIONS D-010) shipped recursive canvas paint: the canvas resolves the SuiReference, applies any per-instance Props overrides, and renders the **child's actual element tree** inside the reference's rect. Bounding-box-scaled so resizing the reference rescales children proportionally (UMG-like). A **purple dashed border** marks SuiReference rects so you know which boxes are sub-UIs.
@@ -164,9 +166,27 @@ The parent's per-instance overrides ship into the wrapper's `SyncFieldsTo` so ea
 
 `SuiReferenceCycleDetector` runs on save. Embedding a `.sui` that (transitively) embeds itself produces a Compile Results error with the cycle chain named. Documents are also filtered from their **own** USER WIDGETS palette listing to prevent the obvious one-step cycle without a modal warning.
 
+## Multiplayer / per-player UI
+
+V1.5 ships **single-mount per wrapper instance** — calling `Hud.Show()` mounts on the local client running that line. The wrapper itself has no `Show(Connection)` overload (DEVIATIONS D-006 — per-Connection panel tracking is deferred). What you do today:
+
+- **Owner-only HUD** (the common case): gate the mount with `IsProxy` inside the owning component:
+  ```csharp
+  protected override void OnStart()
+  {
+      if ( IsProxy ) return;   // only the local owner sees their own HUD
+      Hud.Show();
+  }
+  ```
+- **Per-spectator / admin UI**: put the wrapper field on a Component that only exists on the network object representing that viewer (e.g. a `SpectatorPawn` only spawned for spectators), and let normal s&box networking decide which clients run `OnStart`.
+- **Don't share one wrapper instance across players** — embedded children inherit their parent's mount, and calling `Show()` from multiple clients on the same wrapper field will spawn duplicate panels.
+
+V1.6 plans a `SuiPanelManager<TView>` shape (PRD 19) with an explicit `Show(Connection)` API mirroring UMG/Verse — that ships when D-006 lands.
+
 ## See also
 
 - [SuiReference element]({% link elements/sui-reference.md %}) — the per-element page
 - [Variables]({% link concepts/variables.md %}) — `IsPublic` and what it does
 - [Wrapper generation]({% link concepts/wrapper-generation.md %}) — named-instance fields + `ContentHash`
 - [Embedding sub-UIs workflow]({% link workflows/embedding-sub-uis.md %}) — step-by-step
+- [FAQ → multiplayer]({% link support/faq.md %}) — short answers on per-player visibility

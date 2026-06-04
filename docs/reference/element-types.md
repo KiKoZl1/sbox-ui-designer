@@ -80,6 +80,56 @@ Every type uses `Style.ClassName`, CustomClasses, BackgroundColor, BorderColor, 
 | **Tooltip** | | | | | | | | | | | | | | | | | | |
 | **Hotbar** | | | | | | | | | ✓ | ✓ | ✓ | | | | | | | |
 
+### Props per type — V1.5 additions
+
+The V1.5 element types (SuiReference + the four M4 input widgets) carry their own field surfaces. Each lives on `SuiReferenceData` or as a dedicated block in `SuiElementProps` — listed here per type with the actual field names.
+
+**SuiReference** (lives on `SuiElement.SuiReference`, not `Props`):
+
+| Field | Type | Meaning |
+|---|---|---|
+| `SourceGuid` | string | DocumentId of the embedded `.sui` (resolved via Asset Registry). |
+| `Props` | `Dictionary<string, JsonNode>` | Per-prop value map keyed by the child doc's public Variable Id. Literal or `{ "$bind": {...} }` shape. |
+| `ForEach` | `SuiForEachData?` | Non-null when iterating a list Variable (PRD 19 § 3.5). |
+
+**TextEntry** (M4):
+
+| Field | Default | Meaning |
+|---|---|---|
+| `PlaceholderText` | `""` | Greyed text shown when value is empty. |
+| `MaxLength` | `0` | Character cap. `0` = unbounded. |
+| `ReadOnly` | `false` | Disables editing; element still focusable. |
+| `PreviewValue` | `""` | Design-time text rendered in the canvas. |
+
+**Slider** (M4):
+
+| Field | Default | Meaning |
+|---|---|---|
+| `SliderMin` / `SliderMax` | `0` / `100` | Value range. |
+| `SliderStep` | `1` | Snap increment. |
+| `SliderValue` | `50` | Design-time preview handle position. |
+| `SliderOrientation` | `Horizontal` | Reserved; codegen is horizontal-only per PRD 21 § 11 #2. |
+| `SliderTrackColor` | `#22222288` | Track fill behind the handle. |
+| `SliderFillColor` | `#4ade80` | Filled portion left of the handle. |
+| `SliderHandleColor` | `#ffffff` | Handle (thumb) color. |
+| `SliderShowValue` | `false` | Toggles the custom tooltip pill. |
+| `SliderTooltipBgColor` | `#000000` | Tooltip pill background. |
+| `SliderTooltipTextColor` | `#ffffff` | Tooltip pill text color. |
+
+**Toggle** (M4):
+
+| Field | Default | Meaning |
+|---|---|---|
+| `ToggleChecked` | `false` | Design-time preview state; runtime value is TwoWay-bindable via `Checked`. |
+| `ToggleLabelText` | `""` | Label rendered next to the checkbox. |
+
+**DropDown** (M4):
+
+| Field | Default | Meaning |
+|---|---|---|
+| `DropDownOptions` | `[]` | Ordered list of option strings. |
+| `DropDownSelectedIndex` | `0` | Design-time preview index; runtime value is TwoWay-bindable as `int` per D-024. |
+
 ## Per-type one-liners
 
 - **Canvas** — root container. Always fills the panel. Exactly one per document. Cannot be deleted.

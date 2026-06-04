@@ -185,13 +185,13 @@ public sealed class SuiToggleVisibilityCommand : ISuiCommand
 
     public void Apply( SuiDocument doc )
     {
-        var el = doc.FindById( _elementId );
+        var el = doc.GetElement( _elementId );
         if ( el != null ) el.Style.Visibility = _newValue;
     }
 
     public void Undo( SuiDocument doc )
     {
-        var el = doc.FindById( _elementId );
+        var el = doc.GetElement( _elementId );
         if ( el != null ) el.Style.Visibility = _oldValue;
     }
 }

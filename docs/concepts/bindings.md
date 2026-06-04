@@ -79,7 +79,7 @@ The native Sandbox.UI `Value:bind=` syntax does the two-way wiring. The wrapper'
 }
 ```
 
-V1.5 ships a single source shape — a Variable referenced by its stable `VariableId` GUID. Cross-document refs / scene globals are reached by first exposing them as a Variable (see [Variables — Source kinds]({% link concepts/variables.md %}#source-kinds-manual--fromcomponent--fromactiongraph)).
+V1.5 ships a single source shape — a Variable referenced by its stable `VariableId` GUID. Cross-document refs / scene globals are reached by first exposing them as a Variable (see [Variables — Source kinds]({% link concepts/variables.md %}#source-kinds--v15-ships-manual-only)).
 
 ## The converter chain
 
@@ -153,9 +153,9 @@ In the `.sui` JSON, the binding lives at `element.Bindings[i]`:
   "Source": { "VariableId": "var_a3f9b21c" },
   "Converters": [
     {
-      "Ref": "builtin.Clamp",
+      "ConverterRef": "builtin.Clamp",
       "Args": [
-        { "Kind": "Chain" },
+        { "Kind": "ChainRef" },
         { "Kind": "Literal", "Type": "float", "Value": 0 },
         { "Kind": "Literal", "Type": "float", "Value": 100 }
       ]

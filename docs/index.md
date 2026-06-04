@@ -34,6 +34,18 @@ SUI Designer replaces the loop of *hand-writing Razor → editing SCSS → hot-r
 
 The `.sui` document is JSON-backed, schema-versioned, and version-control-friendly. The generator emits readable, hand-editable Razor + SCSS that compiles in any s&box game.
 
+## What's new in V1.5
+
+V1.5 turns the static layout-builder into a full data + scripting workflow:
+
+- **Typed Variables + Bindings** — declare `Health: float`, `PlayerName: string`, bind `ProgressBar.Value` to `Health` through a 66-entry built-in converter library (or your own `[SuiConverter]`).
+- **Sub-UI composition (`SuiReference`)** — embed one `.sui` inside another with proportional canvas rescaling; ForEach iterates a `List<T>` Variable into a child template.
+- **Events with two modes** — wire `OnClick` to a C# handler in a `<Name>.partial.cs` sidecar, or to a [Doo](https://docs.facepunch.com/s/sbox-dev/doc/doo) graph serialized inside the document (UMG-style: graph travels with the widget).
+- **Input widgets** — TextEntry / Slider / Toggle / DropDown with explicit `UpdateTrigger` (OnChange / OnLostFocus / OnSubmit / OnRelease / Manual) and a `wrapper.Apply.<Field>()` namespace for Manual commits.
+- **Interactive states** — Hover / Pressed / Disabled / Focused style overrides with `transition` + hover/press sound assets.
+
+Upgrading from V1.0? Read the [V1.0 → V1.5 upgrade guide]({% link UPGRADE_V1_0_TO_V1_5.md %}).
+
 ## Getting started
 
 Never opened SUI Designer before? Start here:
@@ -174,8 +186,8 @@ Worked, end-to-end examples.
 | **Asset extension** | `.sui` (JSON, schema V3) |
 | **Generates per `.sui`** | `<Name>Panel.razor` + `<Name>.razor.scss` + `<Name>.cs` wrapper (+ `<Name>.User.scss` sidecar) |
 | **Wrapper base class** | `SuiPanel<TView>` (`Code/Runtime/SuiPanel.cs`) |
-| **Element types** | 22 (15 V1.0 + SuiReference + 4 input widgets + 2 reserved) |
-| **Builtin converters** | 64 across Math / Range / Conversion / Logic / String / Color / Collection |
+| **Element types** | 21 (15 V1.0 + SuiReference + 4 input widgets + Tooltip reserved) |
+| **Builtin converters** | 66 across Math / Range / Conversion / Logic / String / Color / Collection |
 | **Editor** | 100% custom paint chrome — no `DockManager`, no `Editor.TabWidget` |
 | **Preview** | Embedded `SceneRenderingWidget` + on-demand **Test in Play** with TPS player |
 | **License** | MIT |

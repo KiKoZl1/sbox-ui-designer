@@ -18,7 +18,7 @@ The Canvas element's **Details panel** shows special **Document** and **Canvas**
 |---|---|
 | **Name** | The document's display name (matches the `.sui` filename) |
 | **Id** | Stable internal ID (`sui_<slug>_<guid8>`) — used for ownership tracking, never changes on rename |
-| **Schema** | Schema version (currently `v1`) |
+| **Schema** | Schema version (currently `v3`) |
 | **Elements** | Count of all elements in the document |
 
 ### Canvas section
@@ -64,6 +64,10 @@ ClassName {
 ```
 
 The root `.root` rule always emits `position: absolute; left: 0; top: 0; right: 0; bottom: 0;` — fills the panel regardless of `Base Width` / `Height`. The Base dimensions only affect the canvas paint and the generator's coordinate space.
+
+## Bindings & events
+
+The Canvas element has **no per-type bindable properties** and **no events**. Document-level settings (Base Width / Height / Scale Mode / Class Name / Namespace / Root Folder) are author-time only — they're baked into the generated `.razor` / `.razor.scss` at Compile time and are not exposed to runtime data binding or event hooks.
 
 ## Tips
 

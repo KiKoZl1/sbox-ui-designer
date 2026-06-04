@@ -8,7 +8,7 @@ nav_order: 7
 # Preview system
 {: .no_toc }
 
-How the "Test in Play" button compiles a `.sui` into a real PanelComponent, opens a stage scene, and mounts the UI on a player at runtime.
+How the "Test in Play" button compiles a `.sui` into a real `Panel` (wrapped by `SuiHostPanelComponent` at mount time), opens a stage scene, and mounts the UI on a player at runtime.
 {: .fs-6 .fw-300 }
 
 ## Table of contents
@@ -38,7 +38,7 @@ SuiPreviewLauncher.Launch( document )
         │      ├── Write Code/_sui_preview/<ClassName>/<ClassName>.razor
         │      └── Write Code/_sui_preview/<ClassName>/<ClassName>.razor.scss
         │
-        │      → engine hot-reloads → PanelComponent type registers in TypeLibrary
+        │      → engine hot-reloads → Panel type registers in TypeLibrary
         │
         ├──▶ Poll TypeLibrary.GetType( fqn ) — up to 6 seconds
         │
@@ -50,16 +50,20 @@ SuiPreviewLauncher.Launch( document )
         └──▶ EditorScene.Play( session )
                 │
                 ▼
-        Scene loads. SuiPreviewMount.OnAwake() fires:
+        Scene loads. SuiPreviewMount.OnStart() fires (NOT OnAwake — Play has begun):
                 ├── Reads SuiPreviewState.PendingTypeFullName
                 ├── Looks up TypeDescription
-                ├── Creates child "ScreenPanelHost"
+                ├── Scene.CreateObject(true) → "ScreenPanelHost"
                 ├── Adds ScreenPanel component
-                ├── Components.Create(typeDesc) — instantiates user's UI
+                ├── Adds SuiHostPanelComponent (PanelComponent wrapper)
+                ├── typeDesc.Create<object>() cast to Panel
+                ├── hostComponent.Panel.AddChild( renderedPanel )
                 └── Clears SuiPreviewState
 ```
 
 5 steps. The launcher does steps 1–5; the in-scene `SuiPreviewMount` does the actual mount in step 5.
+
+> **Why `OnStart` and not `OnAwake`?** Because `OnAwake` fires at scene load — which is still editor mode when the launcher opens the scene. At that point `Components.Create<>` does not synchronously drive the `OnEnabled` chain, so the host component's `Panel` field stays null. `OnStart` fires after `EditorScene.Play` begins, when the lifecycle chain has run.
 
 ## The three pieces
 
@@ -88,12 +92,12 @@ public static class SuiPreviewState
 {
     public static string PendingTypeFullName { get; private set; }
 
-    public static void Set( string fqn ) => PendingTypeFullName = fqn;
-    public static void Clear()           => PendingTypeFullName = null;
+    public static void Set( string typeFullName ) { PendingTypeFullName = typeFullName; }
+    public static void Clear()                    { PendingTypeFullName = null; }
 }
 ```
 
-The launcher sets it before invoking `EditorScene.Play`. The in-scene `SuiPreviewMount` reads it in `OnAwake` and clears it. The launcher and mount run in different "process modes" (editor vs play) — sharing state via a static is the simplest cross-mode handoff.
+The launcher sets it before invoking `EditorScene.Play`. The in-scene `SuiPreviewMount` reads it in `OnStart` and clears it. The launcher and mount run in different "process modes" (editor vs play) — sharing state via a static is the simplest cross-mode handoff.
 
 ### 3. In-scene mount (`SuiPreviewMount`)
 
@@ -110,24 +114,38 @@ Contains:
 - A player prefab (TPS character so you can move around)
 - A GameObject with `SuiPreviewMount` attached
 
-On `OnAwake`:
+On `OnStart` (not `OnAwake` — see sequence note above):
 
 ```csharp
 var fqn = SuiPreviewState.PendingTypeFullName;
-if ( fqn == null ) return;
+if ( string.IsNullOrEmpty( fqn ) ) return;
 
 var typeDesc = TypeLibrary.GetType( fqn );
 if ( typeDesc == null ) return;
 
-_panelHost = new GameObject( true, "ScreenPanelHost" );
+// Scene.CreateObject(true) attaches the GO to the scene synchronously
+// and fires the OnAwake → OnEnabled chain inline, so the host's Panel
+// field is populated by the time we call AddChild below.
+_panelHost = Scene.CreateObject( true );
+_panelHost.Name = "ScreenPanelHost";
 _panelHost.SetParent( GameObject );
-_panelHost.GetOrAddComponent<ScreenPanel>();
-_panelHost.Components.Create( typeDesc );
+_panelHost.Components.Create<ScreenPanel>();
+
+// The generated class is a Panel subclass (not a Component), so we host
+// a SuiHostPanelComponent (PanelComponent with an empty render tree)
+// and add the generated Panel as a child of its root Panel.
+var hostComponent = _panelHost.Components.Create<SuiHostPanelComponent>();
+if ( hostComponent?.Panel == null ) return;
+
+var instance = typeDesc.Create<object>();
+if ( instance is not Panel renderedPanel ) return;
+
+hostComponent.Panel.AddChild( renderedPanel );
 
 SuiPreviewState.Clear();
 ```
 
-`ScreenPanel` is the screen-space root needed by any `PanelComponent` to render as a HUD overlay. Without it the panel is in the scene but has no draw surface.
+`ScreenPanel` is the screen-space root needed by any `PanelComponent` to render as a HUD overlay. Without it the panel is in the scene but has no draw surface. `SuiHostPanelComponent` is the `PanelComponent` wrapper that exposes a root `Panel` we can `AddChild` the generated Panel onto (since `@inherits Panel` types aren't components themselves).
 
 ## Why the polling step?
 
@@ -135,7 +153,7 @@ After writing the `.razor` file, the engine needs to:
 
 1. Notice the file system change.
 2. Compile it via the Razor compiler.
-3. Register the new `PanelComponent` type in `TypeLibrary`.
+3. Register the new `Panel` type (wrapped by `SuiHostPanelComponent` at mount time) in `TypeLibrary`.
 
 This is asynchronous. Typical latency: 200–800 ms. The launcher polls `TypeLibrary.GetType(fqn)` every 100 ms up to 60 attempts (= 6 seconds).
 

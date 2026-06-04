@@ -56,3 +56,16 @@ SCSS:
 - For a card style: Background `rgba(15,18,24,0.95)`, Border `#475569`, Border Width `2`, Border Radius `10`.
 - A Panel inside a Flex parent becomes a flex item — its X/Y are ignored, but its **Size** is honored (or stretched via `align-items: stretch` on the parent's cross axis).
 - For maximum CSS flexibility, leave `Style.ClassName` set to something descriptive (e.g. `"card"`) — you can target `.card` in `.User.scss` for shared styling across documents.
+
+## Events surfaced
+
+Panel is an interactive type (`panelLike` row in the event matrix). Set `Pointer Events: All` in Appearance for hit-testing to fire.
+
+| Event | Razor attribute |
+|---|---|
+| `OnClick` | `onclick` |
+| `OnRightClick` | `onclick` (known gap: fires on any button until M4 surfaces `MousePanelEvent`) |
+| `OnHover` | `onmouseover` |
+| `OnUnhover` | `onmouseout` |
+
+The same `panelLike` row is shared by `Overlay`, `HorizontalBox`, `VerticalBox`, `Grid`, `ScrollPanel`, `Hotbar`, `InventoryGrid`, `ItemIcon`, and `Tooltip`.

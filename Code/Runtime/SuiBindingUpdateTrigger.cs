@@ -25,8 +25,10 @@ public enum SuiBindingUpdateTrigger
 	OnRelease,
 
 	/// <summary>
-	/// Never auto-fire. The wrapper exposes a <c>Commit&lt;FieldName&gt;()</c>
-	/// method the user calls explicitly (e.g. from a Save button handler).
+	/// Never auto-fire. The wrapper exposes <c>Apply.&lt;ElementName&gt;Value()</c>
+	/// (and <c>Apply.All()</c>) so user code can commit the widget's current
+	/// state into the bound Variable explicitly (e.g. from a Save button handler).
+	/// Only TextEntry and Slider qualify for the Apply codegen.
 	/// </summary>
 	Manual,
 }

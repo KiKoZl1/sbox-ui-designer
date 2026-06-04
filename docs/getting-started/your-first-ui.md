@@ -30,7 +30,7 @@ In the **Asset Browser**, navigate to where you want the file (e.g. `Assets/UI/`
 
 Double-click the new file. The SUI Designer window opens.
 
-You should see five regions:
+You should see six regions: top toolbar, left sidebar (Palette + Hierarchy + Variables), center canvas with Designer/Preview/Code tabs, right Details panel, and bottom panel with Animations/Bindings/Compile Results/Logs tabs.
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
@@ -41,6 +41,8 @@ You should see five regions:
 ├──────────┤  [Designer | Preview | Code] │                   │
 │Hierarchy │                              │                   │
 │          │                              │                   │
+├──────────┤                              │                   │
+│Variables │                              │                   │
 ├──────────┴──────────────────────────────┴───────────────────┤
 │  [Animations | Bindings | Compile Results | Logs]           │
 └──────────────────────────────────────────────────────────────┘
@@ -96,9 +98,29 @@ Double-click **ProgressBar** in the palette. Configure:
 The bar now shows 75% filled with bright red.
 
 {: .tip }
-**ProgressBar.Value is just a preview value** — it doesn't drive anything at runtime. In your game, you bind it from code via the Razor template that gets generated.
+**ProgressBar.Value is just a preview value** — it doesn't drive anything at runtime. To drive it from gameplay code, bind it to a **Variable** in the next step.
 
-## 5. Save and compile
+## 5. Make `Health` a Variable
+
+A **Variable** is a typed piece of UI-local state. A **Binding** connects a Variable to an element property. When the compiler generates the wrapper class, every Variable becomes a `[Property]` mirror you can assign from gameplay code — and the bound element property updates automatically.
+
+In the left sidebar, open the **Variables** panel (third dock, below Hierarchy):
+
+1. Click **+** → **Add Variable**.
+2. **Name** → `Health`
+3. **Type** → `float`
+4. **Default** → `0.75`
+
+Now bind `HealthBar.Value` to it:
+
+1. Select the `HealthBar` element in the Hierarchy.
+2. In **Details**, find the **Value** field under the Progress section.
+3. Click the **chain icon** next to it → **Bind to Variable** → pick `Health`.
+4. Mode → `OneWay` (Variable → element).
+
+The Value field in Details now shows as bound (chain icon filled). The canvas preview still shows the bar at 75% because that's the Variable's default.
+
+## 6. Save and compile
 
 - `Ctrl+S` — saves the `.sui` JSON.
 - `Ctrl+B` — runs the validator, generator, and writer.
@@ -108,16 +130,16 @@ The **first compile** opens a folder picker asking where the generated files sho
 Open `Code/UI/`. You should see **three** generated files plus a sidecar:
 
 - `MyHudPanel.razor` — the actual `Panel` renderer (`<div class="background sui-background">…</div>` tree)
-- `MyHud.razor.scss` — styles (your color choices, sizes, etc.)
+- `MyHudPanel.razor.scss` — styles (your color choices, sizes, etc.)
 - `MyHud.cs` — the **wrapper class** (`SuiPanel<MyHudPanel>`) — this is what your gameplay code touches
-- `MyHud.User.scss` — empty boilerplate you can edit to override generated styles (this file is **never overwritten**)
+- `MyHudPanel.User.scss` — empty boilerplate you can edit to override generated styles (this file is **never overwritten**)
 
 The engine hot-reloads. `Game.UI.MyHud` is now ready to use.
 
 {: .note }
 Why three files? `MyHud.cs` exposes a friendly API (`Show()` / `Hide()` / per-Variable `[Property]` mirrors) — this is what you'd type by hand. `MyHudPanel.razor` is the Razor markup the engine paints. The `.razor.scss` is its stylesheet. See [Wrapper generation]({% link concepts/wrapper-generation.md %}) for why.
 
-## 6. Use it from a Component
+## 7. Use it from a Component
 
 Open or create any `.cs` Component in your project (or use an existing player Controller):
 
@@ -128,6 +150,8 @@ using Game.UI; // namespace from your .sui's Output.Namespace
 public sealed class HudController : Component
 {
     [Property] public MyHud Hud { get; set; } = new();
+    [Property] public float MyHealth { get; set; } = 100f;
+    [Property] public float MaxHealth { get; set; } = 100f;
 
     protected override void OnStart()
     {
@@ -137,7 +161,8 @@ public sealed class HudController : Component
     protected override void OnUpdate()
     {
         if ( IsProxy ) return;
-        // edit any [Property] field — the wrapper auto-syncs to the live View
+        // Drive the bound Health Variable — the wrapper auto-syncs into the live ProgressBar.
+        Hud.Health = Math.Clamp( MyHealth / MaxHealth, 0f, 1f );
     }
 
     protected override void OnDisabled()
@@ -147,12 +172,14 @@ public sealed class HudController : Component
 }
 ```
 
+You never touch the rendered `Panel` directly. Gameplay code only ever assigns to the `[Property]` fields the wrapper exposes per Variable (here, `Hud.Health`) — the binding does the rest.
+
 Drop `HudController` on any GameObject in your scene. Click Play. Your title and red bar appear at the top-left of the screen.
 
 {: .tip }
 You don't need to manually add `ScreenPanel` to a GameObject. `Hud.Show()` (provided by the `SuiPanel<TView>` base class) creates a child GameObject, attaches a `ScreenPanel` + host `PanelComponent`, and mounts the rendered `Panel` for you.
 
-## 7. Iterate
+## 8. Iterate
 
 Make a change in SUI Designer (e.g. change the bar color from red to yellow) → `Ctrl+S` → `Ctrl+B`. The runtime hot-reloads automatically.
 
@@ -163,13 +190,18 @@ For faster iteration, see [Test in Play]({% link getting-started/test-in-play.md
 - A `.sui` document is one JSON file holding the whole element tree.
 - The Palette adds elements. The Details panel edits everything about a selected element.
 - Anchor + Position + Size place an element in its parent's coordinate space.
-- Compile writes 4 files: `<Name>Panel.razor` (markup), `<Name>.razor.scss` (generated styles), `<Name>.cs` (wrapper class) and `<Name>.User.scss` (your-owned overrides).
+- **Variables** hold typed UI-local state; **Bindings** connect them to element properties; the generated wrapper exposes a `[Property]` mirror per Variable so gameplay code reads naturally (`Hud.Health = 0.5f`).
+- Compile writes 4 files: `<Name>Panel.razor` (markup), `<Name>Panel.razor.scss` (generated styles), `<Name>.cs` (wrapper class) and `<Name>Panel.User.scss` (your-owned overrides).
 - Gameplay code touches the wrapper — `Hud.Show()`, `Hud.SomeVariable = 75` — never the `Panel` directly.
 
 ## Next
 
+You now have a Variable-driven HUD. To go further with V1.5 patterns:
+
+- **[Health HUD with converters]({% link tutorials/health-hud-with-converters.md %})** — add a `"75/100 HP"` label via the `Compose` converter and a custom `[SuiConverter]`
+- **[Settings screen]({% link tutorials/settings-screen.md %})** — TextEntry + Slider + Toggle + DropDown with the `Apply` API
 - [Test in Play]({% link getting-started/test-in-play.md %}) — fast preview without scene wiring
+- [Variables]({% link concepts/variables.md %}) — the typed-state mental model
+- [Bindings]({% link concepts/bindings.md %}) — connecting Variables to element properties
 - [Editor tour]({% link user-guide/editor-tour.md %}) — every panel and toolbar explained
-- [Variables]({% link concepts/variables.md %}) — make `Health` a real Variable instead of a baked literal
-- [Bindings]({% link concepts/bindings.md %}) — drive `ProgressBar.Value` from your `Health` Variable
 - [Wrapper generation]({% link concepts/wrapper-generation.md %}) — the `SuiPanel<TView>` pattern explained

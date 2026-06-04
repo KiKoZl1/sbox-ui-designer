@@ -63,3 +63,12 @@ For a 9-slot hotbar with 72px cells and 8px gap: 9×72 + 8×8 = 712 px.
 ```
 
 And toggle the `.active` class from your `PanelComponent` based on the player's current hotkey.
+
+## Bindable properties
+
+| Property | Mode | Target type |
+|---|---|---|
+| `Columns` | OneTime / OneWay | int |
+| Style + Universal | OneWay | per matrix |
+
+Unlike [Grid]({% link elements/grid.md %}) / [InventoryGrid]({% link elements/inventory-grid.md %}), Hotbar exposes only `Columns` for binding — Rows is forced to 1 by `ApplyTypeDefaults` and CellW/H/Gap stay author-time only.

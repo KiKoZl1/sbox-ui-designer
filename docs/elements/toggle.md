@@ -45,9 +45,7 @@ The engine `Toggle` type doesn't exist — only `Checkbox` does (PRD 21 § 11 #3
 
 ## Events surfaced
 
-| Event | Signature |
-|---|---|
-| `OnValueChanged` | `Action<bool>` |
+**None in V1.5.** `SuiEventMatrix` has no entry for Toggle — the slot is not pickable in the Events tab and codegen does not emit an `OnValueChanged` property. React to checkbox flips through the TwoWay `Checked` binding firing on `OnChange` (the only trigger allowed for atomic widgets — see [Input & Update triggers]({% link concepts/input-and-update-triggers.md %})).
 
 ## Codegen — `OnChange` trigger (default)
 

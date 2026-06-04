@@ -37,7 +37,6 @@ The method name on `Apply` is derived from the **element's Name in the Hierarchy
 Element name in Hierarchy    →  Apply method name
 "PlayerNameField"            →  Apply.PlayerNameFieldValue()
 "VolumeSlider"               →  Apply.VolumeSliderValue()
-"GraphicsDropdown"           →  Apply.GraphicsDropdownValue()
 ```
 
 Not the Variable name. Not the property name. **The element name + `"Value"`.** Source of truth: `Code/Generation/SuiWrapperEmitter.cs` `EmitManualCommitMethods` (lines 398-428).
@@ -52,36 +51,35 @@ In the Bind popup for each input widget:
 2. **UpdateTrigger** — **Manual**.
 3. OK.
 
-The codegen now emits a widget without bind/handler (renderer keeps the ref but doesn't write back) and the wrapper grows an `Apply` class. For a document with three elements named `PlayerNameField` / `VolumeSlider` / `GraphicsDropdown`, all bound `Manual`:
+The codegen now emits a widget without bind/handler (renderer keeps the ref but doesn't write back) and the wrapper grows an `Apply` class. For a document named `Settings` with two elements named `PlayerNameField` (TextEntry) and `VolumeSlider` (Slider), both bound `Manual`:
 
 ```csharp
-public sealed class SettingsPanel : SuiPanel<SettingsPanelView>
+public sealed class Settings : SuiPanel<SettingsPanel>
 {
-    [Property] public string PlayerName     { get; set; } = "Player";
-    [Property] public float  Volume         { get; set; } = 50f;
-    [Property] public int    GraphicsPreset { get; set; } = 1;
+    [Property] public string PlayerName { get; set; } = "Player";
+    [Property] public float  Volume     { get; set; } = 50f;
 
     private ApplyApi _apply;
     public ApplyApi Apply => _apply ??= new ApplyApi( this );
 
     public sealed class ApplyApi
     {
-        private readonly SettingsPanel _w;
-        internal ApplyApi( SettingsPanel w ) { _w = w; }
+        private readonly Settings _w;
+        internal ApplyApi( Settings w ) { _w = w; }
 
         public void PlayerNameFieldValue()    { /* read view.PlayerNameFieldRef.Text → _w.PlayerName */ }
         public void VolumeSliderValue()       { _w.View?.CommitVolume(); }
-        public void GraphicsDropdownValue()   { /* read view.GraphicsPreset, write _w.GraphicsPreset */ }
 
         public void All()
         {
             PlayerNameFieldValue();
             VolumeSliderValue();
-            GraphicsDropdownValue();
         }
     }
 }
 ```
+
+Toggle.Checked and DropDown.Value are atomic — they cannot opt into Manual, so they never appear under `Apply` (D-030).
 
 The class is **only emitted when at least one Manual binding exists**. Wrappers with no Manual bindings have no `Apply` property — autocomplete stays clean.
 
@@ -90,7 +88,7 @@ The class is **only emitted when at least one Manual binding exists**. Wrappers 
 ```csharp
 public sealed class SettingsController : Component
 {
-    [Property] public Game.UI.SettingsPanel Settings { get; set; } = new();
+    [Property] public Game.UI.Settings Settings { get; set; } = new();
 
     protected override void OnStart()
     {
@@ -100,7 +98,7 @@ public sealed class SettingsController : Component
     public void OnSaveClick()
     {
         Settings.Apply.All();   // flush every Manual binding
-        SaveToDisk( Settings.PlayerName, Settings.Volume, Settings.GraphicsPreset );
+        SaveToDisk( Settings.PlayerName, Settings.Volume );
     }
 
     public void OnCancelClick()
@@ -117,7 +115,7 @@ public sealed class SettingsController : Component
 For a partial save (only commit one field), call the method directly:
 
 ```csharp
-Settings.Apply.PlayerNameFieldValue();   // commit only this one — Volume / GraphicsPreset stay tentative
+Settings.Apply.PlayerNameFieldValue();   // commit only this one — Volume stays tentative
 ```
 
 ## Mixing triggers within a panel
@@ -154,9 +152,9 @@ The setter on `[Property] string PlayerName` pushes both the backing field + the
 ```csharp
 public sealed class SettingsScreen : Component
 {
-    [Property] public Game.UI.SettingsPanel Audio    { get; set; } = new();
-    [Property] public Game.UI.SettingsPanel Graphics { get; set; } = new();
-    [Property] public Game.UI.SettingsPanel Controls { get; set; } = new();
+    [Property] public Game.UI.Settings Audio    { get; set; } = new();
+    [Property] public Game.UI.Settings Graphics { get; set; } = new();
+    [Property] public Game.UI.Settings Controls { get; set; } = new();
 
     void OnApplyAll()
     {

@@ -118,12 +118,14 @@ Code-mode events:
 [Property, Group("Events")] public Action OnFireClick { get; set; }
 ```
 
-Doo-mode events:
+Doo-mode events (Button.OnClick wired to a Doo body):
 
 ```csharp
-[Property, Group("Events"), Doo.ArgumentHint<float>("value")]
-public global::Sandbox.Doo OnVolumeChanged { get; set; } = /* default body */;
+[Property, Group("Events")]
+public global::Sandbox.Doo OnFireClickDoo { get; set; } = /* default body */;
 ```
+
+(Input widgets — TextEntry / Slider / Toggle / DropDown — have no event slots in V1.5; this section will gain widget-event examples once `SuiEventMatrix` is extended to those types.)
 
 ### `SyncFieldsTo` override
 
@@ -154,7 +156,7 @@ The renderer's `BuildHash()` mirrors this set. Mutations at any depth propagate 
 
 ## The `Apply` namespace (V1.5 D-029)
 
-Generated **only** when at least one binding on the document is `UpdateTrigger.Manual` AND on a TextEntry / Slider element (Toggle + DropDown Manual bindings produce no Apply method — see "Known gap" below). One method per qualifying Manual binding + `All()`:
+Generated **only** when at least one binding on the document is `UpdateTrigger.Manual` AND on a TextEntry / Slider element. Toggle + DropDown are atomic and the matrix gates them to `OnChange` only — Manual isn't selectable on those widgets in the first place (see [historical note](#toggle--dropdown-have-no-manual-trigger) below). One method per qualifying Manual binding + `All()`:
 
 ```csharp
 // Hierarchy: TextEntry "PlayerNameField", Slider "VolumeSlider", both bound Manual.
@@ -181,9 +183,9 @@ The method name = the **element's Name in the Hierarchy** with `"Value"` appende
 
 Wrappers without any qualifying Manual binding have no `Apply` property — `wrapper.Apply.X` compile-errors clearly.
 
-### Known gap — Toggle + DropDown Manual
+### Toggle + DropDown have no Manual trigger
 
-`Apply` codegen only fires for `TextEntry.Value` and `Slider.Value` bindings (the `EmitManualCommitMethods` filter). Toggle + DropDown Manual bindings still get an `@ref` but no Apply method — user code reads the widget directly through the renderer's `<ElementName>Ref` field. Future release will close this gap.
+Toggle / DropDown are atomic (one click = one value change), so `SuiBindingModeMatrix.AllowedUpdateTriggers` gates them to `OnChange` only — there's no Manual trigger to pick in the first place. The `Apply` filter therefore never has Toggle/DropDown bindings to emit. (Resolved at M4 close — D-030. Earlier alpha builds exposed Manual here and it silently no-op'd.)
 
 See [Manual commit with Apply]({% link workflows/manual-commit-with-apply.md %}).
 

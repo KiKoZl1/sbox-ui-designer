@@ -35,12 +35,10 @@ Each element type has a fixed set of slots that the matrix exposes. The seed (PR
 | Element | Slots |
 |---|---|
 | `Button` | `OnClick`, `OnHover`, `OnUnhover` |
-| `InventorySlot` | `OnClick`, `OnHover`, `OnUnhover`, `OnDoubleClick`, `OnRightClick` |
-| `TextEntry` | `OnValueChanged`, `OnSubmit`, `OnFocus`, `OnBlur` |
-| `Slider` | `OnValueChanged`, `OnDragStart`, `OnDragEnd` |
-| `Toggle` | `OnValueChanged` |
-| `DropDown` | `OnValueChanged` |
+| `InventorySlot` | `OnClick`, `OnRightClick`, `OnDoubleClick`, `OnHover` |
 | Panel-like | `OnClick`, `OnRightClick`, `OnHover`, `OnUnhover` |
+
+**Input widgets (TextEntry / Slider / Toggle / DropDown)** — no event slots in V1.5. `SuiEventMatrix` does not register rows for these element types (`Code/Runtime/SuiEventMatrix.cs:119-121`). Wire reactivity through the widget's `TwoWay` binding + `UpdateTrigger` instead — see [Bindings]({% link concepts/bindings.md %}) and [Manual commit with Apply]({% link workflows/manual-commit-with-apply.md %}). Event slots for input widgets are tracked for a future milestone.
 
 `OnRightClick` is wired to plain `onclick` with `e.Button == "mouseright"` until M5 surfaces a `MousePanelEvent`-aware handler shape (DEVIATIONS D-018).
 
@@ -112,6 +110,28 @@ The Events tab's **Doo mode** row has an inline **BlockTree** preview + an **Ope
 
 `DooEditorWidget : PopupWidget` so it can't be hosted inline; we mirror its `BlockTree(Doo)` ctor for the inline preview. `Doo : IJsonConvert` so Sandbox.Json round-trips it inside the `.sui` natively.
 
+### Doo default-body persistence (why your Body doesn't disappear)
+
+**Symptom this prevents:** "I opened the scene, my `OnFoo` Doo Body is now empty."
+
+When the engine's scene serializer writes a wrapper instance, it emits `"OnFoo": null` for any `[Property] Doo` slot the user never touched in the inspector. On reload it then assigns that `null` back into your property — which, with a normal auto-setter, would wipe the default Body the wrapper carried from the `.sui`.
+
+The generator avoids this by emitting a **defensive setter** (DEVIATIONS D-019):
+
+```csharp
+private global::Sandbox.Doo _OnFoo = FactoryFromConstJson();
+[Property, Group("Events")]
+public global::Sandbox.Doo OnFoo
+{
+    get => _OnFoo;
+    set => _OnFoo = value ?? FactoryFromConstJson();
+}
+```
+
+The `value ?? FactoryFromConstJson()` ensures that a scene round-trip writing `null` rehydrates the default Body from the embedded JSON instead of clearing it. A real assignment from the inspector (a non-null Doo the user authored as an override) wins — only `null` is rejected.
+
+If you ever see a Doo Body genuinely lost after reopening the scene, file an issue — that's a regression in this contract, not normal behaviour.
+
 ## Exposing an element via `@ref`
 
 Sometimes you want to poke an element directly from gameplay code (focus a TextEntry, scroll a ScrollPanel, manipulate any `Sandbox.UI.Panel` field). Flag the element with **Common → Expose as Variable** in the Details panel:
@@ -125,12 +145,16 @@ public Sandbox.UI.Button FireButton { get; private set; }
 
 ```csharp
 Hud.View?.FireButton.OnMouseDown = OnPress;
-Hud.View?.PlayerNameRef?.Focus();
+Hud.View?.PlayerName?.Focus();
 ```
 
 Exposed elements render **in bold** on the Hierarchy panel so you can scan and see which elements are reachable from code.
 
-`@ref` field name = sanitized element `Name`. Cross-paradigm collisions (Variable / SuiReference field / Code handler / Doo slot / `@ref` field all sharing one identifier) surface in Compile Results via `SuiNameConflictDetector` — both contributors are named so you don't have to grep.
+`@ref` field name = sanitized element `Name` — **no suffix added**. If the element is named `PlayerName`, the field is `PlayerName` (see `Code/Generation/SuiElementRefEmitter.cs:25-27`).
+
+The `Ref` suffix you may see in generated code (e.g. `PlayerNameRef`) belongs to a **different system**: TextEntry's OnLostFocus / OnSubmit / Manual commit pathway emits an implicit `@ref` field named `<element>Ref` so the codegen can read `.Text` on commit (see [Manual commit with Apply]({% link workflows/manual-commit-with-apply.md %})). That auto-ref is internal — your Expose-as-Variable field stays at the sanitized element `Name`.
+
+Cross-paradigm collisions (Variable / SuiReference field / Code handler / Doo slot / `@ref` field all sharing one identifier) surface in Compile Results via `SuiNameConflictDetector` — both contributors are named so you don't have to grep.
 
 ## Combined Code + Doo + `@ref`
 

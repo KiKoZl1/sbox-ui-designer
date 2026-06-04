@@ -59,6 +59,8 @@ The closed set (PRD 18 § 3.3):
 
 - `string`, `int`, `long`, `float`, `bool`
 
+> **Localization (V1.5 posture).** V1.5 treats `string` Variables as **raw text** — no FText-equivalent, no `{key}` substitution, no automatic translation lookup at render time. For localized UIs the supported workaround is: wire a user-side `LocalizationService` Component that exposes translated strings as Component properties, then bind a `Component:`-typed Variable to it and reference `Service.Strings.MyKey` in your bindings. A first-class `LocalizedString` Variable type is on the roadmap for a future milestone if/when s&box matures its localization infra — not in V1.5.
+
 ### Engine types
 
 - `Color` — RGBA, hex / rgb / rgba string default
@@ -80,6 +82,29 @@ The closed set (PRD 18 § 3.3):
 - `List<T>` where `T` is any of the above (primitives, engine types, enums, structs, classes)
 
 The Variables dialog renders a typed editor matching the Type — Color spawns the color picker, `List<T>` spawns a list editor, enums spawn a dropdown.
+
+### Authoring a Color Variable
+
+When you pick **Type = Color** in the Add Variable dialog (or change an existing Variable's type to Color), the Default editor becomes a swatch button. Clicking it opens the **`SuiColorPickerPopup`** — the designer's own color picker, introduced to work around the engine `Editor.ColorPicker.OpenColorPopup` bugs (V1.0 ISSUE-001 → ISSUE-003: SV gradient not repainting on hue change, slider lag, intermittent commits, mis-positioned initial state).
+
+The popup gives you:
+
+- **SV square** — click/drag to set saturation + value
+- **Hue slider** — vertical strip on the right
+- **Alpha slider** — horizontal strip under the SV square
+- **Hex input** — `#RRGGBB` or `#RRGGBBAA`
+- **RGBA numeric inputs** — 0–255 per channel
+- **Old / new swatches** — side-by-side compare; click Old to revert
+- **Recent colors palette** — your last picks, click to reuse
+
+Values round-trip losslessly: the picker stores state as `ColorHsv` internally so hex ↔ rgb ↔ rgba conversions don't drift between edits.
+
+The **same picker** also appears in two other places, so the UX is consistent everywhere a Color is authored:
+
+1. The **binding popup's literal editor** — when you bind a Color-typed property to a literal (no Variable), the literal editor is a swatch that opens `SuiColorPickerPopup`.
+2. **Converter literal args** — when a converter takes a `Color` argument (e.g. tint converters), its arg editor uses the same picker.
+
+Source of truth: `Editor/Widgets/SuiColorPickerPopup.cs`.
 
 ## The `IsPublic` flag (V1.5-M2-K)
 

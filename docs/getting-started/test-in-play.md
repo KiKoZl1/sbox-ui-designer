@@ -21,10 +21,12 @@ A one-click workflow that loads a pre-baked s&box scene with a controllable TPS 
 
 ## When to use it
 
-- ✅ **Final validation** before shipping a UI — does it look right at 1920×1080? Does it scale with the player's camera? Does anything in your `PanelComponent` `OnUpdate` actually run?
-- ✅ **Testing input** — buttons, hover, keyboard shortcuts. Embedded preview can't do this.
-- ✅ **Testing networking / runtime data** — `Game.IsPlaying` is true, your bindings can pull real values.
-- ❌ **Quick iteration** — Test in Play takes ~3 seconds to spin up the scene and enter Play. For per-property tweaking, use the inline **Preview** tab instead.
+- ✅ **Validate interactive states** — Hover / Pressed / Disabled / Focused visuals only fire under a real input loop. The canvas always renders Normal. (See [Interactive states]({% link concepts/interactive-states.md %}).)
+- ✅ **Drive input widgets end-to-end** — see Slider drag / TextEntry edits / DropDown selection actually commit to your Variables under the right UpdateTrigger (OnChange / OnLostFocus / OnSubmit / OnRelease / Manual+Apply).
+- ✅ **Test Doo event graphs** — visual scripts only execute under Play; the canvas can't run them.
+- ✅ **Validate TwoWay bindings** — Variable round-trip from UI widget → wrapper field requires a live mount.
+- ✅ **Final visual validation** before shipping a UI — does it scale at 1080p? Does the SuiReference subtree resolve correctly?
+- ❌ **Quick layout tweaking** — for per-property iteration use the inline **Preview** tab; it skips the ~3s Play spin-up.
 
 ## How it works
 

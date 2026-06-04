@@ -19,7 +19,18 @@ A fill bar for stats (health, stamina, mana, hunger, …). Every visual property
 | **Direction** | `LeftToRight` | `LeftToRight / RightToLeft / TopToBottom / BottomToTop` — bindable |
 | **Fill Color** | `#4ade80` | Color of the filled portion — bindable |
 
-All five fields are bindable in V1.5 — see [Binding-mode matrix]({% link reference/binding-mode-matrix.md %}).
+## Bindable properties
+
+| Property | Mode | Target type |
+|---|---|---|
+| `Value` | OneTime / OneWay | float |
+| `Min` | OneTime / OneWay | float |
+| `Max` | OneTime / OneWay | float |
+| `FillColor` | OneTime / OneWay | Color |
+| `Direction` | OneTime / OneWay | string (enum name) |
+| Style + Universal | OneWay | per matrix |
+
+(ProgressBar has no events.) See [Binding-mode matrix]({% link reference/binding-mode-matrix.md %}).
 
 ## Generated output
 

@@ -410,7 +410,7 @@ A single bag with all type-specific fields. The generator and validator only rea
 }
 ```
 
-`PreviewCount` shows as a badge in the canvas. **Currently not emitted by the runtime Razor** — see [Known issues]({% link reference/known-issues.md %}#issue-005).
+`PreviewCount` shows as a badge in the canvas. **Currently not emitted by the runtime Razor** — see [Known issues]({% link reference/known-issues.md %}#issue-005--previewcount-badges-not-emitted-in-runtime).
 
 ## `Variables` block (V1.5)
 
@@ -457,14 +457,14 @@ Lives on `SuiElement.Bindings`. Each entry:
   },
   "Converters": [                        // chain (left → right)
     {
-      "Ref": "builtin.Clamp",
+      "ConverterRef": "builtin.Clamp",
       "Args": [
-        { "Kind": "Chain" },             // implicit chain feed
+        { "Kind": "ChainRef" },          // implicit chain feed
         { "Kind": "Literal", "Type": "float", "Value": 0 },
         { "Kind": "Literal", "Type": "float", "Value": 100 }
       ]
     },
-    { "Ref": "builtin.FloatToInt" }
+    { "ConverterRef": "builtin.FloatToInt" }
   ],
   "FallbackValue": null                  // JSON node; null = property's type default
 }
@@ -528,15 +528,14 @@ Applies to `Button` / `InventorySlot` / `ItemIcon`. All additive, default values
   "BorderColor":     null,
   "BorderWidth":     null,
   "BorderRadius":    null,
-  "Color":           null,
+  "TextColor":       null,
   "Scale":           1.0,
   "Opacity":         null,
-  "BackgroundImage": "ui/buttons/red_hover.png",
-  "BackgroundSize":  "Cover"        // SuiBackgroundSize — Cover / Contain / Stretch / Custom
+  "BackgroundImage": "ui/buttons/red_hover.png"
 }
 ```
 
-Null fields inherit Normal-state values. See [Interactive states]({% link concepts/interactive-states.md %}).
+Null fields inherit Normal-state values. Note: `BackgroundSize` is an element-level prop on `SuiElementProps` (see § V1.5 M3.5 — Interactive state + button-polish fields) — not a per-state override. See [Interactive states]({% link concepts/interactive-states.md %}).
 
 ## V1.5 M4 — Input-widget fields on `SuiElementProps`
 

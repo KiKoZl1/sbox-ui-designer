@@ -15,7 +15,9 @@ End-to-end walkthroughs that go from empty document to a working UI. Each tutori
 - [Settings screen with input widgets]({% link tutorials/settings-screen.md %}) — TextEntry, Slider, Toggle, DropDown + `Apply` API for Manual commits
 - [Health HUD with converters]({% link tutorials/health-hud-with-converters.md %}) — bind `Health` → ProgressBar + `Compose` label + custom `[SuiConverter]` for low-HP tint
 
-## V1.0 (still valid)
+## V1.0 era (needs V1.5 refresh)
+
+These walkthroughs predate V1.5 wrapper / binding / events shipping. The layout steps are still accurate, but the gameplay-code sections at the end use V1.0 patterns that no longer compile against the V1.5 generator. We're rewriting them — for the current canonical wrapper API see the [Settings screen]({% link tutorials/settings-screen.md %}) and [Health HUD with converters]({% link tutorials/health-hud-with-converters.md %}) tutorials.
 
 - [Survival HUD]({% link tutorials/survival-hud.md %}) — Health, hunger, stamina bars + ammo counter + minimap frame
 - [Inventory screen]({% link tutorials/inventory-screen.md %}) — Backpack grid + equipment slots + drag-and-drop scaffolding

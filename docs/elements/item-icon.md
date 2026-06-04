@@ -52,3 +52,20 @@ Same Inventory section as InventorySlot:
 | Drag ghost during a drag-and-drop | ItemIcon |
 
 Both render identically — the choice is semantic and affects how V1.5+ might bind data differently (slots get a slot index, icons don't).
+
+## Bindable properties
+
+| Property | Mode | Target type |
+|---|---|---|
+| `ImagePath` | OneTime / OneWay | string |
+| `Tint` | OneTime / OneWay | Color |
+| Style + Universal | OneWay | per matrix |
+
+## Events surfaced
+
+| Event | Razor attribute |
+|---|---|
+| `OnClick` | onclick |
+| `OnRightClick` | onclick + e.Button=='mouseright' |
+| `OnHover` | onmouseover |
+| `OnUnhover` | onmouseout |

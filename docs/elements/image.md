@@ -27,6 +27,17 @@ Renders an image asset. Internally uses `background-image` on a `<div>` so it ca
 | **Cover** | Image scales to fill, keeps ratio. May crop |
 | **None** | Image uses original native size |
 
+## Bindable properties
+
+| Property | Mode | Target type |
+|---|---|---|
+| `ImagePath` | OneTime / OneWay | string |
+| `Tint` | OneTime / OneWay | Color |
+| `FitMode` | OneTime / OneWay | string |
+| Style + Universal | OneWay | per matrix |
+
+(Image has no events.)
+
 ## Generated output
 
 ```html

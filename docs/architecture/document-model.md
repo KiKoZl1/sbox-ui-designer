@@ -38,10 +38,10 @@ public sealed class SuiDocument
 
     // V1.5 — typed UI-local state (PRD 18, see DEVIATIONS D-005 for IsPublic)
     public List<SuiVariable> Variables { get; set; }
-    public SuiPreviewData PreviewData { get; set; }  // deferred — see DEVIATIONS D-009
+    public SuiPreviewData PreviewData { get; set; }  // design-time preview values (PRD 19 § 3.6)
 
-    // V1.5 — event slots (PRD 20)
-    public List<SuiEventBinding> Events { get; set; }
+    // Doc-level Events removed pre-M3 — events live on each SuiElement now
+    // (SuiElement.Events Dictionary, keyed by event name).
 
     // Reserved
     public List<SuiAnimationData> Animations { get; set; }
@@ -66,8 +66,8 @@ public sealed class SuiElement
 
     // V1.5 additions
     public List<SuiBinding> Bindings { get; set; }
-    public List<SuiEventBinding> Events { get; set; }   // per-element handler refs
-    public SuiForEachData ForEach { get; set; }         // SuiReference iteration
+    public Dictionary<string, SuiEventBinding> Events { get; set; }  // keyed by event name ("OnClick", "OnValueChanged"…)
+    public SuiReferenceData SuiReference { get; set; }   // set when Type == SuiReference (carries SourceGuid + per-prop overrides + optional ForEach)
 }
 ```
 
@@ -116,6 +116,11 @@ public sealed class SuiElement
     public SuiStyleData Style { get; set; }
     public SuiElementProps Props { get; set; }
 
+    // V1.5 additions
+    public List<SuiBinding> Bindings { get; set; }
+    public Dictionary<string, SuiEventBinding> Events { get; set; }  // keyed by event name
+    public SuiReferenceData SuiReference { get; set; }   // set when Type == SuiReference
+
     public string Notes { get; set; }
     public string TooltipText { get; set; }
     public bool IsVisible { get; set; }
@@ -150,10 +155,12 @@ Every element carries 4 nested data blocks:
 ```csharp
 public sealed class SuiElementFlags
 {
-    public bool Locked;           // can't move/resize in canvas
-    public bool HiddenInDesigner; // hidden in canvas (still in doc + generated)
-    // IsVariable was removed pre-M3 — was a V1.0 stub never wired into codegen.
-    // The M3 ExposeAsVariable flag (PRD 20 § 5.2) takes over the role.
+    public bool Locked;             // can't move/resize in canvas
+    public bool HiddenInDesigner;   // hidden in canvas (still in doc + generated)
+    public bool ExposeAsVariable;   // V1.5 M3 — emit `@ref` on this element and a typed
+                                    // field on the renderer (PRD 20 § 5.2). Sanitized element
+                                    // Name becomes the C# field name.
+    // IsVariable (V1.0 stub) was replaced by ExposeAsVariable in M3 — the @ref-emit flag.
 }
 ```
 
@@ -249,10 +256,36 @@ public sealed class SuiElementProps
     public int SlotIndex;
     public string PreviewIconPath;
     public int PreviewCount;
+
+    // V1.5 M4 — input widgets (PRD 21)
+    public string PlaceholderText;          // TextEntry
+    public int MaxLength;                   // TextEntry — 0 = unbounded
+    public bool ReadOnly;                   // TextEntry
+    public string PreviewValue;             // TextEntry design-time text
+
+    public float SliderMin, SliderMax, SliderStep, SliderValue;
+    public SuiSliderOrientation SliderOrientation;
+
+    public bool ToggleChecked;
+    public string ToggleLabelText;
+
+    public List<string> DropDownOptions;
+    public int DropDownSelectedIndex;
+
+    // V1.5 M3.5 — interactive states + chrome (PRD 25)
+    public SuiInteractiveStateStyle HoverStyle, PressedStyle, DisabledStyle, FocusedStyle;
+    public bool IsDisabled;
+    public bool TransitionEnabled; public float TransitionDuration;
+    public string HoverSound, PressSound;
+    public SuiCursor Cursor;
+    public SuiButtonShape ButtonShape;
+    public string BackgroundImage; public SuiBackgroundSize BackgroundSize;
 }
 ```
 
 Why a flat bag and not a polymorphic hierarchy? Because Sandbox's `GameResource` JSON serializer round-trips this cleanly without polymorphic type discriminators. The generator picks the subset relevant to the element's `Type`.
+
+The per-state overrides (`HoverStyle`, `PressedStyle`, `DisabledStyle`, `FocusedStyle`) are applied at codegen time as SCSS pseudo-class blocks (`:hover:not(:active)`, `:focus`, `:active`, `.disabled`) — see the [generator pipeline]({% link architecture/generator.md %}).
 
 ## Serialization format
 
@@ -306,14 +339,27 @@ See [SUI JSON schema reference]({% link reference/sui-json-schema.md %}) for the
 ```csharp
 public static class SuiSchemaVersion
 {
-    public const int Current = 1;
+    public const int Current = 3;          // V1 (V1.0) / V2 (V1.5 M1/M2) / V3 (V1.5 M3.5+)
     public const int MinimumSupported = 1;
 
     public const string DesignerVersion = "0.1.0";
+    public const string CreatedWithTag = "Sbox UI Designer";
 }
 ```
 
-When the schema changes, `SuiDocumentMigration` is responsible for upgrading old documents on load. Currently only V1 exists — no migrations yet.
+`SuiDocumentMigration.Apply` upgrades old documents on load via a uniform V_n → V_(n+1) pipeline:
+
+- **V1 → V2** (V1.5 M1/M2) — ensures `Variables` is a non-null list and `Output` is initialized. PRD 17 § 6.3.
+- **V2 → V3** (V1.5 M3.5) — introduces per-state interactive style overrides (`HoverStyle` / `PressedStyle` / `DisabledStyle` / `FocusedStyle`) plus `IsDisabled` / `TransitionEnabled` / `TransitionDuration` / `HoverSound` / `PressSound` / `Cursor` fields on `SuiElementProps`. PRD 25.
+
+Migration invariants (PRD 17 § 7A.2):
+
+1. **Additive-only** — new fields default to "no-emit" sentinels so generated output is byte-identical for documents that don't use the new fields.
+2. **Idempotent** — running `Apply` twice on the same document is a no-op.
+3. **Lossless / in-place** — no field is rewritten or dropped; unknown fields encountered during deserialize are quarantined under `_legacy.<field>` so a downgrade round-trip preserves them.
+4. **Dispatched per-version** — each `MigrateV{n}ToV{n+1}` runs only when `doc.SchemaVersion < n+1`, then bumps the version, so the chain is composable.
+
+Migration failures and unknown-field warnings are surfaced in the [Compile Results panel]({% link user-guide/compile-results.md %}).
 
 ## Validation
 
@@ -323,6 +369,10 @@ When the schema changes, `SuiDocumentMigration` is responsible for upgrading old
 - Sanitizes class names (`MyHud` not `My-Hud!`) and identifier slugs (for `DocumentId`).
 - Clamps `Opacity` to `[0, 1]`.
 - Validates `ClassName` uniqueness within the document (warns, doesn't block).
+- Runs `SuiNameConflictDetector` for cross-paradigm identifier collisions (Variable / SuiReference field / Code handler / Doo slot / @ref field).
+- Runs `SuiReferenceCycleDetector` so a sub-UI that transitively embeds itself surfaces as an error.
+- Flags bindings whose Variable was deleted or whose converter ref no longer resolves (D-026 broken-binding warnings).
+- Walks every binding's converter chain and surfaces type mismatches ("step #N expects X, but step #N-1 returns Y").
 
 Validation produces a `SuiCompileResult` with `Info` / `Warning` / `Error` rows surfaced in the [Compile Results panel]({% link user-guide/compile-results.md %}).
 

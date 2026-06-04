@@ -37,6 +37,10 @@ InventoryGrid (Columns: 6, Rows: 4)
 
 The SlotIndex is editor-only — your code typically reads slot data via the parent grid's component, not via the slot's `SlotIndex` property.
 
+## Bindable properties
+
+Identical to [Grid bindings]({% link elements/grid.md %}#bindable-properties): `Columns`, `Rows`, `CellWidth`, `CellHeight`, `Gap` — all OneWay. Useful for resizing inventory grids based on player stats (`Columns` ← `BackpackTier * 2 + 4`).
+
 ## See also
 
 - [InventorySlot]({% link elements/inventory-slot.md %}) — child of InventoryGrid

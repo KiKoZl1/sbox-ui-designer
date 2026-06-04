@@ -60,11 +60,7 @@ The wrapper carries `flex-grow: 0` (intentional override of the engine pattern) 
 
 ## Events surfaced
 
-| Event | Signature |
-|---|---|
-| `OnValueChanged` | `Action<float>` — fires per drag tick |
-| `OnDragStart` | `Action` |
-| `OnDragEnd` | `Action` |
+**None in V1.5.** `SuiEventMatrix` has no entry for `SuiElementType.Slider`, so the Designer's Add Event dialog will not list any slots for Slider elements. Wire reactivity through the `Value` TwoWay binding + `UpdateTrigger.OnChange` (per-tick) or `OnRelease` (commit on mouse-up). The native engine `OnValueChanged` `Action<float>` is intentionally not exposed (PRD 21 § 11).
 
 ## Codegen — `OnChange` trigger
 
@@ -142,7 +138,7 @@ void OnVolumeReleased()
 }
 ```
 
-(For automatic notification, also wire an `OnValueChanged` Code event slot.)
+(For per-tick notification instead of release-only, change the binding's UpdateTrigger to `OnChange` — there is no `OnValueChanged` event slot in V1.5.)
 
 ## Tooltip
 

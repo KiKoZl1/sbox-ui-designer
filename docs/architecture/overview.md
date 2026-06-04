@@ -150,10 +150,10 @@ Test in Play workflow:
 
 1. Generator runs in `Preview` mode.
 2. `SuiPreviewCacheWriter` writes to `Code/_sui_preview/<ClassName>/`.
-3. Engine hot-reloads → new `PanelComponent` type registered in `TypeLibrary`.
+3. Engine hot-reloads → the generated `Panel` subclass (V1.5-M2-K7: `@inherits Panel`, NOT `PanelComponent`) registers in `TypeLibrary`.
 4. Launcher polls for the type, sets `SuiPreviewState.PendingTypeFullName`.
 5. Opens `sui_preview/preview_stage.scene` and plays it.
-6. `SuiPreviewMount` (in-scene component) reads the state, creates a ScreenPanel, attaches the generated PanelComponent.
+6. `SuiPreviewMount` (in-scene component) reads the state in `OnStart`, spawns a `ScreenPanelHost` child GO via `Scene.CreateObject(true)`, adds a `ScreenPanel` + a `SuiHostPanelComponent`, instantiates the generated `Panel` via `TypeDescription.Create`, and attaches it via `hostComponent.Panel.AddChild(renderedPanel)`.
 
 Read more: [Preview system]({% link architecture/preview-system.md %}).
 
@@ -169,7 +169,7 @@ Read more: [Preview system]({% link architecture/preview-system.md %}).
 | `Editor/Widgets/` | `SboxUiDesigner.EditorUi.Widgets` | All dockable widgets |
 | `Editor/Tools/` | `SboxUiDesigner.EditorUi.Tools` | Tools menu actions (Clean caches, etc.) |
 
-### Asset Registry (V1.5)
+### Asset Registry — runtime vs editor split (V1.5)
 
 `SuiAssetRegistry` (`Code/Runtime/`) keeps a stable GUID → path/name map of every `.sui` in the project. Drives:
 
@@ -177,13 +177,44 @@ Read more: [Preview system]({% link architecture/preview-system.md %}).
 - The **SuiReference** resolver — looks up the target child by stable GUID.
 - Cascade compile — when a child compiles, every parent that depends on it is recompiled.
 
-The registry is split for sandbox-compat (DEVIATIONS D-004): the runtime registry is filesystem-clean; `SuiAssetRegistryService` (Editor) owns the filesystem walk + `FileSystemWatcher` + JSON cache persistence.
+**Why the split exists.** PRD-22 originally planned a single registry that walked the filesystem itself. The s&box runtime sandbox blocks `System.IO`, so any type that calls `Directory.EnumerateFiles` / `File.ReadAllText` / `FileSystemWatcher` cannot ship in `Code/Runtime/`. M0 DEVIATIONS D-004 therefore split the design into two cooperating types:
+
+**Runtime — `SuiAssetRegistry` (`Code/Runtime/SuiAssetRegistry.cs`)**
+Sandbox-clean. Zero `System.IO`. The whole surface is in-memory bookkeeping + serialization through strings:
+
+- `AddOrUpdate(guid, projectRelativePath, name, lastSeenIso = null)` — insert or replace an entry.
+- `UpdatePath(guid, newProjectRelativePath)` — rename without re-keying GUIDs.
+- `RemoveByPath(projectRelativePath)` — drop the entry whose path matches (file deleted).
+- `ToJson()` / `LoadFromJson(json)` — IO-free persistence; the caller decides where the string comes from / goes to.
+- Events (`Added` / `Updated` / `Removed`) — multicast to downstream consumers (palette, reference resolver, cascade compile).
+
+**Editor — `SuiAssetRegistryService` (`Editor/SuiAssetRegistryService.cs`)**
+The disk layer for the registry. Singleton, lazily initialised on first SUI Designer window open via `EnsureInitialized()` (idempotent). Owns:
+
+- The **cold build** — walks `<projectRoot>` for `.sui` files, reads every header, and pushes each one into the runtime registry via `AddOrUpdate`.
+- The **JSON cache** at `<projectRoot>/.sui-cache/asset-registry.json` — persisted via `Registry.ToJson()`; rehydrated via `Registry.LoadFromJson(...)` on startup when fresh.
+- The **file-system watcher** (`SuiAssetRegistryWatcher`) — translates `Created` / `Changed` / `Renamed` / `Deleted` events into `AddOrUpdate` / `UpdatePath` / `RemoveByPath` calls.
+
+**Hand-off contract on editor startup.** First SUI Designer window open ⇒ `SuiAssetRegistryService.Instance.EnsureInitialized()` ⇒ resolve project root ⇒ `TryLoadCache()` rehydrates the runtime registry from `.sui-cache/asset-registry.json` (or runs a cold build if missing / stale) ⇒ `StartWatcher()` so subsequent disk edits flow `FileSystemWatcher → Service → Registry.AddOrUpdate/RemoveByPath/UpdatePath → events → palette + resolver + cascade compile`. Game-build code only ever sees the runtime registry — it never compiles against the service.
 
 ## Why this split?
 
 - `Code/Runtime/` is the only namespace allowed to ship in the game build. Anything in `Editor/*` is gated behind `#if EDITOR` style restrictions (Sandbox auto-excludes Editor code from the runtime DLL).
 - `Code/Generation/` is also runtime-safe — it has no Editor dependencies — so it can be reused if SUI ever needs to generate at runtime (currently it doesn't, but the boundary is preserved).
 - The controller owns the document and the command stack. Widgets are thin views over that state. This is what makes undo, dirty tracking, and selection multicast work cleanly.
+
+## Performance budgets
+
+Soft release-time gates ratified across milestones. Exceeding one flags a regression worth investigating; it does **not** block release on its own.
+
+| Surface | Budget |
+|---|---|
+| Canvas paint | ≤ 8 ms |
+| Layout solver (200 elements) | ≤ 4 ms |
+| Single-document compile | ≤ 200 ms |
+| 5-level reference-tree compile | ≤ 1 s |
+| `BuildHash` (recursive content hash) | ≤ 0.5 ms |
+| Asset Registry cold build (500 docs) | ≤ 1 s |
 
 ## See also
 

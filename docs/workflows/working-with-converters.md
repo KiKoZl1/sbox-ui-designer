@@ -76,12 +76,10 @@ In the Bind popup:
 
 Result: `Compose("HP: ", chain, " / ", MaxHealth)`.
 
-Codegen:
+Codegen — the binding is inlined directly into the `<label>` body as a Razor expression:
 
-```csharp
-private string _TextText
-    => global::SboxUiDesigner.Runtime.SuiBuiltinConverters.Compose(
-        "HP: ", Health, " / ", MaxHealth );
+```razor
+<label>@(global::SboxUiDesigner.Runtime.SuiBuiltinConverters.Compose( "HP: ", Health, " / ", MaxHealth ))</label>
 ```
 
 ## Pattern: derive a color from a state
@@ -204,7 +202,7 @@ V1.5 D-026 hardened the chain validator. Errors that the Compile Results panel w
 ## See also
 
 - [Converters concept]({% link concepts/converters.md %}) — the mental model
-- [Converters catalog]({% link reference/converters-catalog.md %}) — all 64 builtin signatures
+- [Converters catalog]({% link reference/converters-catalog.md %}) — all 66 builtin signatures
 - [Bindings]({% link concepts/bindings.md %})
 - [Binding a Variable workflow]({% link workflows/binding-a-variable.md %})
 - [Health HUD with converters tutorial]({% link tutorials/health-hud-with-converters.md %})

@@ -23,7 +23,7 @@ A deeper dive on Test in Play — see [Getting Started · Test in Play]({% link 
 6. SuiPreviewState.PendingTypeFullName = "Game.UI.SuiPreview.<ClassName>"
 7. AssetSystem.FindByPath("sui_preview/preview_stage.scene") → asset.OpenInEditor()
 8. EditorScene.Play( SceneEditorSession.Active )
-9. Scene loads — SuiPreviewMount's OnAwake fires:
+9. Scene loads — SuiPreviewMount's OnStart fires (after Play begins):
      ├── Reads SuiPreviewState.PendingTypeFullName
      ├── TypeLibrary.GetType(fqn) → typeDesc
      ├── Creates child GameObject "ScreenPanelHost"
@@ -38,7 +38,7 @@ A deeper dive on Test in Play — see [Getting Started · Test in Play]({% link 
 | File | Purpose |
 |---|---|
 | `Code/Runtime/SuiPreviewState.cs` | Static handoff slot for the type FQN |
-| `Code/Runtime/SuiPreviewMount.cs` | Component in the scene that does the mount on OnAwake |
+| `Code/Runtime/SuiPreviewMount.cs` | Component in the scene that does the mount on OnStart |
 | `Editor/SuiPreviewLauncher.cs` | Editor-side orchestrator (compile → poll → load scene → play) |
 | `Editor/SuiPreviewCacheWriter.cs` | Writes the preview cache to `Code/_sui_preview/<ClassName>/` |
 | `Assets/sui_preview/preview_stage.scene` | The bundled stage scene |
@@ -76,7 +76,7 @@ Open the engine console (`View → Console`) and look for `[SuiPreviewLauncher]`
 | `Compiled 'Game.UI.SuiPreview.MyHud'` | Step 3 OK |
 | `Type loaded: Game.UI.SuiPreview.MyHud` | Hot-reload + TypeLibrary lookup OK |
 | `Opened preview stage scene.` | Step 7 OK |
-| `Mounted 'Game.UI.SuiPreview.MyHud' on ScreenPanel.` | Step 9 OK — UI should appear |
+| `Mounted Panel 'Game.UI.SuiPreview.MyHud' inside SuiHostPanelComponent.` | Step 9 OK — UI should appear |
 | `Preview stage not found at 'sui_preview/preview_stage.scene'.` | Library install broken — addon's Assets folder missing |
 | `Timed out waiting for type … to compile` | Check console for SCSS/Razor compile errors |
 | `Already in Play.` | Stop the current play session first |

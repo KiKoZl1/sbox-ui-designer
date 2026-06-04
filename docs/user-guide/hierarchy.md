@@ -74,7 +74,7 @@ Filters tree nodes by name (substring). Matching nodes plus all their ancestors 
 | Item | Action |
 |---|---|
 | Rename | `F2` — inline rename |
-| Duplicate | `Ctrl+D` — clones with new IDs, suffix `_copy` |
+| Duplicate | `Ctrl+D` — clones with new IDs; appends `_2`, `_3`, ... to the name (a trailing `_N` on the source is stripped first, so duplicating `Panel_2` produces `Panel_3`) |
 | Delete | `Del` — removes element + entire subtree |
 | Move Up | Reorder among siblings |
 | Move Down | Reorder among siblings |

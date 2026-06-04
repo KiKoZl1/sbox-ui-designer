@@ -27,10 +27,10 @@ A 400×460 panel with:
 - **Player Name** — TextEntry → `PlayerName: string`, UpdateTrigger `Manual`.
 - **Master Volume** — Slider → `Volume: float (0..100)`, UpdateTrigger `OnRelease`.
 - **Music Enabled** — Toggle → `MusicEnabled: bool`, UpdateTrigger `OnChange` (atomic).
-- **Graphics Preset** — DropDown (Low / Medium / High / Ultra) → `GraphicsPreset: int`, UpdateTrigger `Manual`.
+- **Graphics Preset** — DropDown (Low / Medium / High / Ultra) → `GraphicsPreset: int`, UpdateTrigger `OnChange` (only option — see [D-030]({% link reference/deviations.md %})).
 - **Apply** button + **Cancel** button.
 
-Save → commits PlayerName + GraphicsPreset (the two Manual bindings). The slider releases on its own. The toggle is always live.
+Save → commits PlayerName (the only Manual binding). The slider releases on its own. The toggle and dropdown are always live (atomic OnChange).
 
 ## Prerequisites
 
@@ -76,7 +76,7 @@ Inside the VerticalBox:
 
 **HorizontalBox** gap 12, AlignItems Center, Height 32.
 - **Text** "Volume:" — Width 80.
-- **Slider** — Name `VolumeSlider`. Min 0, Max 100, Step 1, Show Value true. Width 280.
+- **Slider** — Name `VolumeSlider`. Min 0, Max 100, Step 1, Show Value Tooltip on. Width 280.
 
 ### Music toggle row
 
@@ -87,13 +87,17 @@ Inside the VerticalBox:
 
 **HorizontalBox** gap 12, AlignItems Center, Height 32.
 - **Text** "Graphics:" — Width 80.
-- **DropDown** — Name `GraphicsField`. Options ["Low", "Medium", "High", "Ultra"]. Width 280.
+- **DropDown** — Name `GraphicsField`. Width 280. (See note below for how to populate the four options — the Details panel doesn't expose an `+ Add Option` affordance yet; runtime options binding ships in V1.6.)
+
+> **Populating DropDown options in V1.5.** The Details panel currently lists already-defined options as `Option [0]`, `Option [1]`, … text rows but has no "Add Option" button. Easiest path today: open the saved `.sui` file in a text editor and seed the `DropDownOptions` array under your `GraphicsField` element with `["Low","Medium","High","Ultra"]`, then reopen the asset — the four rows will now be editable inline. Alternatively, add them at runtime from a `@code` partial (`partial class SettingsPanel { protected override void OnAfterTreeRender( bool first ) { /* set GraphicsField.Options once */ } }`). Track [Designer #YYY — DropDown options list editor]({% link reference/known-gaps.md %}) for the inline editor.
 
 ### Buttons row
 
-**HorizontalBox** gap 12, JustifyContent FlexEnd, Height 48. (Push to bottom — set Flex grow on a Panel filler above if you want.)
-- **Button** — Name `CancelButton`. ButtonText "Cancel". Width 100. Hover state: brighter bg.
-- **Button** — Name `ApplyButton`. ButtonText "Apply". Width 100. BackgroundColor #4ade80. Hover state: brighter green.
+**HorizontalBox** gap 12, JustifyContent FlexEnd, Height 48. (Optional: drop a blank Panel above the buttons row and set its Layout → Flex Grow to 1 to push the buttons to the bottom of the VerticalBox.)
+- **Button** — Name `CancelButton`. ButtonText "Cancel". Width 100. In the **Hover** dropdown of the Final Appearance section → Background → pick a slightly brighter shade than the default.
+- **Button** — Name `ApplyButton`. ButtonText "Apply". Width 100. BackgroundColor #4ade80. In the **Hover** dropdown → Background → brighter green. (See [Button states]({% link elements/button.md %}#interactive-states) for the per-state dropdown walkthrough.)
+
+> **Element name vs Variable name.** The wrapper's `Apply.<Method>()` API names methods after the **element name** (not the bound Variable name) suffixed with the bound property: `PlayerNameField` → `Apply.PlayerNameFieldValue()`. If you'd rather call `Apply.PlayerNameValue()`, rename the TextEntry element to `PlayerName`. We keep the `*Field` suffix in this tutorial to disambiguate the widget from the Variable in screenshots. Full rules in [wrapper API reference]({% link reference/wrapper-api.md %}).
 
 ## 4. Bind the inputs
 
@@ -122,7 +126,7 @@ Select **GraphicsField** → click chain icon next to **Value**:
 
 - Source: `GraphicsPreset`
 - Mode: TwoWay
-- **UpdateTrigger: Manual**
+- **UpdateTrigger: OnChange** (only option — DropDown commits atomically per [D-030]({% link reference/deviations.md %}); Manual isn't offered).
 - OK.
 
 ## 5. Wire the events
@@ -171,13 +175,13 @@ public sealed class SettingsController : Component
     void HandleApply()
     {
         // Flush every Manual binding. Apply.All() in V1.5 covers TextEntry
-        // (PlayerNameField → Apply.PlayerNameFieldValue) + Slider Manual
-        // bindings (none here — Volume is OnRelease). Manual Toggle / DropDown
-        // bindings are NOT in Apply yet (V1.5 gap) — we read them directly.
+        // (PlayerNameField → Apply.PlayerNameFieldValue) + any Slider with
+        // UpdateTrigger=Manual (none here — Volume is OnRelease, so its
+        // value is already live by the time the user clicks Apply).
+        // Toggle/DropDown bindings are atomic (OnChange only — see D-030),
+        // so MusicEnabled / GraphicsPreset are already current — nothing to
+        // flush for them.
         Settings.Apply.All();
-        // Read GraphicsDropdown Manual binding directly (no Apply method yet).
-        if ( Settings.View?.GraphicsFieldRef is { } dd && dd.Value is int gp )
-            Settings.GraphicsPreset = gp;
 
         SavedPlayerName = Settings.PlayerName;
         SavedVolume     = Settings.Volume;
@@ -210,8 +214,8 @@ In Play:
 - Type into **Name** — letters appear in the field. Click outside → `Settings.PlayerName` is **still the old value** (Manual). Click **Apply** → Saved log shows the new name.
 - Drag **Volume** — slider moves continuously. Release → `Settings.Volume` is the new value (OnRelease).
 - Click **Music** — `Settings.MusicEnabled` toggles immediately (OnChange).
-- Pick a different **Graphics preset** — selection updates visually but `Settings.GraphicsPreset` is still old (Manual). Click **Apply** → log shows the new preset.
-- Type into Name + change Graphics + click **Cancel** → both fields snap back to saved values.
+- Pick a different **Graphics preset** — `Settings.GraphicsPreset` updates immediately (OnChange — atomic per D-030). Click **Apply** → log confirms the saved preset.
+- Type into Name + click **Cancel** → the Name field snaps back to its saved value (the only Manual binding). Note: changes to Music / Graphics that were made before Cancel are **already committed** (atomic) — Cancel only undoes Manual edits.
 
 ## What you just learned
 

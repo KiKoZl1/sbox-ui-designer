@@ -57,8 +57,8 @@ Yes — Test in Play uses the engine's hot-reload to push compiled Razor into a 
 Two renderers. The canvas paints via Qt `Editor.Paint`; runtime renders via the s&box CSS engine. They usually agree, but:
 
 - `.User.scss` isn't loaded in Test in Play (only in real Compile + Play).
-- `<label>` rgba alpha is a known engine quirk — see [ISSUE-004]({% link reference/known-issues.md %}#issue-004-label-background-color-rgba-alpha-ignored-in-runtime).
-- PreviewCount badges show in canvas but not runtime — see [ISSUE-005]({% link reference/known-issues.md %}#issue-005-previewcount-badges-not-emitted-in-runtime).
+- `<label>` rgba alpha is a known engine quirk — see [ISSUE-004]({% link reference/known-issues.md %}#issue-004).
+- PreviewCount badges show in canvas but not runtime — see [ISSUE-005]({% link reference/known-issues.md %}#issue-005).
 
 If you find a divergence not listed in [Known issues]({% link reference/known-issues.md %}), please report it.
 
@@ -108,7 +108,7 @@ By default, on every change (keystroke / drag tick / click) — `UpdateTrigger.O
 
 - TextEntry — `OnLostFocus` (commit on blur) / `OnSubmit` (commit on Enter) / `Manual`.
 - Slider — `OnRelease` (commit on mouse-up) / `Manual`.
-- Toggle / DropDown — atomic only — `OnChange` or `Manual`.
+- Toggle / DropDown — atomic — `OnChange` only (deferred-commit modes don't model any real UX for one-click widgets).
 
 For `Manual` triggers the wrapper exposes `Settings.Apply.<ElementName>Value()` (e.g. `Settings.Apply.PlayerNameFieldValue()` for a TextEntry named `PlayerNameField`) plus `Settings.Apply.All()` — call from your Save button handler. Apply codegen only fires for TextEntry + Slider in V1.5; Toggle + DropDown Manual bindings need direct widget read via `@ref`. See [Input & Update triggers]({% link concepts/input-and-update-triggers.md %}) and [Manual commit with Apply]({% link workflows/manual-commit-with-apply.md %}).
 

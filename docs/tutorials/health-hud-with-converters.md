@@ -75,7 +75,7 @@ Select `HealthBar`. Click chain icon next to **Value**. Bind popup:
 
 - Source: `Health` (yellow tint — int doesn't match the expected float)
 - Mode: OneWay (default)
-- Converter chain:
+- Converter chain (the chain feed — the value flowing in from the previous step — lands in `Args[0]` by default, so you only need to fill the remaining slots):
   1. Add step `builtin.IntToFloat` — no extra args.
   2. Add step `builtin.Clamp` — Args[1] = literal `0`, Args[2] = pick the **Variable** `MaxHealth` (typed picker accepts cross-Variable args).
   3. Add step `builtin.Divide` — Args[1] = pick **Variable** `MaxHealth` (the convertor accepts int via implicit cast).
@@ -97,9 +97,11 @@ Select `HpLabel`. Click chain icon next to **Text**. Bind popup:
 The popup shows a single **+** button for Compose (D-027 polish). Click it:
 
 - Pick **Text** → literal editor opens → type `"HP: "` → OK.
-- Pick **+ → Variable** → chain feed `Health`.
+- Pick **+ → Variable** → `Health`.
 - Pick **+ → Text** → type `" / "` → OK.
 - Pick **+ → Variable** → `MaxHealth`.
+
+> Compose is a special-case converter that does not auto-receive the chain feed — every part you want has to be picked explicitly through the **+** menu.
 
 Resulting Compose call: `Compose("HP: ", Health, " / ", MaxHealth)` → `"HP: 75 / 100"`. OK.
 
@@ -146,27 +148,33 @@ Cleaner.
 
 ## 7. Use it from gameplay code
 
+In a real project the HP value comes from your player class. The snippet below uses a local `[Property] int CurrentHp` so it copy-pastes into an empty project — replace it with whatever exposes your player's current HP (typically a `[Property] public PlayerHealth Player { get; set; }` reference exposing an int).
+
 ```csharp
 using Sandbox;
 using Game.UI;
 
 public sealed class HudController : Component
 {
-    [Property] public Hud Hud { get; set; } = new();
+    [Property] public Hud View { get; set; } = new();
+
+    // Stand-in for your real player HP source.
+    [Property] public int CurrentHp { get; set; } = 100;
 
     protected override void OnStart()
     {
-        Hud.MaxHealth = 100;
-        Hud.Health    = 100;
-        Hud.Show();
+        View.MaxHealth = 100;
+        View.Health    = CurrentHp;
+        View.Show();
     }
 
     protected override void OnUpdate()
     {
+        // On a networked player, only run the HUD locally —
+        // comment out if HudController lives on a non-networked GameObject.
         if ( IsProxy ) return;
 
-        // Bind to your real player health source
-        Hud.Health = MyPlayer.CurrentHp;
+        View.Health = CurrentHp;
     }
 }
 ```

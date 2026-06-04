@@ -48,6 +48,10 @@ Three regions:
 - **Backpack grid** (center-right) — 6×4 InventoryGrid for general loot.
 - **Hotbar** (bottom) — 8-slot Hotbar pinned to the bottom center.
 
+## Prerequisites
+
+You will need two small PNG icons (~64×64) at `Assets/ui/icons/iron_helmet.png` and `Assets/ui/icons/health_potion.png`. Any PNG works — substitute paths to icons you already have if not.
+
 ## Step 1 — Document setup
 
 1. Create `Assets/UI/inventory_screen.sui`.
@@ -181,41 +185,36 @@ You should see the inventory overlay rendered on a real player. Walk around — 
 
 In your C# game code, you'd want this UI to appear when the player presses Tab/I.
 
-After compile, edit your gameplay code:
+`InventoryScreen` is a V1.5 wrapper (`SuiPanel<InventoryScreenPanel>`), so the gameplay toggle goes through `Show()` / `Hide()` (with an `IsShown` check) — there's no `Enabled` property to flip. Declare the wrapper as a `[Property]` field on your Component with a default `new()` so it serializes on a fresh prefab:
 
 ```csharp
-public class InventoryToggle : Component
+using Sandbox;
+using Game.UI;
+
+public sealed class InventoryToggle : Component
 {
-    [Property] public InventoryScreen Hud { get; set; }
+    [Property] public InventoryScreen Hud { get; set; } = new();
 
     protected override void OnUpdate()
     {
         if ( Input.Pressed( "Inventory" ) )
-            Hud.Enabled = !Hud.Enabled;
+        {
+            if ( Hud.IsShown ) Hud.Hide();
+            else Hud.Show( SuiInputMode.MouseOnly );
+        }
     }
 }
 ```
 
 Define an `Inventory` input action in Project Settings → Input → bind to `Tab` or `I`.
 
-Drop both `InventoryScreen` and `InventoryToggle` into your scene under the same ScreenPanel.
+Only the `InventoryToggle` Component goes in your scene — the wrapper mounts its own `ScreenPanel` host the first time `Show()` runs.
 
 ## Step 9 — Drag-and-drop scaffolding
 
 V1 doesn't include drag-and-drop logic out of the box — that's gameplay code. But the InventorySlot elements set `pointer-events: all` by default, so they catch clicks.
 
-The hook is `Sandbox.UI.Panel.MouseDown` / `MouseUp` events. For the full pattern:
-
-```csharp
-// In InventoryScreen partial class (V1.5 feature)
-void OnSlotMouseDown( Panel slot )
-{
-    var slotIndex = int.Parse( slot.ElementName.Substring( "slot_".Length ) );
-    BeginDrag( slotIndex );
-}
-```
-
-Detailed drag-and-drop is covered in a separate tutorial when V1.5 ships the [Property] binding system.
+Drag-and-drop is gameplay code — expose each slot via the Events tab (`OnClick` / `OnRightClick`) or **Expose as Variable** to get a typed `@ref`, then implement the drag state in your controller. See [Events & Element refs]({% link workflows/events-and-refs.md %}).
 
 ## What you learned
 

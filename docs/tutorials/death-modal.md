@@ -132,103 +132,119 @@ Save (`Ctrl+S`).
 
 Click **Test in Play**. The death modal overlays the test stage scene. Walk around — the overlay stays full-screen and the buttons (visually) catch hover.
 
-## Step 9 — Wire up the buttons
+## Step 9 — Declare Variables and bind the text
 
-After **Compile** (`Ctrl+B`), open `Code/UI/DeathModal.razor`:
+Switch from a static modal to one driven by gameplay code. We'll declare two **Variables** on the document and bind the text labels.
 
-```razor
-@inherits PanelComponent
-@attribute [StyleSheet]
+### Variables tab
 
-<root>
-  <div class="sui-elem-1 backdrop">
-    <div class="sui-elem-2 content-column">
-      <label class="title-text">YOU DIED</label>
-      <label class="killed-by-text">Killed by Bandit Archer</label>
-      <label class="timer-text">Respawning in 5...</label>
-      <div class="sui-elem-6 buttons-row">
-        <button class="respawn-button">RESPAWN</button>
-        <button class="main-menu-button">MAIN MENU</button>
-      </div>
-    </div>
-  </div>
-</root>
-```
+Open the **Variables** tab → **+ Add Variable** twice:
 
-You don't edit this file. Instead, create a sibling partial in `Code/UI/`:
+| Name | Type | Default | IsPublic | Group |
+|---|---|---|---|---|
+| `KilledByName` | string | `Unknown` | true | Public |
+| `RespawnSeconds` | float | `5` | true | Public |
+
+### Bind KilledByText
+
+Select **KilledByText**. Click the chain icon next to **Text**. Bind popup:
+
+- Source: `KilledByName`
+- Converter chain: `builtin.Compose`. In the Compose **+** menu:
+  1. Pick **Text** → `"Killed by "` → OK.
+  2. Pick **+ → Variable** → `KilledByName`.
+
+Resulting Compose call: `Compose("Killed by ", KilledByName)`. OK.
+
+### Bind TimerText
+
+Select **TimerText**. Click the chain icon next to **Text**. Bind popup:
+
+- Source: `RespawnSeconds`
+- Converter chain:
+  1. Add `builtin.Ceil` — feeds the chain (float → float, rounded up).
+  2. Add `builtin.FloatToInt` — no extra args.
+  3. Add `builtin.Compose`. In the Compose **+** menu:
+     - Pick **Text** → `"Respawning in "` → OK.
+     - Pick **+ → Chain feed** (the previous step's int).
+     - Pick **+ → Text** → `"..."` → OK.
+
+Resulting chain: `RespawnSeconds → Ceil → FloatToInt → Compose("Respawning in ", chain, "...")`.
+
+> See [Health HUD with converters]({% link tutorials/health-hud-with-converters.md %}) for a deeper walkthrough of Compose chains.
+
+### Events tab — wire the buttons
+
+Open the **Events** tab. The matrix lists every event-capable element in the document.
+
+1. On **RespawnButton → OnClick**: pick **Code** mode → handler name `OnRespawnClick`.
+2. On **MainMenuButton → OnClick**: pick **Code** mode → handler name `OnMainMenuClick`.
+
+Save (`Ctrl+S`). Compile (`Ctrl+B`).
+
+The generator emits a `DeathModal` wrapper class with:
 
 ```csharp
-// Code/UI/DeathModal.Logic.cs
+[Property, Group("Public")]  public string KilledByName   { get; set; } = "Unknown";
+[Property, Group("Public")]  public float  RespawnSeconds { get; set; } = 5f;
+[Property, Group("Events")]  public Action OnRespawnClick { get; set; }
+[Property, Group("Events")]  public Action OnMainMenuClick { get; set; }
+```
+
+You don't write any partial class. The wrapper is `sealed`; gameplay code touches it through `[Property]` declarations on your own Component (see Step 10).
+
+## Step 10 — Drive the modal from gameplay code
+
+Declare the wrapper as a `[Property]` on any Component, then drive it:
+
+```csharp
 using Sandbox;
+using Game.UI;
+using SboxUiDesigner.Runtime;
 
-namespace Game.UI;
-
-public partial class DeathModal
+public sealed class DeathSequence : Component
 {
-    public string KilledByName { get; set; } = "Unknown";
-    public float RespawnSeconds { get; set; } = 5f;
+    [Property] public DeathModal Modal { get; set; } = new();
 
-    public event System.Action OnRespawnClick;
-    public event System.Action OnMainMenuClick;
-
-    protected override void OnAwake()
+    public void Trigger( string killerName )
     {
-        base.OnAwake();
-        // Find the buttons by their generated class names and wire them up
-        var respawn = Panel.Descendants.FirstOrDefault(p => p.HasClass("respawn-button"));
-        var menu = Panel.Descendants.FirstOrDefault(p => p.HasClass("main-menu-button"));
-        if (respawn != null) respawn.AddEventListener("onclick", () => OnRespawnClick?.Invoke());
-        if (menu != null) menu.AddEventListener("onclick", () => OnMainMenuClick?.Invoke());
+        Modal.KilledByName   = killerName;
+        Modal.RespawnSeconds = 5f;
+        Modal.OnRespawnClick  = HandleRespawn;
+        Modal.OnMainMenuClick = HandleMainMenu;
+        Modal.Show( SuiInputMode.All );   // mount + cursor + keyboard focus
+        _ = CountdownAsync();
     }
 
-    protected override int BuildHash() => System.HashCode.Combine( KilledByName, (int)RespawnSeconds );
-}
-```
-
-(V1.5 will expose buttons as proper `[Property]` references so you won't need the Descendants scan.)
-
-## Step 10 — Live countdown
-
-To update the timer text from gameplay code, you'd typically use a binding:
-
-```csharp
-// Where you spawn the modal
-var modal = ScreenPanelHost.Components.Create<DeathModal>();
-modal.KilledByName = killer.DisplayName;
-modal.RespawnSeconds = 5f;
-
-// Per frame, refresh the timer
-async Task CountdownAsync()
-{
-    while ( modal.RespawnSeconds > 0 )
+    async Task CountdownAsync()
     {
-        modal.RespawnSeconds -= Time.Delta;
-        await Task.Frame();
+        while ( Modal.RespawnSeconds > 0 )
+        {
+            Modal.RespawnSeconds -= Time.Delta;
+            await Task.Frame();
+        }
+        HandleRespawn();
     }
-    Respawn();
+
+    void HandleRespawn()
+    {
+        Modal.Hide();
+        // ... your respawn logic
+    }
+
+    void HandleMainMenu()
+    {
+        Modal.Hide();
+        // ... return to main menu
+    }
 }
 ```
 
-But for the text to actually update in the panel, you need to bind it. V1 emits a static label; **V1.5 will introduce `[Property]` bindings via the Bindings tab** which makes this trivial:
+A few things to notice:
 
-```
-TimerText.Text  ←  $"Respawning in {(int)Math.Ceiling(RespawnSeconds)}..."
-```
-
-Until then, in your DeathModal partial:
-
-```csharp
-protected override int BuildHash() => System.HashCode.Combine( RespawnSeconds );
-
-public override void Tick()
-{
-    base.Tick();
-    var timer = Panel.Descendants.FirstOrDefault(p => p.HasClass("timer-text")) as Label;
-    if (timer != null) timer.Text = $"Respawning in {(int)Math.Ceiling(RespawnSeconds)}...";
-}
-```
-
-Forces a re-render every time `RespawnSeconds` changes.
+- `Modal` is a plain wrapper, not a Component. You **never** call `Components.Create<DeathModal>()` — the wrapper auto-mounts a `ScreenPanel` + host on `Show()`.
+- Each `Modal.RespawnSeconds = ...` assignment auto-pushes into the live View via `SyncFieldsTo`, so the bound `TimerText` re-renders on the next frame. No `RefreshView()` needed for property edits.
+- `Show( SuiInputMode.All )` is the one-shot helper for full-screen modals that need keyboard + mouse focus. See [Wrapper API]({% link reference/wrapper-api.md %}) for the other input modes.
 
 ## Step 11 — Hover polish
 
@@ -246,24 +262,21 @@ DeathModal {
 
   .main-menu-button:hover { background-color: #4b5563; transform: scale(1.04); }
   .main-menu-button:active { transform: scale(0.98); }
-
-  // A subtle fade-in when the modal appears
-  &:intro {
-    opacity: 0;
-    transition: opacity 0.3s ease-out;
-  }
 }
 ```
 
-Recompile + Play to see hovers and the fade-in.
+Recompile + Play to see the hover and press feedback.
+
+> Sandbox.UI silently drops pseudo-classes the parser doesn't recognise (see [Sandbox.UI CSS limitations]({% link concepts/sandbox-ui-css-limitations.md %})). Stick to the documented set in [Allowed CSS]({% link reference/allowed-css.md %}). For entrance animations, add a class via `Modal.View?.AddClass("fading-in")` and animate that — covered in a future animation tutorial.
 
 ## What you learned
 
 - Stretch anchor with all-zero margins for full-screen overlays.
 - Centered content via `Anchor: MiddleCenter` + flex `JustifyContent: Center`.
 - Buttons with hover effects via `.User.scss`.
-- Manual partial class for event wiring (until V1.5 bindings ship).
-- `:intro` transition for entrance animation.
+- Variables + Compose binding for live text from gameplay code.
+- Code-mode Events for `OnClick` handlers wired through the wrapper's `[Property] Action` slots.
+- `SuiInputMode.All` for full-screen modals that need mouse + keyboard focus.
 
 ## You're done
 

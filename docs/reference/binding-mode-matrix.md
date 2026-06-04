@@ -68,7 +68,7 @@ Each (element type, property) pair declares:
 | `FillColor` | ✓ | ✓ | — | OneWay | Color |
 | `Direction` | ✓ | ✓ | — | OneWay | string |
 
-### Grid / InventoryGrid / Hotbar
+### Grid / InventoryGrid
 
 | Property | OneTime | OneWay | TwoWay | Default | TargetType |
 |---|---|---|---|---|---|
@@ -78,7 +78,13 @@ Each (element type, property) pair declares:
 | `CellHeight` | ✓ | ✓ | — | OneWay | float |
 | `Gap` | ✓ | ✓ | — | OneWay | float |
 
-(Hotbar exposes only `Columns` since it's always single-row.)
+### Hotbar
+
+Hotbar is always single-row, so only `Columns` is bindable — `Rows`, `CellWidth`, `CellHeight`, and `Gap` are **not** defined in `SuiBindingModeMatrix._matrix` for Hotbar and `IsBindable` returns false for them.
+
+| Property | OneTime | OneWay | TwoWay | Default | TargetType |
+|---|---|---|---|---|---|
+| `Columns` | ✓ | ✓ | — | OneWay | int |
 
 ### InventorySlot / ItemIcon
 
@@ -92,17 +98,21 @@ Each (element type, property) pair declares:
 
 ### Input widgets (V1.5 M4)
 
-TwoWay-capable; TwoWay is the default. DropDown bind target is `Value` (int via `Option.Value` index) per DEVIATIONS D-024.
+TwoWay-capable; TwoWay is the default. DropDown bind target is `SelectedIndex` (int via `Option.Value` index, exposed as `Value` on the wrapper) per DEVIATIONS D-024.
 
 | Property | OneTime | OneWay | TwoWay | Default | TargetType |
 |---|---|---|---|---|---|
 | `TextEntry.Value` | ✓ | ✓ | **✓** | **TwoWay** | string |
-| `TextEntry.Placeholder` | ✓ | ✓ | — | OneWay | string |
+| `TextEntry.PlaceholderText` | ✓ | ✓ | — | OneWay | string |
+| `TextEntry.ReadOnly` | ✓ | ✓ | — | OneWay | bool |
 | `Slider.Value` | ✓ | ✓ | **✓** | **TwoWay** | float |
 | `Slider.Min` | ✓ | ✓ | — | OneWay | float |
 | `Slider.Max` | ✓ | ✓ | — | OneWay | float |
 | `Toggle.Checked` | ✓ | ✓ | **✓** | **TwoWay** | bool |
-| `DropDown.Value` | ✓ | ✓ | **✓** | **TwoWay** | int |
+| `Toggle.LabelText` | ✓ | ✓ | — | OneWay | string |
+| `DropDown.SelectedIndex` | ✓ | ✓ | **✓** | **TwoWay** | int |
+
+> **Note:** Some slugs above (`TextEntry.PlaceholderText`, `TextEntry.ReadOnly`, `Toggle.LabelText`, `DropDown.SelectedIndex`) are surfaced by the Details panel's chain icons but may not yet exist as matrix keys in `SuiBindingModeMatrix._matrix`. Until the runtime matrix is extended, the bind popup will reject them via `IsBindable=false`. Track the alignment against `Editor/Widgets/SuiDetailsWidget.cs` `bindingProperty:` strings.
 
 ## Universal entries (any element type)
 
@@ -112,13 +122,17 @@ Style / layout / state knobs from `SuiStyleData` + `SuiLayoutData` — bindable 
 |---|---|---|---|---|---|
 | `Visibility` | ✓ | ✓ | — | OneWay | bool |
 | `Enabled` | ✓ | ✓ | — | OneWay | bool |
+| `IsDisabled` | ✓ | ✓ | — | OneWay | bool |
 | `BackgroundColor` | ✓ | ✓ | — | OneWay | Color |
+| `BackgroundImage` | ✓ | ✓ | — | OneWay | string |
 | `BorderColor` | ✓ | ✓ | — | OneWay | Color |
 | `BorderWidth` | ✓ | ✓ | — | OneWay | float |
 | `BorderRadius` | ✓ | ✓ | — | OneWay | float |
 | `Opacity` | ✓ | ✓ | — | OneWay | float |
 | `Width` | ✓ | ✓ | — | OneWay | float |
 | `Height` | ✓ | ✓ | — | OneWay | float |
+
+> **Note:** `IsDisabled` and `BackgroundImage` are surfaced by the Details panel's chain icons (see `Editor/Widgets/SuiDetailsWidget.cs` lines 1473, 1547) but may not yet exist as entries in `SuiBindingModeMatrix._universal`. Until that runtime entry lands, `IsBindable` returns false for these and the bind popup will reject the attempt. For now, drive disabled state via the universal `Enabled` property (see `widgets/Button.md` workaround).
 
 ## Validator behaviour
 

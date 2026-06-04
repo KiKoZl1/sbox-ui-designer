@@ -86,7 +86,7 @@ Bind a Text element's `Text` to `MessageText` and its `Color` to `SenderColor`. 
 
 In your parent `hud.sui`:
 
-- **Variables** tab → **+ Add Variable** → Type: `List<ChatMessage>`.
+- **Variables** tab → **+ Add Variable** → Name: `Messages`, Type: `List<ChatMessage>`.
 
 `ChatMessage` is your gameplay-side POCO:
 
@@ -106,28 +106,30 @@ Drag `chat_line` from USER WIDGETS onto the parent canvas. The SuiReference appe
 
 In Details:
 
-- **Name** — `MessagesContainer` (the C# `List<ChatLine>` field name).
+- **Name** — `MessagesContainer` (the C# field name on the wrapper).
 - **ForEach** section → click **Enable** → pick `Messages` as the source.
 - For each child Variable, type the per-item expression:
   - `MessageText` ← `@item.Text`
   - `SenderColor` ← `@item.Color`
 
+ForEach iterates the source Variable **as-is** — the list stores your `ChatMessage` POCOs. The child wrapper (`ChatLine`) is only what gets *rendered* per item; it is not what is *stored*.
+
 The canvas renders one preview child (the first item, if any).
 
 ### 4. Compile + use
 
-The wrapper has:
+The wrapper field type matches the Variable's TypeRef — `List<ChatMessage>`, not `List<ChatLine>`:
 
 ```csharp
-[Property] public List<global::Game.UI.ChatLine> MessagesContainer { get; set; } = new();
+[Property] public List<global::Game.ChatMessage> MessagesContainer { get; set; } = new();
 ```
 
-From code:
+From code, construct the POCO (`ChatMessage`), not the child wrapper:
 
 ```csharp
-Hud.MessagesContainer.Add( new ChatLine { Text = "Hello!", Color = Color.Green } );
-Hud.MessagesContainer.Add( new ChatLine { Text = "Hi back", Color = Color.Cyan } );
-Hud.MessagesContainer[0] = new ChatLine { Text = "Updated!", Color = Color.Yellow };
+Hud.MessagesContainer.Add( new ChatMessage { Text = "Hello!", Color = Color.Green } );
+Hud.MessagesContainer.Add( new ChatMessage { Text = "Hi back", Color = Color.Cyan } );
+Hud.MessagesContainer[0] = new ChatMessage { Text = "Updated!", Color = Color.Yellow };
 ```
 
 The parent re-renders automatically (recursive `ContentHash` picks up the list mutation).

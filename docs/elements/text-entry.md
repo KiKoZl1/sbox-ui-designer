@@ -48,12 +48,16 @@ Font Size / Weight / Color / Padding come from the **Text** section (TextEntry i
 
 ## Events surfaced
 
-| Event | Signature |
-|---|---|
-| `OnValueChanged` | `Action<string>` — fires on every keystroke |
-| `OnSubmit` | `Action<string>` — fires on Enter |
-| `OnFocus` | `Action` |
-| `OnBlur` | `Action` |
+**None in V1.5.** `SuiEventMatrix` does not register any event slots for `TextEntry` — the Designer's Add Event dialog hides TextEntry elements, and `SuiDocumentValidator` rejects any event keyed on a TextEntry as "not surfaced".
+
+Value commits flow through the `UpdateTrigger` on a `TwoWay` binding (see Codegen sections below):
+
+- **`OnChange`** — per-keystroke write into the wrapper Variable (substitute for `OnValueChanged`).
+- **`OnSubmit`** — write on Enter (substitute for an `OnSubmit` event).
+- **`OnLostFocus`** — write on blur (substitute for an `OnBlur` event).
+- **`Manual`** — call `wrapper.Apply.<ElementName>Value()` to commit.
+
+If you need a side effect on commit, wrap the bound Variable with a property setter on the host Controller that triggers your handler. `OnFocus` / `OnBlur` exposure as first-class Designer events is tracked for V1.6.
 
 ## Codegen — `OnChange` trigger
 

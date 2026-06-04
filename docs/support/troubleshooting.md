@@ -131,8 +131,8 @@ If `.sui-backups/` is empty, the file likely never had a SUI header — it was t
 Some divergence is expected:
 
 - **Hovers, animations, `box-shadow`** — these live in `.User.scss` which isn't loaded in Test in Play (only Compile + Play).
-- **PreviewCount badges** — canvas draws them, runtime doesn't yet ([ISSUE-005]({% link reference/known-issues.md %}#issue-005-previewcount-badges-not-emitted-in-runtime)).
-- **`<label>` rgba background** — canvas honors alpha, `<label>` runtime ignores it ([ISSUE-004]({% link reference/known-issues.md %}#issue-004-label-background-color-rgba-alpha-ignored-in-runtime)). Workaround: wrap Text in a Panel.
+- **PreviewCount badges** — canvas draws them, runtime doesn't yet ([ISSUE-005]({% link reference/known-issues.md %}#issue-005--previewcount-badges-not-emitted-in-runtime)).
+- **`<label>` rgba background** — canvas honors alpha, `<label>` runtime ignores it ([ISSUE-004]({% link reference/known-issues.md %}#issue-004--label-background-color-rgba-alpha-ignored-in-runtime)). Workaround: wrap Text in a Panel.
 
 For any other divergence, please file an issue with both a screenshot and the `.sui` file.
 
@@ -201,6 +201,14 @@ The bundled `preview_stage.scene` should have a player + ground + lights. If it'
 
 - The addon's Assets folder is missing or corrupt.
 - Reinstall from source: copy `Libraries/kikozl.sbox_ui_designer/Assets/sui_preview/` over your current install.
+
+---
+
+## "My Doo body went blank after reopening the scene"
+
+If a `[Property] Doo OnX` slot on a wrapper genuinely loses its embedded Body after you reopen the scene, that's a regression in the defensive-setter contract (DEVIATIONS D-019). The generator emits `value ?? FactoryFromConstJson()` so that the engine's scene serializer writing `"OnX": null` on reload cannot wipe the default Body that ships with the `.sui`.
+
+See [Events & Actions → Doo default-body persistence]({% link concepts/events-and-actions.md %}#doo-default-body-persistence-why-your-body-doesnt-disappear) for the full explanation of why this works and what to file if it ever stops working.
 
 ---
 

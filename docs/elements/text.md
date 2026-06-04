@@ -43,6 +43,22 @@ The generator emits the right SCSS depending on the mode:
 - **Fixed** → emits the user's W/H + `display: flex; flex-direction: column; justify-content: <VerticalAlign>;`
 - **AutoHeightWrap** → `white-space: normal; height: auto;`
 
+## Bindable properties
+
+| Property | Mode | Target type |
+|---|---|---|
+| `Text` | OneTime / OneWay | string |
+| `FontSize` | OneTime / OneWay | float |
+| `FontFamily` | OneTime / OneWay | string |
+| `FontWeight` | OneTime / OneWay | string |
+| `Color` | OneTime / OneWay | Color |
+| `TextAlign` | OneTime / OneWay | string |
+| `LineHeight` | OneTime / OneWay | float |
+| `LetterSpacing` | OneTime / OneWay | float |
+| Style + Universal | OneWay | per matrix |
+
+(Text has no events.)
+
 ## Generated output
 
 ```html

@@ -7,13 +7,14 @@ nav_order: 5
 
 # Wrapper Generation
 
-Every `.sui` document, when compiled, produces the same three files:
+Every `.sui` document, when compiled, produces the same set of files:
 
 | File | What it is |
 |---|---|
 | `<Name>Panel.razor` | The PanelComponent renderer — this is the `<root>` Razor tree the engine actually paints |
-| `<Name>.razor.scss` | The stylesheet for the renderer |
+| `<Name>Panel.razor.scss` | The stylesheet for the renderer (matches the renderer's `.razor` name) |
 | `<Name>.cs` | **The user-facing wrapper class** — what your gameplay code touches |
+| `<Name>Panel.User.scss` | Author-owned overrides — created once, never overwritten (imported last so your rules win the cascade) |
 
 No per-document mode. No dropdown to configure. One shape, every time. *(V1.5-M2-K6 — DEVIATIONS D-013.)*
 

@@ -106,6 +106,11 @@ From the renderer comment block, here's the contract for each element type:
 | **ItemIcon** | Image rendering of `PreviewIconPath` |
 | **Tooltip** | **Hidden in canvas** (runtime-only) |
 | **Hotbar** | No own visual |
+| **SuiReference** | Resolves `SourceGuid` via registry + recursively paints the embedded child's element tree inside the reference rect, with a purple dashed border. `SkipRootFrame` suppresses the child's outer Canvas frame so its outline does not bleed past the reference bounds. |
+| **TextEntry** | Panel background + border + placeholder text rendered with subdued color; cursor indicator hidden in canvas. |
+| **Slider** | Track rectangle + filled portion sized by `SliderValue / (SliderMax - SliderMin)` + thumb circle; tooltip hidden. Mirrors the runtime markup pixel-for-pixel. |
+| **Toggle** | Checkbox visual: outline + check-mark glyph when `ToggleChecked` is true; optional `ToggleLabelText` drawn to the right. |
+| **DropDown** | Closed-state pill with the option at `DropDownSelectedIndex` + chevron glyph. Open-state popup not drawn (canvas is static). |
 
 "No own visual" means the container itself draws nothing; only its children paint.
 

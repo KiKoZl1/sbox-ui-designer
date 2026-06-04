@@ -76,15 +76,15 @@ if ( ctx.Mode == SuiGenerationMode.Preview && !ctx.Namespace.EndsWith( ".SuiPrev
     ctx.Namespace = ctx.Namespace + ".SuiPreview";
 ```
 
-So `Game.UI.MyHud` (Final) becomes `Game.UI.SuiPreview.MyHud` (Preview). This prevents `CS0111: duplicate render-tree members` when a document is **both** compiled to disk AND has a live preview cache — they would otherwise be two `partial class MyHud` declarations in the same namespace.
+So `Game.UI.MyHudPanel` (Final renderer) becomes `Game.UI.SuiPreview.MyHudPanel` (Preview renderer). This prevents `CS0111: duplicate render-tree members` when a document is **both** compiled to disk AND has a live preview cache — they would otherwise be two `partial class MyHudPanel` declarations in the same namespace.
 
 ### 2. User.scss `@import`
 
 The Final SCSS ends with:
 
 ```scss
-// User-protected styles for MyHud — safe to edit.
-@import "MyHud.User.scss";
+// User-protected styles for MyHudPanel — safe to edit.
+@import "MyHudPanel.User.scss";
 ```
 
 The Preview SCSS does NOT emit this `@import`. The preview cache path doesn't have a sidecar — and importing a non-existent file silently breaks SCSS compilation at runtime (leaving the UI unstyled). The fix is to emit the import only in Final mode.
@@ -96,18 +96,15 @@ That's it. Every other output detail is identical.
 `SuiRazorGenerator.Generate(ctx, result)` walks the document tree and emits:
 
 ```razor
+@namespace Game.UI
+@using System;
 @using Sandbox;
 @using Sandbox.UI;
-
-@namespace Game.UI
-
-@attribute [StyleSheet]
-
-@inherits PanelComponent
+@inherits Panel
 
 <root>
-  <div class="sui-elem-1 root">
-    <div class="sui-elem-2 health-bar">
+  <div class="root sui-el-root">
+    <div class="health-bar sui-el-a3f9b21c">
       ...
     </div>
   </div>
@@ -115,16 +112,19 @@ That's it. Every other output detail is identical.
 
 @code
 {
-    protected override int BuildHash() => System.HashCode.Combine( /* fields here */ );
+    protected override int BuildHash() => System.HashCode.Combine( /* every Variable + every child wrapper.ContentHash() + interactive flags */ );
 }
 ```
 
 Notable shapes:
 
-- **Every element gets a `sui-<id>` class** alongside its user-defined `ClassName`. This per-element class is what scopes SCSS rules to a single element — without it, siblings sharing a `ClassName` would all inherit the same rules (bug-prone for InventorySlot lists).
-- **The outer tag matches `Output.ClassName`** — `<MyHud>` becomes the root selector both in HTML and SCSS.
+- **`@inherits Panel` (NOT `PanelComponent`)** — V1.5-M2-K7 (D-014) split the emitted types so the renderer class is a plain `Panel` that can be nested inside other generated `.sui` markup via `<Game.UI.<Name>Panel />`. Standalone mounting goes through `SuiPanel<TView>.Add()`, which spawns a `SuiHostPanelComponent` (a real `PanelComponent`) + `ScreenPanel` and attaches the inner `Panel` as a child.
+- **No `@attribute [StyleSheet]`** — the stylesheet is paired by filename convention (`<Name>Panel.razor` + `<Name>Panel.razor.scss`); the generator does not emit a `[StyleSheet]` attribute.
+- **Element class-string emission (D-021)** — every element's `class=` is rendered as a dispatch to a private helper, e.g. `class="@RootClass()"`, where the `@code` block defines `private string RootClass() => $"root sui-el-root{(IsDisabled ? \" is-disabled\" : \"\")}";`. The earlier mixed-content shape `class="root sui-el-root @(IsDisabled ? "is-disabled" : "")"` broke the s&box Razor parser mid-M3.5, so all reactive class folding now goes through helper methods. Inspect the helper, not the element tag, to see how toggles like `IsDisabled` join the class list.
+- **Every element gets a `sui-<id>` class** (e.g. `sui-el-a3f9b21c`) alongside its user-defined `ClassName`. This per-element class is what scopes SCSS rules to a single element — without it, siblings sharing a `ClassName` would all inherit the same rules (bug-prone for InventorySlot lists). The shape is `sui-<sanitized-id>`; see `SuiRazorGenerator.ElementUniqueClass`.
+- **The markup is wrapped in `<root>`** and the SCSS outer selector is `<Name>Panel { ... }` (Final mode renames the renderer to `<Name>Panel` so the wrapper class can keep the user-facing `<Name>`). The `<root>` tag is required by the Razor parser; SCSS targets the renderer's class name, not the literal tag.
 - **Text elements emit `<label>`**, others emit `<div>` (or `<button>`, `<img>` for those types).
-- **`BuildHash()`** is emitted to force re-render when the document changes during hot-reload. V1 emits a static value; V1.5 will hash element state.
+- **`BuildHash()`** is an override emitted by `SuiBuildHashEmitter` that combines every Variable referenced by any non-`OneTime` binding, every embedded child wrapper's recursive `ContentHash()`, and interactive-state flags so any reactive change forces `BuildRenderTree` to re-run. See [Reactivity & BuildHash]({% link concepts/reactivity-and-buildhash.md %}).
 
 The Razor doesn't include the SUI:GENERATED header — that's added by the compile writer when the file is actually written to disk (so editing the in-memory output doesn't see the header).
 
@@ -135,11 +135,11 @@ The Razor doesn't include the SUI:GENERATED header — that's added by the compi
 ### Nesting structure
 
 ```scss
-MyHud {                           // outer = class name
+MyHudPanel {                      // outer = <Name>Panel (Final mode renames renderer)
   flex-direction: column;
   background-color: #0a0a0a;
 
-  .sui-elem-2 {                   // per-element unique class
+  .sui-el-a3f9b21c {              // per-element unique class — sui-<sanitized-id>
     position: absolute;
     left: 40px;
     top: 40px;
@@ -148,21 +148,21 @@ MyHud {                           // outer = class name
     background-color: rgba(0,0,0,0.5);
   }
 
-  .sui-elem-3 {
+  .sui-el-c12db04e {
     ...
   }
 
   // ProgressBar nested fill rule
-  .sui-elem-2 .progress-fill {
+  .sui-el-a3f9b21c .progress-fill {
     background-color: #ef4444;
   }
-
-  // Final mode only:
-  @import "MyHud.User.scss";
 }
+
+// Final mode only — user-protected styles for MyHudPanel:
+@import "MyHudPanel.User.scss";
 ```
 
-The whole document compiles into a single nested SCSS block. Two-space indent. Stable output across edits (sorted by element ID where order doesn't matter visually).
+The whole document compiles into a single nested SCSS block. Two-space indent. Stable output across edits (sorted by element ID where order doesn't matter visually). The `@import` sits at file scope (not nested inside the outer selector) so the `.User.scss` sidecar authors its own top-level `MyHudPanel { ... }` block — matching the boilerplate the compile writer creates on first emit.
 
 ### Anchor → CSS translation
 
@@ -244,7 +244,8 @@ All surfaced in the [Compile Results panel]({% link user-guide/compile-results.m
 - **Doesn't add the SUI:GENERATED header** — also the writer.
 - **Doesn't read or write the manifest** — also the writer.
 - **Doesn't run SCSS compilation** — outputs source SCSS, the s&box engine compiles it at load.
-- **Doesn't generate `.cs` code** — V1 emits only `.razor` and `.razor.scss`. V1.5 will optionally emit a `.cs` partial for [Property] fields.
+
+In Final mode the pipeline emits **three** artefacts, not two: `<Name>Panel.razor`, `<Name>Panel.razor.scss`, AND `<Name>.cs` — the wrapper class extending `SuiPanel<<Name>Panel>` with `Add` / `Show` / `Hide` / `Remove`, per-Variable `[Property]` mirrors, named-instance fields for embedded `SuiReference`s, an `Apply` namespace for Manual-trigger bindings, and a recursive `ContentHash()`. Emitted by `SuiWrapperEmitter` and wired in `SuiGenerationPipeline.Run` (Final mode only — preview cache stays markup-only so hot-reload doesn't re-spawn Components per frame). See [Compile writer]({% link architecture/compile-writer.md %}) for the disk layout.
 
 The strict pure-function boundary makes testing and offline reasoning easy: you can run the generator from a unit test with a synthetic `SuiDocument` and assert on the emitted strings.
 

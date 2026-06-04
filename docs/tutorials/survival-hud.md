@@ -82,8 +82,8 @@ Inside HealthRow:
    - Width: `200`, Height: `18`
    - Background: `#22222288`
    - Border Radius: `4`
-   - Props:
-     - Progress Min: `0`, Max: `100`
+   - Props (Progress Bar section in Details):
+     - Min: `0`, Max: `100` *(these are the ProgressBar-specific Min/Max in the Progress Bar section, not the Layout Min/Max above)*
      - Preview Value: `85`
      - Fill Color: `#ef4444` (red)
      - Direction: LeftToRight
@@ -163,13 +163,25 @@ Stop Play (Esc → Stop button) to exit.
 When you're ready to use this HUD in your game:
 
 1. Click **Compile** (`Ctrl+B`).
-2. The folder picker asks where to put `SurvivalHud.razor`. Pick `Code/UI/`.
-3. The Compile Results panel shows three files written:
-   - `SurvivalHud.razor`
-   - `SurvivalHud.razor.scss`
-   - `SurvivalHud.User.scss` (boilerplate; you can edit this)
+2. The folder picker asks where to put the output. Pick `Code/UI/`.
+3. The Compile Results panel shows four files written:
+   - `SurvivalHudPanel.razor` — markup (generated, overwritten on each compile)
+   - `SurvivalHudPanel.razor.scss` — generated styles (overwritten on each compile)
+   - `SurvivalHud.cs` — wrapper class your gameplay code instantiates (generated, overwritten)
+   - `SurvivalHudPanel.User.scss` — your-owned SCSS sidecar (created once, **never overwritten**)
 
-In your scene, add a `ScreenPanel` GameObject and add the `SurvivalHud` component. The HUD overlays the screen.
+In your scene, create any Component (e.g. `HudController`) and declare:
+
+```csharp
+[Property] public SurvivalHud Hud { get; set; } = new();
+
+protected override void OnStart()
+{
+    Hud.Show();
+}
+```
+
+The wrapper auto-mounts a `ScreenPanel`-rooted host on `Show()` — no need to add a `ScreenPanel` GameObject by hand.
 
 ## Step 7 — Hover effects (optional)
 
@@ -190,7 +202,13 @@ SurvivalHud {
 }
 ```
 
-Recompile → Play → in your C# component, `HealthBar.SetClass("low-health", currentHealth < 30)`.
+First, select **HealthBar** in the Hierarchy → Details → Common → tick **Expose as Variable**. This makes the codegen emit a typed `HealthBar` field on the generated renderer (`SurvivalHudPanel`). Recompile, then from your Component:
+
+```csharp
+Hud.View?.HealthBar?.SetClass( "low-health", currentHealth < 30 );
+```
+
+Where `Hud` is your `[Property] public SurvivalHud Hud { get; set; } = new();`. See [Events & Element refs]({% link workflows/events-and-refs.md %}) for the full pattern.
 
 ## What you learned
 

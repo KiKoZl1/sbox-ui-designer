@@ -63,6 +63,26 @@ And in `.User.scss`:
 }
 ```
 
+## Bindable properties
+
+| Property | Mode | Target type |
+|---|---|---|
+| `SlotIndex` | OneTime / OneWay | int |
+| `IconPath` | OneTime / OneWay | string |
+| `Count` | OneTime / OneWay | int |
+| Style + Universal | OneWay | per matrix |
+
+## Events surfaced
+
+| Event | Razor attribute |
+|---|---|
+| `OnClick` | `onclick` |
+| `OnRightClick` | `onclick` (fires on any button — gap, see `SuiEventMatrix`) |
+| `OnDoubleClick` | `ondoubleclick` |
+| `OnHover` | `onmouseover` |
+
+Note: `OnUnhover` is intentionally NOT surfaced on InventorySlot — the matrix maps InventorySlot to the `slot` row (OnClick / OnRightClick / OnDoubleClick / OnHover), not `panelLike`.
+
 ## Tips
 
 - Use different **Border Color** for rarities (`#facc15` yellow = rare, `#a855f7` purple = epic, `#3b82f6` blue = legendary).

@@ -19,7 +19,7 @@ Open bugs and limitations in V1.0, with workarounds where available. The authori
 
 ---
 
-## ISSUE-004 — `<label>` background-color rgba alpha ignored in runtime
+## ISSUE-004 — `<label>` background-color rgba alpha ignored in runtime {#issue-004}
 
 **Severity:** major · **Status:** investigating
 
@@ -61,7 +61,7 @@ Either way: a future SUI version will handle this transparently.
 
 ---
 
-## ISSUE-005 — PreviewCount badges not emitted in runtime
+## ISSUE-005 — PreviewCount badges not emitted in runtime {#issue-005}
 
 **Severity:** minor · **Status:** open
 

@@ -34,9 +34,9 @@ Three ways to create one:
 | Field | Notes |
 |---|---|
 | **Source** | The target `.sui` (read-only display + Change source… button) |
-| **Name** | C# identifier — becomes the field name on the parent wrapper. Must be unique within the document |
+| **Name** | C# identifier — becomes the field name on the parent wrapper. Must be unique within the document; renaming to a sibling-conflicting name auto-appends a numeric suffix (`StaminaBar` → `StaminaBar_2`) so the named-instance field rule never silently produces colliding C# fields. |
 | **Props** | Per-instance overrides for the child's `IsPublic` Variables (typed editors matching each Variable's Type) |
-| **ForEach** | Optional iteration mapping. See [ForEach](#foreach-dynamic-lists) |
+| **ForEach** | Optional iteration mapping. See [ForEach](#foreach--dynamic-lists) |
 
 The Layout / Style sections behave like any other element — the SuiReference rect is what the child renders inside.
 

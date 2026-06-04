@@ -50,6 +50,17 @@ The generator computes the grid's `width` and `height` to fit exactly Columns ×
 
 If the user pins an explicit `Width` or `Height` in Layout, those win — the cell-derived size is only used when the user hasn't set one.
 
+## Bindable properties
+
+| Property | Mode | Target type |
+|---|---|---|
+| `Columns` | OneTime / OneWay | int |
+| `Rows` | OneTime / OneWay | int |
+| `CellWidth` | OneTime / OneWay | float |
+| `CellHeight` | OneTime / OneWay | float |
+| `Gap` | OneTime / OneWay | float |
+| Style + Universal | OneWay | per matrix |
+
 ## Tips
 
 - **Don't set children to a different width** than `Cell Width`. They'll still wrap, but spacing will look uneven.

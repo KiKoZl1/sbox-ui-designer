@@ -48,6 +48,17 @@ Standard Transform with Mode pre-set to **Flex**, Direction **Row**.
 - **Children inherit width via Stretch (cross axis)**: if you set Align Items = Stretch (default) on a Row container, children **without** an explicit Height will stretch to fill the container's height. Children **with** explicit Height keep it.
 - **For grid-like layouts**: combine with Wrap = Wrap and set children to a fixed Width — they flow into multiple rows. For game-flavored inventory grids, use [InventoryGrid]({% link elements/inventory-grid.md %}) instead.
 
+## Events surfaced
+
+HorizontalBox is registered as `panelLike` in the event matrix — even though it's a layout container, you can wire pointer events on it (useful for hit-test regions wrapping a row of children).
+
+| Event | Razor attribute |
+|---|---|
+| `OnClick` | onclick |
+| `OnRightClick` | onclick + e.Button=='mouseright' |
+| `OnHover` | onmouseover |
+| `OnUnhover` | onmouseout |
+
 ## See also
 
 - [VerticalBox]({% link elements/vertical-box.md %}) — column variant
