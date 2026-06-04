@@ -1,4 +1,4 @@
-{
+﻿{
   "Document": {
     "SchemaVersion": 3,
     "DocumentId": "sui_showcase_health_bar_a3f8c2",
@@ -590,7 +590,7 @@
         "Bindings": [
           {
             "Id": "bind_hb_value",
-            "Property": "ProgressPreviewValue",
+            "Property": "Value",
             "Mode": "OneWay",
             "UpdateTrigger": "OnChange",
             "Source": {
@@ -767,7 +767,7 @@
         "Source": {
           "Kind": "Manual"
         },
-        "Description": "Normalized health 0..1 — drives the ProgressBar fill.",
+        "Description": "Normalized health 0..1 â€” drives the ProgressBar fill.",
         "IsAdvanced": false,
         "IsPublic": true,
         "Group": "Stats",
@@ -781,7 +781,7 @@
         "Source": {
           "Kind": "Manual"
         },
-        "Description": "Display string like \"100 / 100\" — drives the value text.",
+        "Description": "Display string like \"100 / 100\" â€” drives the value text.",
         "IsAdvanced": false,
         "IsPublic": true,
         "Group": "Stats",
