@@ -183,7 +183,8 @@ Worked, end-to-end examples.
 ## Versioning
 
 This documentation tracks the **V1.5** release of SUI Designer. The internal
-deviations log (`docs/prd/_V15_DEVIATIONS.md`) is the authoritative changelog
-between the original locked PRDs and what actually shipped.
+deviations log (kept in the source repo, not published to the docs site) is the
+authoritative changelog between the original locked PRDs and what actually
+shipped.
 
 For older history, see the [Changelog]({% link support/changelog.md %}).

@@ -13,7 +13,7 @@ Release history. The authoritative version is in [CHANGELOG.md](https://github.c
 
 ## V1.5 — 2026-06-03
 
-Major feature release. **Fully backward-compatible** — V1.0 documents load unchanged and get migrated via the upgrade prompt (see the [V1.0 → V1.5 upgrade guide]({% link UPGRADE_V1_0_TO_V1_5.md %})). The internal deviations log (`docs/prd/_V15_DEVIATIONS.md`) is the authoritative catalogue of changes between the locked PRDs and the shipped code.
+Major feature release. **Fully backward-compatible** — V1.0 documents load unchanged and get migrated via the upgrade prompt (see the [V1.0 → V1.5 upgrade guide]({% link UPGRADE_V1_0_TO_V1_5.md %})). The internal deviations log (kept in the source repo, not published to the docs site) is the authoritative catalogue of changes between the locked PRDs and the shipped code.
 
 ### Milestones
 

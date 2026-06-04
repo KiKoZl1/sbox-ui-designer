@@ -1,12 +1,19 @@
+---
+layout: default
+title: V1.0 to V1.5 upgrade
+nav_order: 10
+---
+
 # Upgrading from Sbox UI Designer V1.0 to V1.5
 
 This guide walks you through updating an existing project from the V1.0 release
 to V1.5. The short version: drop in V1.5, open the editor, click **Migrate all**
 when the prompt appears, and you're done.
 
-> **Audit:** every backward-compat surface of V1.5 was reviewed before release —
-> see [`docs/prd/_V15_UPGRADE_AUDIT.md`](prd/_V15_UPGRADE_AUDIT.md) if you want
-> the full per-area verdict. TL;DR: green across the board, one documented amber.
+> **Audit:** every backward-compat surface of V1.5 was reviewed before release.
+> TL;DR: green across the board, one documented amber. The full per-area
+> verdict lives in the internal `_V15_UPGRADE_AUDIT` doc kept in the source
+> repo (not published to the docs site).
 
 ---
 
@@ -241,9 +248,9 @@ back to disk. No regen runs unless you click Compile.
   ```
   These are provided by `SuiPanel<TView>` in `SboxUiDesigner.Runtime`.
 
-- **Where are deviations from the PRDs?** [`docs/prd/_V15_DEVIATIONS.md`](prd/_V15_DEVIATIONS.md)
-  (kept local — see the audit doc if you need that context for a support
-  case).
+- **Where are deviations from the PRDs?** The internal `_V15_DEVIATIONS.md`
+  log in the source repo (not published to the docs site). Ping the
+  maintainer for the file if you need it for a support case.
 
 ---
 
