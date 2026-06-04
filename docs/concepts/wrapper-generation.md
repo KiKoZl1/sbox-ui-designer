@@ -1,3 +1,10 @@
+---
+layout: default
+title: Wrapper generation
+parent: Concepts
+nav_order: 5
+---
+
 # Wrapper Generation
 
 Every `.sui` document, when compiled, produces the same three files:

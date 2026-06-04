@@ -2,7 +2,7 @@
 layout: default
 title: SuiReference
 parent: Element reference
-nav_order: 15
+nav_order: 20
 ---
 
 # SuiReference
