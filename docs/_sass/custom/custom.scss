@@ -1,0 +1,132 @@
+// SUI Designer — typography, spacing, and chrome overrides
+// Loaded by just-the-docs AFTER the color scheme; safe place for cosmetic tweaks.
+
+// ---------- Brand tokens (kept in sync with sui_dark.scss) ----------
+$sui-green:        #4ade80;
+$sui-green-hover:  lighten($sui-green, 10%);
+$sui-border:       #2a2a2e;
+$sui-surface-1:    #161618;
+$sui-surface-2:    #1f2937;
+$sui-bg:           #0d0d0f;
+
+// ---------- Typography ----------
+body {
+  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont,
+               'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+code,
+pre,
+kbd,
+samp,
+.highlight,
+.highlight pre,
+.highlighter-rouge .highlight {
+  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, 'SF Mono',
+               Menlo, Consolas, 'Liberation Mono', monospace;
+  font-variant-ligatures: none;
+}
+
+// ---------- Headings ----------
+h1, .text-alpha {
+  font-size: 2.25rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  border-bottom: 1px solid $sui-border;
+  padding-bottom: 0.5rem;
+  margin-bottom: 1.5rem;
+}
+
+h2, .text-beta {
+  font-size: 1.6rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  border-bottom: 1px solid $sui-border;
+  padding-bottom: 0.4rem;
+  margin-top: 2.5rem;
+  margin-bottom: 1.25rem;
+}
+
+h3, .text-gamma {
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin-top: 2rem;
+}
+
+h4 {
+  font-size: 1.05rem;
+  font-weight: 600;
+  margin-top: 1.5rem;
+}
+
+// ---------- Links ----------
+a {
+  transition: color 0.15s ease;
+}
+
+a:hover {
+  color: $sui-green-hover;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+// ---------- Sidebar / nav ----------
+.side-bar {
+  border-right: 1px solid $sui-border;
+}
+
+.nav-list .nav-list-item .nav-list-link:hover {
+  background-color: $sui-surface-2;
+}
+
+.nav-list .nav-list-item .nav-list-link.active {
+  color: $sui-green;
+  border-left: 3px solid $sui-green;
+  padding-left: calc(1rem - 3px);
+  font-weight: 600;
+}
+
+// ---------- Tables ----------
+table {
+  border: 1px solid $sui-border;
+  border-collapse: separate;
+  border-spacing: 0;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+table thead {
+  background: $sui-surface-1;
+}
+
+table th,
+table td {
+  border-bottom: 1px solid $sui-border;
+}
+
+table tr:last-child td {
+  border-bottom: none;
+}
+
+// ---------- Blockquotes ----------
+blockquote {
+  border-left: 3px solid $sui-green;
+  background: rgba(74, 222, 128, 0.05);
+  padding: 0.75rem 1rem;
+  border-radius: 0 6px 6px 0;
+  margin: 1rem 0;
+}
+
+blockquote > :first-child { margin-top: 0; }
+blockquote > :last-child  { margin-bottom: 0; }
+
+// ---------- Companion partials (created by sibling agents) ----------
+// just-the-docs / Jekyll-Sass build is robust to a missing file only when
+// imports are guarded — wrap with @if file-exists is not possible at compile
+// time, so we rely on those files landing before publish. If they ever go
+// missing, comment these two lines back out.
+@import "callouts";
+@import "code-blocks";

@@ -1,0 +1,31 @@
+// SUI Designer — dark-first color scheme
+// Inherits from just-the-docs `dark` scheme; overrides palette to match SUI brand.
+// Accent green #4ade80 = SUI ProgressFillColor (matches existing code/samples).
+//
+// Variable names target just-the-docs v0.7+ (see https://github.com/just-the-docs/just-the-docs/tree/main/_sass/support).
+// If a name is missing in the installed version, the rule silently no-ops and
+// the upstream default is kept — safe to ship.
+
+@import "./dark";
+
+// ---------- Surfaces ----------
+$body-background-color:        #0d0d0f;
+$sidebar-color:                #1a1a1d;
+$base-button-color:            #1f2937;
+$code-background-color:        #161618;
+$table-background-color:       #161618;
+$search-background-color:      #161618;
+$feedback-color:               darken(#0d0d0f, 3%);
+
+// ---------- Text ----------
+$body-text-color:              #e6e6e6;
+$body-heading-color:           #ffffff;
+$nav-child-link-color:         #9ca3af;
+$search-result-preview-color:  #9ca3af;
+
+// ---------- Accent (SUI green) ----------
+$link-color:                   #4ade80;
+$btn-primary-color:            #4ade80;
+
+// ---------- Borders ----------
+$border-color:                 #2a2a2e;

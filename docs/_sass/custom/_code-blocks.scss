@@ -1,0 +1,112 @@
+// SUI Designer — code block presentation
+// Adds rounded chrome, copy button, and language pill on fenced code blocks.
+//
+// Rouge / just-the-docs wraps fenced blocks as:
+//   <div class="language-xxx highlighter-rouge">
+//     <div class="highlight"><pre class="highlight"><code>...</code></pre></div>
+//   </div>
+// The language class lives on the OUTER `.highlighter-rouge` wrapper, so the
+// language pill is rendered there (above .highlight), positioned absolutely.
+
+// ---------- Container ----------
+.highlight {
+  position: relative;
+  border-radius: 8px;
+  border: 1px solid #2a2a2e;
+  overflow-x: auto;
+  padding: 0;
+}
+
+.highlight pre {
+  padding: 1.1rem 1.2rem;
+  margin: 0;
+  background: transparent !important;
+}
+
+.highlight code {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 0.92em;
+  line-height: 1.55;
+}
+
+// ---------- Copy button ----------
+.copy-code-button {
+  position: absolute;
+  top: 0.45rem;
+  right: 0.5rem;
+  padding: 0.25rem 0.55rem;
+  background: #1f2937;
+  color: #9ca3af;
+  border: 1px solid #2a2a2e;
+  border-radius: 4px;
+  font-size: 0.72rem;
+  font-family: 'Inter', system-ui, sans-serif;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s, color 0.15s;
+  z-index: 2;
+}
+
+.highlight:hover .copy-code-button {
+  opacity: 1;
+}
+
+.copy-code-button:hover {
+  color: #4ade80;
+  border-color: #4ade80;
+}
+
+.copy-code-button.copied {
+  color: #4ade80;
+}
+
+// ---------- Language pill ----------
+// The language-xxx class is on .highlighter-rouge (parent of .highlight).
+// We position the pill on the outer wrapper so it sits above the rounded
+// chrome of .highlight without scrolling away horizontally.
+.highlighter-rouge {
+  position: relative;
+}
+
+.highlighter-rouge[class*="language-"]::before {
+  display: block;
+  position: absolute;
+  top: 0.45rem;
+  left: 0.6rem;
+  padding: 0.15rem 0.5rem;
+  background: #1f2937;
+  color: #9ca3af;
+  border: 1px solid #2a2a2e;
+  border-radius: 4px;
+  font-size: 0.65rem;
+  font-family: 'Inter', system-ui, sans-serif;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.language-csharp::before     { content: 'C#'; }
+.language-cs::before         { content: 'C#'; }
+.language-razor::before      { content: 'RAZOR'; }
+.language-scss::before       { content: 'SCSS'; }
+.language-css::before        { content: 'CSS'; }
+.language-json::before       { content: 'JSON'; }
+.language-bash::before       { content: 'BASH'; }
+.language-sh::before         { content: 'BASH'; }
+.language-shell::before      { content: 'BASH'; }
+.language-powershell::before { content: 'PS'; }
+.language-ps1::before        { content: 'PS'; }
+.language-yaml::before       { content: 'YAML'; }
+.language-yml::before        { content: 'YAML'; }
+.language-html::before       { content: 'HTML'; }
+.language-xml::before        { content: 'XML'; }
+.language-javascript::before { content: 'JS'; }
+.language-js::before         { content: 'JS'; }
+.language-typescript::before { content: 'TS'; }
+.language-ts::before         { content: 'TS'; }
+.language-markdown::before   { content: 'MD'; }
+.language-md::before         { content: 'MD'; }
+.language-plaintext::before  { content: 'TEXT'; }
+.language-text::before       { content: 'TEXT'; }

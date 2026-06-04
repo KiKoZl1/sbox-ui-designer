@@ -11,6 +11,19 @@ nav_order: 1
 How SUI Designer is wired internally — from `.sui` file to running ScreenPanel.
 {: .fs-6 .fw-300 }
 
+## System architecture
+
+```mermaid
+flowchart LR
+    Editor[s&box Editor] --> Window[SUI Designer Window]
+    Window --> Pipeline[SuiGenerationPipeline]
+    Pipeline --> Runtime[Runtime layer]
+    Runtime --> Panel["Panel<br/>(generated)"]
+    Runtime --> Wrapper["Wrapper<br/>SuiPanel&lt;TView&gt;"]
+    Panel --> Scene[Scene]
+    Wrapper --> Scene
+```
+
 ## Table of contents
 {: .no_toc .text-delta }
 

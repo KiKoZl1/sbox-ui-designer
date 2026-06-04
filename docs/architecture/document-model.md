@@ -358,6 +358,12 @@ public static class SuiSchemaVersion
 
 `SuiDocumentMigration.Apply` upgrades old documents on load via a uniform V_n → V_(n+1) pipeline:
 
+```mermaid
+flowchart LR
+    V1["V1 (V1.0)<br/>baseline schema"] -->|"V1 → V2<br/>add Variables list<br/>+ init Output"| V2["V2 (V1.5 M1/M2)<br/>interactive props"]
+    V2 -->|"V2 → V3<br/>add input widgets<br/>+ Doo events<br/>+ HoverStyle / PressedStyle<br/>+ DisabledStyle / FocusedStyle<br/>+ IsDisabled / Transition*<br/>+ HoverSound / PressSound<br/>+ Cursor"| V3["V3 (V1.5 M3.5+)<br/>input widgets +<br/>Doo events"]
+```
+
 - **V1 → V2** (V1.5 M1/M2) — ensures `Variables` is a non-null list and `Output` is initialized. PRD 17 § 6.3.
 - **V2 → V3** (V1.5 M3.5) — introduces per-state interactive style overrides (`HoverStyle` / `PressedStyle` / `DisabledStyle` / `FocusedStyle`) plus `IsDisabled` / `TransitionEnabled` / `TransitionDuration` / `HoverSound` / `PressSound` / `Cursor` fields on `SuiElementProps`. PRD 25.
 

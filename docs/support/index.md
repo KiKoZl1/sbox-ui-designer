@@ -10,6 +10,20 @@ permalink: /support/
 
 Help when something goes wrong, plus the project's release history.
 
-- [Troubleshooting]({% link support/troubleshooting.md %}) — diagnose common failures
-- [FAQ]({% link support/faq.md %}) — frequently asked questions
-- [Changelog]({% link support/changelog.md %}) — what's new in each release
+<div class="section-grid" markdown="0">
+  <a class="section-card" href="{% link support/troubleshooting.md %}">
+    <span class="card-tag">SUPPORT</span>
+    <h3>Troubleshooting</h3>
+    <p>Common failure modes and how to diagnose them.</p>
+  </a>
+  <a class="section-card" href="{% link support/faq.md %}">
+    <span class="card-tag">SUPPORT</span>
+    <h3>FAQ</h3>
+    <p>Common questions about SUI Designer.</p>
+  </a>
+  <a class="section-card" href="{% link support/changelog.md %}">
+    <span class="card-tag">SUPPORT</span>
+    <h3>Changelog</h3>
+    <p>Release history. Authoritative version is in <code>CHANGELOG.md</code> in the source repo.</p>
+  </a>
+</div>

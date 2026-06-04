@@ -6,197 +6,257 @@ description: "SUI Designer — visual UI editor for s&box"
 permalink: /
 ---
 
-<p align="center">
-  <img src="{{ '/assets/hero.png' | relative_url }}" alt="SUI Designer — Visual UI Editor for s&box" style="max-width: 100%; height: auto; border-radius: 8px;" />
-</p>
+<style>
+.hero {
+  background: linear-gradient(135deg, #0f0f11 0%, #161618 100%);
+  border: 1px solid #2a2a2e;
+  border-radius: 12px;
+  padding: 3rem 2rem;
+  margin: 1rem 0 2rem 0;
+  text-align: center;
+}
+.hero h1 {
+  font-size: 3rem;
+  margin: 0 0 1rem 0;
+  color: #ffffff;
+  border-bottom: none;
+}
+.hero-tagline {
+  font-size: 1.15rem;
+  color: #9ca3af;
+  max-width: 720px;
+  margin: 0 auto 1.75rem auto;
+  line-height: 1.55;
+}
+.hero-cta {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+.hero-cta .btn {
+  font-size: 1rem;
+  padding: 0.6rem 1.25rem;
+}
 
-# SUI Designer
-{: .fs-9 }
+.feature-grid,
+.section-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+  margin: 1.5rem 0;
+}
+.quickstart-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+  margin: 1.5rem 0;
+}
 
-A visual UI editor for [s&box](https://sbox.game/) — design `.sui` documents in a paint-based canvas, generate idiomatic Razor + SCSS, drive everything from typed Variables + bindings, preview live in Play.
-{: .fs-6 .fw-300 }
+.feature-card,
+.section-card,
+.quickstart-card {
+  display: block;
+  background: #161618;
+  border: 1px solid #2a2a2e;
+  border-radius: 8px;
+  padding: 1.25rem 1.5rem;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+  text-decoration: none;
+  color: inherit;
+}
+.feature-card:hover,
+.section-card:hover,
+.quickstart-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(74, 222, 128, 0.15);
+  border-color: #4ade80;
+  text-decoration: none;
+}
 
-[Get started](#getting-started){: .btn .btn-primary .fs-5 .mb-4 .mb-md-0 .mr-2 }
-[View on GitHub](https://github.com/KiKoZl1/sbox-ui-designer){: .btn .fs-5 .mb-4 .mb-md-0 }
+.card-label {
+  display: block;
+  text-transform: uppercase;
+  font-size: 0.7rem;
+  color: #4ade80;
+  letter-spacing: 0.05em;
+  font-weight: 600;
+  margin-bottom: 0.4rem;
+}
+.card-title {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #ffffff;
+  margin: 0 0 0.4rem 0;
+}
+.card-body {
+  font-size: 0.92rem;
+  color: #9ca3af;
+  line-height: 1.5;
+  margin: 0;
+}
 
----
+.quickstart-card .card-number {
+  font-size: 2rem;
+  font-weight: 700;
+  color: #4ade80;
+  line-height: 1;
+  margin-bottom: 0.5rem;
+}
 
-## What it does
+.docs-footer {
+  margin-top: 3rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid #2a2a2e;
+  font-size: 0.9rem;
+  color: #6b7280;
+  text-align: center;
+}
 
-SUI Designer replaces the loop of *hand-writing Razor → editing SCSS → hot-reloading → guessing the layout* with a WYSIWYG workflow that produces idiomatic, hand-editable s&box code:
+@media (max-width: 768px) {
+  .feature-grid,
+  .section-grid,
+  .quickstart-grid {
+    grid-template-columns: 1fr;
+  }
+  .hero { padding: 2rem 1.25rem; }
+  .hero h1 { font-size: 2.25rem; }
+}
+</style>
 
-1. Drop elements from the Palette (`Panel`, `Image`, `Text`, `Button`, `ProgressBar`, `Hotbar`, `InventoryGrid`, **`TextEntry`**, **`Slider`**, **`Toggle`**, **`DropDown`**, **`SuiReference`** for sub-UIs, ...).
-2. Edit position, size, anchor, style, layout in a Details panel.
-3. Declare **typed Variables** on the document — `Health: int`, `PlayerName: string`, `Tint: Color`, ... — then bind element properties to them through optional converter chains.
-4. Wire **events** (`OnClick`, `OnValueChanged`, ...) to either a C# handler or a visual [Doo](https://docs.facepunch.com/s/sbox-dev/doc/doo) graph stored inside the document.
-5. See it live — paint-based canvas at design time, **Test in Play** to mount the UI on a real player in a real scene.
-6. Compile to your project's `Code/` folder. Every `.sui` generates three files: `<Name>Panel.razor` + `.razor.scss` + `<Name>.cs` (a wrapper extending `SuiPanel<TView>` with `Add` / `Show` / `Hide` / `Remove` and per-Variable `[Property]` mirrors).
+<div class="hero">
+  <h1>SUI Designer</h1>
+  <p class="hero-tagline">Author functional s&box UIs visually. Variables, bindings, events — wired in the editor, generated as Razor + C# wrappers, hot-reloaded in play.</p>
+  <div class="hero-cta">
+    <a class="btn btn-primary" href="{% link getting-started/index.md %}">Get started →</a>
+    <a class="btn" href="https://github.com/KiKoZl1/sbox-ui-designer">View on GitHub</a>
+  </div>
+</div>
 
-The `.sui` document is JSON-backed, schema-versioned, and version-control-friendly. The generator emits readable, hand-editable Razor + SCSS that compiles in any s&box game.
+## What V1.5 brings
 
-## What's new in V1.5
+<div class="feature-grid">
 
-V1.5 turns the static layout-builder into a full data + scripting workflow:
+  <a class="feature-card" href="{% link concepts/variables.md %}">
+    <span class="card-label">Reactive state</span>
+    <h3 class="card-title">Typed Variables</h3>
+    <p class="card-body">Strongly-typed reactive state authored in the Designer — declare <code>Health: int</code>, <code>PlayerName: string</code>, <code>Tint: Color</code> on the document.</p>
+  </a>
 
-- **Typed Variables + Bindings** — declare `Health: float`, `PlayerName: string`, bind `ProgressBar.Value` to `Health` through a 66-entry built-in converter library (or your own `[SuiConverter]`).
-- **Sub-UI composition (`SuiReference`)** — embed one `.sui` inside another with proportional canvas rescaling; ForEach iterates a `List<T>` Variable into a child template.
-- **Events with two modes** — wire `OnClick` to a C# handler in a `<Name>.partial.cs` sidecar, or to a [Doo](https://docs.facepunch.com/s/sbox-dev/doc/doo) graph serialized inside the document (UMG-style: graph travels with the widget).
-- **Input widgets** — TextEntry / Slider / Toggle / DropDown with explicit `UpdateTrigger` (OnChange / OnLostFocus / OnSubmit / OnRelease / Manual) and a `wrapper.Apply.<Field>()` namespace for Manual commits.
-- **Interactive states** — Hover / Pressed / Disabled / Focused style overrides with `transition` + hover/press sound assets.
+  <a class="feature-card" href="{% link concepts/bindings.md %}">
+    <span class="card-label">Data flow</span>
+    <h3 class="card-title">Two-way Bindings</h3>
+    <p class="card-body">Read AND write back to Variables with five update triggers — OnChange, OnLostFocus, OnSubmit, OnRelease, Manual.</p>
+  </a>
 
-Upgrading from V1.0? Read the [V1.0 → V1.5 upgrade guide]({% link UPGRADE_V1_0_TO_V1_5.md %}).
+  <a class="feature-card" href="{% link concepts/converters.md %}">
+    <span class="card-label">Transform pipeline</span>
+    <h3 class="card-title">66 Built-in Converters</h3>
+    <p class="card-body">Math, Logic, String, Color, Date — composable chains between Variables and element properties, plus your own <code>[SuiConverter]</code>.</p>
+  </a>
 
-## Getting started
+  <a class="feature-card" href="{% link concepts/events-and-actions.md %}">
+    <span class="card-label">Scripting</span>
+    <h3 class="card-title">Events: Code + Doo</h3>
+    <p class="card-body">Wire <code>OnClick</code> / <code>OnHover</code> to a C# handler in a <code>.partial.cs</code> sidecar, or to a Doo graph stored inside the document.</p>
+  </a>
 
-Never opened SUI Designer before? Start here:
+  <a class="feature-card" href="{% link concepts/input-and-update-triggers.md %}">
+    <span class="card-label">Forms</span>
+    <h3 class="card-title">Input Widgets</h3>
+    <p class="card-body">TextEntry, Slider, Toggle, DropDown — with explicit update triggers and a <code>wrapper.Apply.&lt;Field&gt;()</code> namespace for manual commits.</p>
+  </a>
 
-- [Installation]({% link getting-started/install.md %}) — bring the addon into your s&box project (2 min)
-- [Your first UI]({% link getting-started/your-first-ui.md %}) — build a HUD from scratch and use the wrapper (10 min)
-- [Test in Play]({% link getting-started/test-in-play.md %}) — see your UI on a real player (3 min)
+  <a class="feature-card" href="{% link concepts/interactive-states.md %}">
+    <span class="card-label">Styling</span>
+    <h3 class="card-title">Interactive States</h3>
+    <p class="card-body">Hover / Pressed / Disabled / Focused style overrides per widget, with <code>transition</code> easing and hover/press sound assets.</p>
+  </a>
 
-Upgrading a V1.0 project? See the [V1.0 → V1.5 upgrade guide]({% link UPGRADE_V1_0_TO_V1_5.md %}).
+</div>
 
-## User guide
+## Quick start
 
-End-to-end reference for the editor and every panel.
+<div class="quickstart-grid">
 
-- [Editor tour]({% link user-guide/editor-tour.md %})
-- [Palette]({% link user-guide/palette.md %})
-- [Hierarchy]({% link user-guide/hierarchy.md %})
-- [Details panel]({% link user-guide/details-panel.md %})
-- [Canvas]({% link user-guide/canvas.md %})
-- [Top toolbar]({% link user-guide/top-toolbar.md %})
-- [Alignment tools]({% link user-guide/alignment-tools.md %})
-- [Compile Results]({% link user-guide/compile-results.md %})
+  <a class="quickstart-card" href="{% link getting-started/install.md %}">
+    <div class="card-number">1</div>
+    <h3 class="card-title">Install</h3>
+    <p class="card-body">Bring the SUI Designer addon into your s&box project — two minutes from clone to first launch.</p>
+  </a>
 
-## Concepts
+  <a class="quickstart-card" href="{% link getting-started/your-first-ui.md %}">
+    <div class="card-number">2</div>
+    <h3 class="card-title">Your first UI</h3>
+    <p class="card-body">Build a HUD from scratch, declare a Variable, bind a ProgressBar, and use the generated wrapper from gameplay code.</p>
+  </a>
 
-The mental model behind the editor — read these once and the rest snaps into place.
+  <a class="quickstart-card" href="{% link tutorials/index.md %}">
+    <div class="card-number">3</div>
+    <h3 class="card-title">Run a tutorial</h3>
+    <p class="card-body">Follow an end-to-end worked example — survival HUD, inventory screen, settings panel, or death modal.</p>
+  </a>
 
-- [Layout modes (Absolute vs Flex)]({% link concepts/layout-modes.md %})
-- [Anchors and pivot]({% link concepts/anchors-and-pivot.md %})
-- [Styling]({% link concepts/styling.md %})
-- [Visibility, overflow, pointer-events]({% link concepts/visibility-overflow.md %})
-- [Wrapper generation]({% link concepts/wrapper-generation.md %}) — `<Name>.cs` and the `SuiPanel<TView>` pattern
-- **[Variables]({% link concepts/variables.md %})** — typed UI-local state
-- **[Bindings]({% link concepts/bindings.md %})** — connect Variables to element properties
-- **[Converters]({% link concepts/converters.md %})** — transform values in the binding chain
-- **[Composition / Sub-UIs]({% link concepts/composition.md %})** — embed one `.sui` inside another via `SuiReference`
-- **[Events & Actions]({% link concepts/events-and-actions.md %})** — Code vs Doo modes, `@ref` exposure
-- **[Interactive states]({% link concepts/interactive-states.md %})** — Hover / Pressed / Disabled / Focused with transitions + sounds
-- **[Input & Update triggers]({% link concepts/input-and-update-triggers.md %})** — when TwoWay bindings actually commit
+</div>
 
-## Element reference
+## Browse by section
 
-One page per palette type.
+<div class="section-grid">
 
-### Layout root
-- [Canvas]({% link elements/canvas.md %})
+  <a class="section-card" href="{% link getting-started/index.md %}">
+    <span class="card-label">Start here</span>
+    <h3 class="card-title">Getting started</h3>
+    <p class="card-body">Install, first UI, and Test in Play — the on-ramp for new users.</p>
+  </a>
 
-### Containers
-- [Panel]({% link elements/panel.md %})
-- [HorizontalBox]({% link elements/horizontal-box.md %})
-- [VerticalBox]({% link elements/vertical-box.md %})
-- [Overlay]({% link elements/overlay.md %})
-- [Grid]({% link elements/grid.md %})
-- [ScrollPanel]({% link elements/scroll-panel.md %})
+  <a class="section-card" href="{% link user-guide/editor-tour.md %}">
+    <span class="card-label">Editor reference</span>
+    <h3 class="card-title">User guide</h3>
+    <p class="card-body">End-to-end tour of every panel: Palette, Hierarchy, Details, Canvas, Toolbar, Compile Results.</p>
+  </a>
 
-### Visuals
-- [Image]({% link elements/image.md %})
-- [Text]({% link elements/text.md %})
-- [Button]({% link elements/button.md %}) — with M3.5 interactive states
-- [ProgressBar]({% link elements/progress-bar.md %})
+  <a class="section-card" href="{% link concepts/variables.md %}">
+    <span class="card-label">Mental model</span>
+    <h3 class="card-title">Concepts</h3>
+    <p class="card-body">Variables, Bindings, Converters, Composition, Events, Interactive states, Update triggers.</p>
+  </a>
 
-### Input widgets (new in V1.5 M4)
-- [TextEntry]({% link elements/text-entry.md %})
-- [Slider]({% link elements/slider.md %})
-- [Toggle]({% link elements/toggle.md %})
-- [DropDown]({% link elements/dropdown.md %})
+  <a class="section-card" href="{% link elements/canvas.md %}">
+    <span class="card-label">Per-widget docs</span>
+    <h3 class="card-title">Elements</h3>
+    <p class="card-body">21 element types — containers, visuals, input widgets, inventory primitives, and SuiReference.</p>
+  </a>
 
-### Composition
-- [SuiReference]({% link elements/sui-reference.md %}) — embed another `.sui`
+  <a class="section-card" href="{% link workflows/test-in-play.md %}">
+    <span class="card-label">How-to</span>
+    <h3 class="card-title">Workflows</h3>
+    <p class="card-body">Test in Play, compile output, user SCSS, bind a Variable, manual commit, embed sub-UIs.</p>
+  </a>
 
-### Inventory primitives
-- [InventoryGrid]({% link elements/inventory-grid.md %})
-- [InventorySlot]({% link elements/inventory-slot.md %})
-- [ItemIcon]({% link elements/item-icon.md %})
-- [Hotbar]({% link elements/hotbar.md %})
+  <a class="section-card" href="{% link architecture/overview.md %}">
+    <span class="card-label">For contributors</span>
+    <h3 class="card-title">Architecture</h3>
+    <p class="card-body">Document model, canvas renderer, layout solver, generator, compile writer, preview system.</p>
+  </a>
 
-## Workflows
+  <a class="section-card" href="{% link reference/sui-json-schema.md %}">
+    <span class="card-label">Lookup tables</span>
+    <h3 class="card-title">Reference</h3>
+    <p class="card-body">JSON schema, allowed CSS, converters catalog, wrapper API, update-trigger and binding-mode matrices.</p>
+  </a>
 
-How to actually get things done in the editor.
+  <a class="section-card" href="{% link tutorials/survival-hud.md %}">
+    <span class="card-label">Worked examples</span>
+    <h3 class="card-title">Tutorials</h3>
+    <p class="card-body">Survival HUD, inventory screen, death modal, settings screen, health HUD with converters.</p>
+  </a>
 
-- [Test in Play workflow]({% link workflows/test-in-play.md %})
-- [Compile + output management]({% link workflows/compile-and-output.md %})
-- [User SCSS customization]({% link workflows/user-scss-customization.md %})
-- [Undo/Redo + commands]({% link workflows/undo-redo-commands.md %})
-- **[Binding a Variable]({% link workflows/binding-a-variable.md %})** — the bind popup, step by step
-- **[Working with converters]({% link workflows/working-with-converters.md %})** — Compose, Format, custom
-- **[Manual commit with `Apply`]({% link workflows/manual-commit-with-apply.md %})** — UpdateTrigger.Manual flow
-- **[Embedding sub-UIs]({% link workflows/embedding-sub-uis.md %})** — `SuiReference` + ForEach
-- [Events & Element refs]({% link workflows/events-and-refs.md %}) — wire `OnClick`, expose `@ref`
-- **[Upgrading from V1.0]({% link workflows/upgrading-from-v1-0.md %})**
+  <a class="section-card" href="{% link support/troubleshooting.md %}">
+    <span class="card-label">Help</span>
+    <h3 class="card-title">Support</h3>
+    <p class="card-body">Troubleshooting, FAQ, and the changelog — answers when something does not behave as expected.</p>
+  </a>
 
-## Architecture (for contributors)
+</div>
 
-If you want to extend the editor:
-
-- [Overview]({% link architecture/overview.md %})
-- [Document model]({% link architecture/document-model.md %})
-- [Canvas renderer]({% link architecture/canvas-renderer.md %})
-- [Layout solver]({% link architecture/layout-solver.md %})
-- [Generator (Razor + SCSS + wrapper)]({% link architecture/generator.md %})
-- [Compile writer]({% link architecture/compile-writer.md %})
-- [Preview system]({% link architecture/preview-system.md %})
-
-## Reference
-
-- [.sui JSON schema]({% link reference/sui-json-schema.md %}) — current schema (V3)
-- [Allowed CSS properties]({% link reference/allowed-css.md %})
-- [Element type matrix]({% link reference/element-types.md %})
-- [Keyboard shortcuts]({% link reference/keyboard-shortcuts.md %})
-- [Known issues]({% link reference/known-issues.md %})
-- **[Converters catalog]({% link reference/converters-catalog.md %})** — all 66 builtins
-- **[Wrapper API]({% link reference/wrapper-api.md %})** — `SuiPanel<TView>` surface
-- **[Update-trigger matrix]({% link reference/update-triggers.md %})** — which triggers each widget allows
-- **[Binding-mode matrix]({% link reference/binding-mode-matrix.md %})** — OneTime / OneWay / TwoWay per property
-
-## Tutorials
-
-Worked, end-to-end examples.
-
-- [Build a survival HUD]({% link tutorials/survival-hud.md %})
-- [Build an inventory screen]({% link tutorials/inventory-screen.md %})
-- [Build a death modal]({% link tutorials/death-modal.md %})
-- **[Settings screen with input widgets]({% link tutorials/settings-screen.md %})** — TextEntry + Slider + Toggle + DropDown + Apply API
-- **[Health HUD with converters]({% link tutorials/health-hud-with-converters.md %})** — bind `Health` → ProgressBar + `"75/100 HP"` label
-
-## Support
-
-- [Troubleshooting]({% link support/troubleshooting.md %})
-- [FAQ]({% link support/faq.md %})
-- [Changelog]({% link support/changelog.md %})
-
----
-
-## At a glance
-
-| What | Details |
-|---|---|
-| **Asset extension** | `.sui` (JSON, schema V3) |
-| **Generates per `.sui`** | `<Name>Panel.razor` + `<Name>.razor.scss` + `<Name>.cs` wrapper (+ `<Name>.User.scss` sidecar) |
-| **Wrapper base class** | `SuiPanel<TView>` (`Code/Runtime/SuiPanel.cs`) |
-| **Element types** | 21 (15 V1.0 + SuiReference + 4 input widgets + Tooltip reserved) |
-| **Builtin converters** | 66 across Math / Range / Conversion / Logic / String / Color / Collection |
-| **Editor** | 100% custom paint chrome — no `DockManager`, no `Editor.TabWidget` |
-| **Preview** | Embedded `SceneRenderingWidget` + on-demand **Test in Play** with TPS player |
-| **License** | MIT |
-
-## Versioning
-
-This documentation tracks the **V1.5** release of SUI Designer. The internal
-deviations log (kept in the source repo, not published to the docs site) is the
-authoritative changelog between the original locked PRDs and what actually
-shipped.
-
-For older history, see the [Changelog]({% link support/changelog.md %}).
+<p class="docs-footer">Built with Jekyll + just-the-docs theme. Source on <a href="https://github.com/KiKoZl1/sbox-ui-designer">GitHub</a>.</p>

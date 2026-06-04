@@ -27,6 +27,41 @@ The canvas preview is fast and round-trippable but it's a separate render path (
 
 ## Sequence
 
+### Full sequence
+
+```mermaid
+sequenceDiagram
+    actor User
+    participant Launcher as SuiPreviewLauncher
+    participant Cache as SuiPreviewCacheWriter
+    participant Engine as s&box Engine
+    participant State as SuiPreviewState
+    participant Scene as EditorScene
+    participant Mount as SuiPreviewMount
+    participant Host as SuiHostPanelComponent
+    participant Panel as Generated Panel
+
+    User->>Launcher: Click "Test in Play"
+    Launcher->>Cache: Write(document)
+    Cache->>Engine: Emit .razor + .razor.scss
+    Engine-->>Launcher: Hot-reload registers type
+    Launcher->>Engine: Poll TypeLibrary.GetType(fqn)
+    Launcher->>State: Set(PendingTypeFullName)
+    Launcher->>Scene: Open preview_stage.scene
+    Launcher->>Scene: EditorScene.Play()
+    Scene->>Mount: OnStart()
+    Mount->>State: Read PendingTypeFullName
+    Mount->>Scene: Scene.CreateObject(true) → ScreenPanelHost
+    Mount->>Host: Components.Create<SuiHostPanelComponent>()
+    Mount->>Panel: typeDesc.Create<object>() as Panel
+    Mount->>Host: hostComponent.Panel.AddChild(renderedPanel)
+    Host-->>User: User sees preview
+    Mount->>State: Clear()
+```
+
+<details>
+<summary>ASCII version</summary>
+
 ```
 User clicks "Test in Play"
         │
@@ -60,6 +95,8 @@ SuiPreviewLauncher.Launch( document )
                 ├── hostComponent.Panel.AddChild( renderedPanel )
                 └── Clears SuiPreviewState
 ```
+
+</details>
 
 5 steps. The launcher does steps 1–5; the in-scene `SuiPreviewMount` does the actual mount in step 5.
 

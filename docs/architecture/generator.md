@@ -44,6 +44,27 @@ Source: [Code/Generation/SuiGenerationPipeline.cs](https://github.com/KiKoZl1/sb
 
 ## Pipeline stages
 
+```mermaid
+flowchart TD
+    Doc[SuiDocument] --> Migration[SuiDocumentMigration]
+    Migration --> Pipeline[SuiGenerationPipeline]
+    Pipeline --> Razor[SuiRazorGenerator]
+    Pipeline --> Wrapper[SuiWrapperEmitter]
+    Pipeline --> Scss[SuiScssEmitter]
+    Pipeline --> Hash[SuiBuildHashEmitter]
+    Razor --> Writer[SuiCompileWriter]
+    Wrapper --> Writer
+    Scss --> Writer
+    Hash --> Writer
+    Writer --> RazorOut["&lt;Name&gt;Panel.razor"]
+    Writer --> ScssOut["&lt;Name&gt;Panel.razor.scss"]
+    Writer --> WrapperOut["&lt;Name&gt;.cs"]
+    Writer --> UserOut["&lt;Name&gt;Panel.User.scss"]
+```
+
+<details>
+<summary>ASCII version</summary>
+
 ```
 SuiDocument
     │
@@ -62,6 +83,8 @@ SuiDocument
     ▼
 5. Pack into SuiGenerationResult (files + hashes + diagnostics)
 ```
+
+</details>
 
 If validation fails the pipeline returns early with errors — no Razor or SCSS is produced.
 

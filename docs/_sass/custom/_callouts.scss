@@ -1,0 +1,156 @@
+// SUI Designer — callout / admonition overrides
+// ------------------------------------------------------------------
+// just-the-docs generates callout styles from the `callouts:` block
+// in _config.yml by emitting CSS like:
+//
+//     p.tip, blockquote.tip { ... }
+//     p.tip-title, blockquote.tip-title { > p:first-child { ... } }
+//
+// The class names are the BARE callout keys (`.tip`, `.warning`,
+// `.important`, `.info`, `.new`, `.note`) — NOT `.callout-tip`. The
+// title variant adds `-title` (e.g. `.warning-title`) and the auto
+// title text is injected via `::before` on the block itself.
+//
+// This file overrides the gem output with the SUI dark palette so the
+// callouts read as part of the green/amber/red/blue brand instead of
+// the stock just-the-docs blues. We re-emit the full ruleset for each
+// kind via a SCSS @mixin to keep it DRY.
+// ------------------------------------------------------------------
+
+// ---------- Brand palette (mirrors custom.scss) ----------
+$callout-tip-color:        #4ade80; // green   — tip / note
+$callout-warning-color:    #fbbf24; // amber   — warning
+$callout-important-color:  #f87171; // red     — important
+$callout-info-color:       #60a5fa; // blue    — info
+$callout-new-color:        #a78bfa; // purple  — new
+
+// ---------- Shared mixin ----------
+// $name  — the kramdown class (e.g. "tip")
+// $color — accent color
+// $glyph — Unicode char for the ::before icon
+@mixin sui-callout($name, $color, $glyph) {
+  p.#{$name},
+  blockquote.#{$name},
+  p.#{$name}-title,
+  blockquote.#{$name}-title {
+    // Reset the gem's stock border / shadow so our flat style wins.
+    border: 0;
+    border-left: 3px solid $color;
+    background: rgba($color, 0.06);
+    padding: 1rem 1.25rem;
+    border-radius: 6px;
+    margin: 1rem 0;
+    box-shadow: none;
+    color: inherit;
+
+    // The auto-injected title (from `title:` in _config.yml) and the
+    // manual title-block variant both need the same styling.
+    &::before,
+    > .#{$name}-title,
+    &.#{$name}-title > p:first-child {
+      color: $color;
+      display: block;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      font-size: 0.85rem;
+      padding-bottom: 0.35rem;
+      margin-bottom: 0.25rem;
+    }
+
+    // Glyph prefix on the auto title (gem-generated ::before keeps the
+    // `content: "Tip"` string — we prepend the glyph to it).
+    &::before {
+      content: "#{$glyph}  " attr(data-title-fallback, "");
+    }
+
+    > p:first-of-type {
+      margin-top: 0;
+    }
+    > p:last-of-type {
+      margin-bottom: 0;
+    }
+  }
+
+  // When the user writes `{: .tip-title }` + `> My title`, the gem
+  // renders the title as the first `<p>` child. Inject the glyph
+  // before that text node via a pseudo-element on the title <p>.
+  blockquote.#{$name}-title > p:first-child::before,
+  p.#{$name}-title > p:first-child::before {
+    content: "#{$glyph}  ";
+  }
+}
+
+// ---------- The gem's own ::before content is the title string ----------
+// just-the-docs writes:  &::before { content: "Tip"; ... }
+// We can't replace that content from a sibling partial without
+// !important on the content property — the LATER @import wins in the
+// cascade because both rules have identical specificity. The override
+// below is loaded AFTER the gem's generated block via @import in
+// custom.scss, so the icon-prefixed content takes effect.
+//
+// Format: "<glyph>  <Uppercase title>" — keep two spaces for breathing
+// room between glyph and word.
+
+@mixin sui-callout-icon($name, $color, $glyph, $title) {
+  p.#{$name}::before,
+  blockquote.#{$name}::before {
+    content: "#{$glyph}  #{$title}";
+    color: $color;
+    display: block;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    font-size: 0.85rem;
+    padding-bottom: 0.35rem;
+  }
+}
+
+// ---------- Emit each kind ----------
+// Glyph picks (one per type, all Unicode — no icon font needed):
+//   tip       ✦   sparkle / pointer
+//   note      ◆   filled diamond
+//   warning   ⚠   warning sign
+//   important ⚡  high-voltage / urgency
+//   info      ▶   right-pointing triangle
+//   new       ★   star
+
+@include sui-callout("tip",       $callout-tip-color,       "\2726"); // ✦
+@include sui-callout("note",      $callout-tip-color,       "\25C6"); // ◆
+@include sui-callout("warning",   $callout-warning-color,   "\26A0"); // ⚠
+@include sui-callout("important", $callout-important-color, "\26A1"); // ⚡
+@include sui-callout("info",      $callout-info-color,      "\25B6"); // ▶
+@include sui-callout("new",       $callout-new-color,       "\2605"); // ★
+
+@include sui-callout-icon("tip",       $callout-tip-color,       "\2726", "Tip");
+@include sui-callout-icon("note",      $callout-tip-color,       "\25C6", "Note");
+@include sui-callout-icon("warning",   $callout-warning-color,   "\26A0", "Warning");
+@include sui-callout-icon("important", $callout-important-color, "\26A1", "Important");
+@include sui-callout-icon("info",      $callout-info-color,      "\25B6", "Info");
+@include sui-callout-icon("new",       $callout-new-color,       "\2605", "New");
+
+// ---------- Body text inside callouts ----------
+// The gem inherits body color; we slightly soften the background-link
+// contrast so the colored frame reads as the primary signal.
+p.tip a,        blockquote.tip a,
+p.note a,       blockquote.note a,
+p.warning a,    blockquote.warning a,
+p.important a,  blockquote.important a,
+p.info a,       blockquote.info a,
+p.new a,        blockquote.new a {
+  font-weight: 500;
+}
+
+// Code inside callouts: keep mono font but make the inline background
+// transparent so it sits on the tinted callout body without a double
+// rectangle.
+p.tip code,        blockquote.tip code,
+p.note code,       blockquote.note code,
+p.warning code,    blockquote.warning code,
+p.important code,  blockquote.important code,
+p.info code,       blockquote.info code,
+p.new code,        blockquote.new code {
+  background: rgba(255, 255, 255, 0.06);
+  padding: 0.1em 0.35em;
+  border-radius: 3px;
+}
