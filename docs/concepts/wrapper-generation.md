@@ -118,6 +118,17 @@ V1.5 originally shipped three Output Modes (Manual, Singleton, Instance, plus a 
 
 If you only need the renderer (e.g. you want to host it inside another framework's UI tree), `MyHud.Show()` and `Add()` are no-ops you ignore. The wrapper doesn't get in the way.
 
+## Why no auto-mount?
+
+You may wonder why the wrapper doesn't just mount itself when the Component starts — i.e. why gameplay code has to call `Hud.Show()` explicitly rather than the panel auto-attaching the moment `OnStart` fires.
+
+M0 D-003 spike (`GameObject.MoveTo` negative result) confirmed two engine constraints that made auto-mount impossible:
+
+1. **`GameObject.MoveTo` does not exist in s&box.** A wrapper can't relocate its mount GameObject under a different parent after the fact.
+2. **Components are bound to one GameObject for life.** The PanelComponent the wrapper owns can't be lifted off its mount and re-parented either.
+
+The original PRD-22 design assumed the wrapper could auto-mount on Component attach and then move/re-parent as needed. That design was killed by the spike. As a result, `SuiPanel<TView>` uses an explicit `Show()` / `Hide()` lifecycle — gameplay code must call `wrapper.Show(SuiInputMode.X)` at the right moment, rather than the panel auto-attaching when its host Component starts.
+
 ## Cross-references
 
 - DEVIATIONS D-013 — the Output Mode removal decision and rationale

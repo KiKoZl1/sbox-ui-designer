@@ -334,6 +334,15 @@ A minimal `.sui` file looks like:
 
 See [SUI JSON schema reference]({% link reference/sui-json-schema.md %}) for the full schema.
 
+### Tool-authoring caveat — load `.sui` via `AssetSystem`, never `JsonSerializer` directly
+{: .no_toc }
+
+If you write code that reads a `.sui` file from disk, you **must** route the load through `AssetSystem.FindByPath(path)` + `asset.LoadResource<SuiAsset>()` rather than `System.Text.Json.JsonSerializer.Deserialize<SuiAsset>(json)`.
+
+The engine attaches custom `IJsonConvert` resolvers (`Sandbox.Doo`, `Sandbox.Json`) at `AssetSystem` load time. Bypassing that path causes silent `null` returns on documents that contain `Doo` bodies or other engine-typed fields — historically the root cause of the "`LoadResource` returned null" mode on legacy files.
+
+See `Editor/SuiForceRegenService.cs` for the canonical pattern (load, migrate, save, recompile).
+
 ## Schema versioning
 
 ```csharp

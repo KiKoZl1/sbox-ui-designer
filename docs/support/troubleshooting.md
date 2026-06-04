@@ -77,11 +77,16 @@ The Compile Results panel surfaces every broken binding before generation runs �
 
 The compile log names both contributors ("name collision on 'Health': Variable 'Health' vs FireButton.OnClick (Code handler)"). Rename one — the wrapper field would otherwise clash.
 
-## "I bound a `[Property] public Action` slot to an Action Graph but nothing fires in Play"
+## "My Action Graph picker on a Code-mode event slot loses its delegate when I enter Play."
 
-(V1.5 D-020 — documented known gap.) Code-mode events emit `[Property] public Action OnX` on the **wrapper** (`SuiPanel<TView>`), which is a plain class — not a `Component`. The Action Graph picker persists to scene JSON but the delegate is lost when entering Play (the snapshot pipeline doesn't appear to round-trip an `Action` that lives outside a Component).
+(V1.5 D-020 — documented known gap.) The s&box inspector offers an Action Graph picker next to any `[Property] public Action OnX` slot. For Code-mode events on SUI wrappers, that picker behaves like this:
 
-**Workaround:** use **Code mode** for C# handlers (`Hud.OnFireClick = HandleFire;`) and **Doo mode** for visual scripting that survives Play. The Action Graph picker is cosmetic on SUI wrappers.
+1. **Picker persists to scene JSON correctly** — your binding is written to the `.scene` file and survives reopening the scene.
+2. **The compiled delegate is lost** because Code-mode events emit `[Property] public Action OnX` on the **wrapper** (`SuiPanel<TView>`), which is a plain class — **not a `Component`**. The engine cannot bind picker handlers across compile cycles for `Action` properties that live outside a `Component`, so entering Play wipes the bound delegate even though the JSON entry stays intact.
+3. **V1.5 workaround:** use **Doo mode** instead. Doo embeds the body inside the `.sui` itself (DEVIATIONS D-018), so the visual-scripting body survives Play and compile cycles without going through the picker pipeline.
+4. **Code mode is for plain C# handler methods on the wrapper** (`Hud.OnFireClick = HandleFire;`) — not for picker bindings. The Action Graph picker on a Code-mode slot is cosmetic; don't ship logic through it.
+
+See [Events & Actions → Known gap: Action Graph picker on Code-mode slots]({% link concepts/events-and-actions.md %}#known-gap--action-graph-picker-on-code-mode-slots) for the underlying explanation.
 
 ## "Slider drag works but my code receives stale values"
 

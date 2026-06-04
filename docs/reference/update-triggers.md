@@ -59,9 +59,11 @@ Native Sandbox.UI `Property:bind=` syntax for the widget. Writes back on every c
 `Value=` one-way read + `@ref` + `onblur` / `onsubmit` handler:
 
 ```razor
-<TextEntry Value="@PlayerName" @ref="PlayerNameRef"
-           onblur=@(() => PlayerName = PlayerNameRef.Text) />
+<TextEntry Value="@PlayerName" @ref="PlayerNameFieldRef"
+           onblur=@(() => PlayerName = PlayerNameFieldRef.Text) />
 ```
+
+The `Ref` suffix is appended to the element's Name in the Hierarchy (`PlayerNameField`), not to the bound Variable's name (`PlayerName`). See [Manual commit with Apply]({% link workflows/manual-commit-with-apply.md %}) for the full Apply API naming rule.
 
 ### `OnRelease` (Slider only)
 

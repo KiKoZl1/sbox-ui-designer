@@ -37,8 +37,8 @@ User-declared converters via `[SuiConverter]` use `user.<Name>` by default (the 
 | `Power` | `Power(float baseV, float exp) → float` | `baseV ^ exp` |
 | `Absolute` | `Absolute(float v) → float` | `|v|` |
 | `Negate` | `Negate(float v) → float` | `-v` |
-| `Min` | `Min(float a, float b) → float` | smaller of a, b |
-| `Max` | `Max(float a, float b) → float` | larger of a, b |
+| `Min` *(V1.5 D-026)* | `Min(float a, float b) → float` | smaller of a, b |
+| `Max` *(V1.5 D-026)* | `Max(float a, float b) → float` | larger of a, b |
 
 ## Range / Interpolation (9)
 
@@ -73,8 +73,8 @@ User-declared converters via `[SuiConverter]` use `user.<Name>` by default (the 
 | `NotEqual<T>` | `NotEqual(T a, T b) → bool` | `a != b` |
 | `GreaterThan` | `GreaterThan(float a, float b) → bool` | `a > b` |
 | `LessThan` | `LessThan(float a, float b) → bool` | `a < b` |
-| `GreaterOrEqual` | `GreaterOrEqual(float a, float b) → bool` | `a >= b` |
-| `LessOrEqual` | `LessOrEqual(float a, float b) → bool` | `a <= b` |
+| `GreaterOrEqual` *(V1.5 D-026)* | `GreaterOrEqual(float a, float b) → bool` | `a >= b` |
+| `LessOrEqual` *(V1.5 D-026)* | `LessOrEqual(float a, float b) → bool` | `a <= b` |
 | `If<T>` | `If(bool cond, T ifTrue, T ifFalse) → T` | Ternary |
 | `And` | `And(bool a, bool b) → bool` | `a && b` |
 | `Or` | `Or(bool a, bool b) → bool` | `a || b` |
@@ -93,12 +93,12 @@ User-declared converters via `[SuiConverter]` use `user.<Name>` by default (the 
 | `Length` | `Length(string v) → int` | Char count |
 | `Substring` | `Substring(string v, int start, int length) → string` | Slice — safe for OOB args |
 | `Replace` | `Replace(string v, string oldStr, string newStr) → string` | Replace every occurrence |
-| `Contains` | `Contains(string haystack, string needle) → bool` | substring check |
-| `StartsWith` | `StartsWith(string s, string prefix) → bool` | prefix check |
-| `EndsWith` | `EndsWith(string s, string suffix) → bool` | suffix check |
-| `Trim` | `Trim(string s) → string` | Strip leading + trailing whitespace |
-| `IndexOf` | `IndexOf(string s, string needle) → int` | -1 if not found |
-| `Split` | `Split(string s, string delimiter) → string[]` | Split on every delimiter occurrence |
+| `Contains` *(V1.5 D-026)* | `Contains(string haystack, string needle) → bool` | substring check |
+| `StartsWith` *(V1.5 D-026)* | `StartsWith(string s, string prefix) → bool` | prefix check |
+| `EndsWith` *(V1.5 D-026)* | `EndsWith(string s, string suffix) → bool` | suffix check |
+| `Trim` *(V1.5 D-026)* | `Trim(string s) → string` | Strip leading + trailing whitespace |
+| `IndexOf` *(V1.5 D-026)* | `IndexOf(string s, string needle) → int` | -1 if not found |
+| `Split` *(V1.5 D-026)* | `Split(string s, string delimiter) → string[]` | Split on every delimiter occurrence |
 
 ## Color (10)
 
@@ -110,9 +110,9 @@ User-declared converters via `[SuiConverter]` use `user.<Name>` by default (the 
 | `WithAlpha` | `WithAlpha(Color c, float a) → Color` | Replace alpha |
 | `Darken` | `Darken(Color c, float amount) → Color` | Darken c by amount (0..1) |
 | `Lighten` | `Lighten(Color c, float amount) → Color` | Lighten c toward white by amount (0..1) |
-| `ColorMultiply` | `ColorMultiply(Color c, float scalar) → Color` | Multiply RGB by scalar (alpha preserved) |
-| `GetAlpha` | `GetAlpha(Color c) → float` | Return alpha channel |
-| `Invert` | `Invert(Color c) → Color` | Invert RGB (alpha preserved) |
+| `ColorMultiply` *(V1.5 D-026)* | `ColorMultiply(Color c, float scalar) → Color` | Multiply RGB by scalar (alpha preserved) |
+| `GetAlpha` *(V1.5 D-026)* | `GetAlpha(Color c) → float` | Return alpha channel |
+| `Invert` *(V1.5 D-026)* | `Invert(Color c) → Color` | Invert RGB (alpha preserved) |
 | `Grayscale` | `Grayscale(Color c) → Color` | NTSC luminance (0.299R + 0.587G + 0.114B) |
 
 ## Collection (6)
