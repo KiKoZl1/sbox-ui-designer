@@ -49,11 +49,8 @@ Every V1 field still loads — the schema is fully additive (see [Upgrade guide]
   "Variables": [ /* SuiVariable[] — V2+ */ ],
   "PreviewData": null,        /* deferred — see DEVIATIONS D-009 */
 
-  "Elements": [ /* SuiElement[] */ ],
-
-  "Events": [],
-  "Animations": [],
-  "Bindings": []
+  "Elements": [ /* SuiElement[] — each element carries its own Bindings + Events */ ],
+  "Animations": []
 }
 ```
 
@@ -70,9 +67,9 @@ Every V1 field still loads — the schema is fully additive (see [Upgrade guide]
 | `Manifest` | object | yes | Tracked generated files; auto-managed |
 | `Variables` | array | V2+ | Typed UI-local state. See [Variables]({% link concepts/variables.md %}) |
 | `Elements` | array | yes | All elements in the document (flat) |
-| `Events` | array | V2+ | Event slots wired in the Events tab |
 | `Animations` | array | reserved | V2 future |
-| `Bindings` | array | V2+ | Per-element bindings live on `SuiElement.Bindings` — this top-level array is reserved |
+
+**No top-level `Events` or `Bindings` arrays.** V1.5 schema moved both onto `SuiElement` itself (`SuiElement.Bindings: List<SuiBinding>` + `SuiElement.Events: Dictionary<string, SuiEventBinding>`). The document-level event list existed in V1.0 schemas; the V1→V2 migration moved them per-element, and the pre-M3 cleanup removed the empty top-level field. See `Code/Runtime/SuiDocument.cs` lines 55-59 for the historical note.
 
 ## `Canvas` block
 
@@ -167,9 +164,9 @@ TextEntry, Slider, Toggle, DropDown
 
 See [Element types reference]({% link reference/element-types.md %}) for what each does.
 
-### V1.5 — Element-level lists
+### V1.5 — Element-level fields
 
-Every `SuiElement` carries three V1.5 list fields:
+Every `SuiElement` carries the V1.5 extensions:
 
 ```jsonc
 {
@@ -177,25 +174,28 @@ Every `SuiElement` carries three V1.5 list fields:
   "Type": "Button",
   // ... (everything from V1)
 
-  "Bindings": [ /* SuiBinding[] — per-property bindings */ ],
-  "Events":   [ /* SuiEventBinding[] — Code/Doo handlers */ ],
-  "ForEach":  null  /* or { SourceVarId, ChildMappings } when this is a SuiReference */
+  "Bindings": [ /* SuiBinding[]                         — per-property bindings */ ],
+  "Events":   { /* Dictionary<string, SuiEventBinding>  — Code/Doo handlers, keyed by slot name */ },
+  "SuiReference": null   /* SuiReferenceData when Type == SuiReference */
 }
 ```
 
-Empty arrays / nulls are legal — V1 documents load with all three empty.
+`Events` is a dictionary (slot name → binding), NOT an array. Empty / nulls are legal — V1 documents load with all three empty.
 
 ### V1.5 — `SuiReference`-specific fields
 
 ```jsonc
 {
   "Type": "SuiReference",
-  "Name": "StaminaBar",   // becomes the field name on the parent wrapper
-  "Props": {
-    "SourceGuid": "{guid-of-child-sui}"
-    // Plus per-instance overrides for the child's IsPublic Variables
-  },
-  "ForEach": null
+  "Name": "StaminaBar",
+  "SuiReference": {
+    "SourceGuid": "sui_child_doc_guid",
+    "Props": {
+      "var_a3f9b21c": 75,                  // per-instance override of an IsPublic Variable, keyed by VariableId
+      "var_b4c5d6e7": "Health bar"
+    },
+    "ForEach": null
+  }
 }
 ```
 
@@ -203,15 +203,13 @@ When `ForEach` is set:
 
 ```jsonc
 "ForEach": {
-  "SourceVarId": "var_messages",     // a Variable on this document, typed List<T>
-  "ChildMappings": [
-    { "ChildVarName": "MessageText", "From": "@item.Text" },
-    { "ChildVarName": "SenderColor", "From": "@item.Color" }
-  ]
+  "SourceVariableId": "var_messages",   // a Variable on this document, typed List<T>
+  "ItemPropId":       null,              // reserved — not consumed by V1.5 codegen
+  "IndexPropId":      null               // reserved
 }
 ```
 
-See [Composition]({% link concepts/composition.md %}).
+Items in the bound `List<T>` need member names matching the child's `IsPublic` Variable names — the Razor generator forwards every public Variable as `<ChildPanel VarName=@(__item?.VarName ?? default) />`. See [Composition]({% link concepts/composition.md %}).
 
 ## `Flags` block
 
@@ -455,8 +453,7 @@ Lives on `SuiElement.Bindings`. Each entry:
   "Mode": "OneWay",                     // OneTime / OneWay / TwoWay / OneWayToSource
   "UpdateTrigger": "OnChange",          // V1.5 D-028 — OnChange / OnLostFocus / OnSubmit / OnRelease / Manual
   "Source": {
-    "Kind": "Variable",
-    "VarId": "var_a3f9b21c"
+    "VariableId": "var_a3f9b21c"           // GUID of a Variable on this document
   },
   "Converters": [                        // chain (left → right)
     {
@@ -477,19 +474,26 @@ Allowed `Mode` values per `(Type, Property)` come from `SuiBindingModeMatrix` �
 
 ## `Events` block (per-element)
 
-Lives on `SuiElement.Events`. Each entry:
+Lives on `SuiElement.Events`, a **`Dictionary<string, SuiEventBinding>`** keyed by event slot name (from `SuiEventMatrix`):
 
 ```jsonc
-{
-  "Id": "evt_b2c3d4e5",
-  "EventName": "OnClick",        // from the per-type event matrix
-  "Mode": "Code",                // Code / Doo / None
-  "HandlerName": "OnFireClick",  // C# identifier — generates [Property] Action / Doo slot
-  "DooBody": null                // SuiEventBinding.DooBody — JSON of a Sandbox.Doo when Mode = Doo
+"Events": {
+  "OnClick": {
+    "Mode": "Code",                     // Code / Doo
+    "Handler": "OnFireClick",           // C# identifier — when Mode == Code, emits [Property] Action <Handler>
+    "DooPropertyName": null,            // C# identifier — when Mode == Doo, emits [Property] Doo <DooPropertyName>
+    "DooBody": null                     // Sandbox.Doo (IJsonConvert) — embedded default body when Mode == Doo
+  },
+  "OnHover": {
+    "Mode": "Doo",
+    "Handler": null,
+    "DooPropertyName": "OnHoverFx",
+    "DooBody": { "body": [/* serialised Doo BlockTree */] }
+  }
 }
 ```
 
-See [Events & Actions]({% link concepts/events-and-actions.md %}) and PRD 20 § 3.
+The two slots above coexist on a single Button. Codegen picks the live mode per slot. See [Events & Actions]({% link concepts/events-and-actions.md %}) and PRD 20 § 3.
 
 ## V1.5 M3.5 — Interactive state + button-polish fields on `SuiElementProps`
 

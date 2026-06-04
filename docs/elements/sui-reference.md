@@ -100,51 +100,53 @@ Hud.StaminaBar.Hide();                 // embedded — just toggles visibility
 
 ## ForEach — dynamic lists
 
-When the SuiReference has ForEach enabled, it iterates a `List<T>` Variable, instantiating one child per item:
+When the SuiReference has ForEach enabled, it iterates a `List<T>` Variable, instantiating one child per item. Schema (`Code/Runtime/SuiForEachData.cs`):
 
 ```jsonc
 "ForEach": {
-  "SourceVarId": "var_messages",
-  "ChildMappings": [
-    { "ChildVarName": "MessageText", "From": "@item.Text" },
-    { "ChildVarName": "SenderColor", "From": "@item.Color" }
-  ]
+  "SourceVariableId": "var_messages",
+  "ItemPropId":       null,
+  "IndexPropId":      null
 }
 ```
+
+- `SourceVariableId` — GUID of a `List<T>` Variable on the parent document.
+- `ItemPropId` / `IndexPropId` — reserved fields; not consumed by the V1.5 codegen.
+
+**How children receive per-item data:** the Razor generator iterates `__item` and forwards every `IsPublic` Variable on the child by **name match** — `<ChildPanel VarName=@(__item?.VarName ?? default) ... />`. So the items in your `List<T>` need member names matching the child's public Variable names; codegen wires them up automatically. No explicit mapping table.
 
 The wrapper field becomes a `List<TChild>`:
 
 ```csharp
-[Property] public List<global::Game.UI.ChatLine> Messages { get; set; } = new();
+[Property] public List<global::Game.UI.ChatLine> ChatMessages { get; set; } = new();
 ```
 
 Code edits the list, the parent re-renders:
 
 ```csharp
-Hud.Messages.Add( new ChatLine { Text = "Hello", Color = Color.Green } );
-Hud.Messages[0] = new ChatLine { Text = "Updated!" };
+Hud.ChatMessages.Add( new ChatLine { Text = "Hello", Color = Color.Green } );
+Hud.ChatMessages[0] = new ChatLine { Text = "Updated!" };
 ```
 
-The renderer emits a `foreach` over the list, with literal per-iteration assignments:
+The renderer emits a `foreach` over the list, with member-match assignments:
 
 ```razor
-@foreach ( var __item in Messages )
+@foreach ( var __item in ChatMessages )
 {
-    <ChatLinePanel MessageText=@__item.Text SenderColor=@__item.Color />
+    @if ( __item == null || __item.IsShown )
+    {
+        <ChatLinePanel Text=@(__item?.Text ?? "") Color=@(__item?.Color ?? default(Color)) />
+    }
 }
 ```
 
-### N-Variable explicit mapping
+(Child wrapper `ChatLine` exposes `Text` + `Color` as `IsPublic` Variables — codegen forwards them by name.)
 
-V1.5 ships **N-Variable explicit** mapping (Pattern B in PRD 19 § 5.6). Each `ChildVarName ← @item.Field` pair is authored in the ForEach config UI. Path-binding inside the child (`@item.SubProp`) for nested property access is deferred to V1.6 (DEVIATIONS D-007).
+### Member-name matching, not explicit mappings
 
-Works with primitive lists too (`List<string>`, `List<int>`):
+V1.5 ships **member-name matching** — items in your bound `List<T>` need to expose fields/properties whose names match the child's `IsPublic` Variable names exactly. The Razor generator does `__item?.<VarName>` access; mismatched names produce `null` (defaults). PRD 19 § 5.6 originally sketched an explicit mapping table (Pattern B); the shipped V1.5 emit is the name-match model.
 
-```
-ForEach config UI:
-  source: ItemNames (List<string>)
-  mapping: child.Caption ← @item
-```
+Works with primitive lists too (`List<string>`, `List<int>`) if the child has a single primary `IsPublic` Variable typed to match the list element. Path-binding inside the child (`@item.SubProp`) for nested property access is deferred to V1.6 (DEVIATIONS D-007).
 
 ### Individual children are NOT addressable
 

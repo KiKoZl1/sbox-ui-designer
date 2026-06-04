@@ -74,12 +74,11 @@ The native Sandbox.UI `Value:bind=` syntax does the two-way wiring. The wrapper'
 
 ```jsonc
 {
-  "Kind": "Variable",
-  "VarId": "var_a3f9b21c"
+  "VariableId": "var_a3f9b21c"
 }
 ```
 
-`Kind = Variable` is the V1.5 default. Other source kinds (FromComponent, FromDoo) are documented as designs in PRD 18 but ship per use case in M2+ — Variables backed by a `[FromComponent("HealthComponent.Hp")]` source live alongside Manual ones in the Variables tab.
+V1.5 ships a single source shape — a Variable referenced by its stable `VariableId` GUID. Cross-document refs / scene globals are reached by first exposing them as a Variable (see [Variables — Source kinds]({% link concepts/variables.md %}#source-kinds-manual--fromcomponent--fromactiongraph)).
 
 ## The converter chain
 
@@ -150,7 +149,7 @@ In the `.sui` JSON, the binding lives at `element.Bindings[i]`:
   "Property": "Value",
   "Mode": "OneWay",
   "UpdateTrigger": "OnChange",
-  "Source": { "Kind": "Variable", "VarId": "var_a3f9b21c" },
+  "Source": { "VariableId": "var_a3f9b21c" },
   "Converters": [
     {
       "Ref": "builtin.Clamp",

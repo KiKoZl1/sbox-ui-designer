@@ -103,7 +103,9 @@ Hud.ChatMessages.Add( new ChatLine { Text = "Hello", Color = Color.Green } );
 Hud.ChatMessages[0] = new ChatLine { Text = "Updated!" };
 ```
 
-Individual mounted-child instances are NOT addressable — `Hud.MessagesContainer[3].Text = "X"` doesn't work as a render-time mutation. The list is the source of truth; children are derived views. Same semantics as React `.map()` / Vue `v-for`.
+Individual mounted-child instances are NOT addressable — `Hud.ChatMessages[3].View.Text = "X"` doesn't work as a render-time mutation. The list is the source of truth; children are derived views. Same semantics as React `.map()` / Vue `v-for`.
+
+Items in the list need member names matching the child's `IsPublic` Variable names — codegen wires `<ChildPanel VarName=@(__item?.VarName ?? default) />` per iteration. No explicit mapping table; the schema's `ItemPropId` / `IndexPropId` fields are reserved + unused in V1.5 (DEVIATIONS D-007 area).
 
 ## Why this shape (vs the old 3 modes)
 

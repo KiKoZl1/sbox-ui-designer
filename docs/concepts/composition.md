@@ -112,40 +112,34 @@ A SuiReference with ForEach enabled iterates a `List<T>` Variable, instantiating
 
 ```jsonc
 "ForEach": {
-  "SourceVarId": "var_messages",     // List<ChatMessage> on this doc
-  "ChildMappings": [
-    { "ChildVarName": "MessageText", "From": "@item.Text" },
-    { "ChildVarName": "SenderColor", "From": "@item.Color" }
-  ]
+  "SourceVariableId": "var_messages",   // List<ChatMessage> on this doc
+  "ItemPropId":       null,             // reserved — not consumed by V1.5 codegen
+  "IndexPropId":      null              // reserved
 }
 ```
 
 The wrapper field becomes a `List<ChatLine>`:
 
 ```csharp
-[Property] public List<global::Game.UI.ChatLine> Messages { get; set; } = new();
+[Property] public List<global::Game.UI.ChatLine> ChatMessages { get; set; } = new();
 ```
 
 Code edits the list, the parent re-renders:
 
 ```csharp
-Hud.Messages.Add( new ChatLine { Text = "Hello", Color = Color.Green } );
-Hud.Messages[0] = new ChatLine { Text = "Updated!" };
+Hud.ChatMessages.Add( new ChatLine { Text = "Hello", Color = Color.Green } );
+Hud.ChatMessages[0] = new ChatLine { Text = "Updated!" };
 ```
 
-### N-Variable explicit mapping (V1.5)
+### Member-name matching (V1.5)
 
-ForEach uses **explicit mapping** per child Variable — each `ChildVarName ← @item.Field` pair is authored in the Designer. Codegen emits literal `<ChildPanel MessageText=@item.Text SenderColor=@item.Color />` per iteration.
+ForEach in V1.5 uses **member-name matching**, not explicit mappings — items in the bound `List<T>` need member names that match the child's `IsPublic` Variable names exactly. The Razor generator iterates `__item` and emits `<ChildPanel VarName=@(__item?.VarName ?? default) ... />` for every `IsPublic` Variable on the child. No mapping table to maintain.
 
-Path-binding inside the child (`@item.SubProp`) for nested property access is deferred to V1.6 as sugar that sits on the same emit model (DEVIATIONS D-007).
+PRD 19 § 5.6 originally sketched an explicit mapping table (Pattern B); the shipped V1.5 emit collapsed it to direct member access.
 
-ForEach also works with **primitive lists** (`List<string>`, `List<int>`) directly:
+Path-binding inside the child (`@item.SubProp`) for nested property access is deferred to V1.6 (DEVIATIONS D-007).
 
-```csharp
-[Property] public List<string> ItemNames { get; set; }
-
-// ForEach mapping: child.Caption ← @item
-```
+ForEach also works with **primitive lists** (`List<string>`, `List<int>`) when the child has a single primary `IsPublic` Variable typed to match the element type.
 
 ### Individual mounted-child instances are NOT addressable
 
