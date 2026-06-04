@@ -157,8 +157,34 @@ public static class SuiForceRegenService
 		var resource = asset.LoadResource<SuiAsset>();
 		if ( resource?.Document == null )
 		{
-			report.Failures.Add( $"{rel}: LoadResource returned null/empty (corrupt JSON?). Skipped." );
-			return;
+			// Known crash mode: event slot with Mode="Doo" + DooBody=null.
+			// Engine Sandbox.Doo IJsonConvert.Read throws on JsonTokenType.Null;
+			// engine swallows + LoadResource silently returns null. Heal the raw
+			// JSON (downgrade those slots to Code-mode with Handler = the orphan
+			// DooPropertyName), retry the load once. The engine asset cache may
+			// still hand back the stale resource on this same session, in which
+			// case the file is fixed on disk and the NEXT Force Regen run picks
+			// up the healthy version — the report flags the heal so the user
+			// knows to re-run.
+			if ( TryHealNullDooBodies( fullPath, rel ) )
+			{
+				// Try a fresh AssetSystem lookup in case the cache is keyed by
+				// path and a re-find clears the bad in-memory copy.
+				var freshAsset = AssetSystem.FindByPath( assetPath );
+				if ( freshAsset != null )
+					resource = freshAsset.LoadResource<SuiAsset>();
+
+				if ( resource?.Document == null )
+				{
+					report.Failures.Add( $"{rel}: healed on disk (Mode=Doo + DooBody=null slots) — re-run Force Regen to recompile." );
+					return;
+				}
+			}
+			else
+			{
+				report.Failures.Add( $"{rel}: LoadResource returned null/empty (corrupt JSON?). Skipped." );
+				return;
+			}
 		}
 
 		var doc = resource.Document;
@@ -296,6 +322,13 @@ public static class SuiForceRegenService
 				if ( rel.StartsWith( ".sui-cache/", StringComparison.OrdinalIgnoreCase ) ) continue;
 				if ( rel.StartsWith( ".sui-backups/", StringComparison.OrdinalIgnoreCase ) ) continue;
 				if ( rel.StartsWith( ".git/", StringComparison.OrdinalIgnoreCase ) ) continue;
+				// Addon-owned samples (Libraries/<vendor.addon>/samples/...) are
+				// not registered against the host project's AssetSystem — the
+				// asset registry only indexes Assets/ + Code/ of the host. Force
+				// Regen would otherwise fail "AssetSystem could not find this
+				// path" for every addon sample we ship. They re-compile via the
+				// addon's own pipeline, not ours.
+				if ( rel.StartsWith( "Libraries/", StringComparison.OrdinalIgnoreCase ) ) continue;
 				if ( rel.Contains( "/bin/", StringComparison.OrdinalIgnoreCase ) ) continue;
 				if ( rel.Contains( "/obj/", StringComparison.OrdinalIgnoreCase ) ) continue;
 				result.Add( f );
@@ -321,6 +354,66 @@ public static class SuiForceRegenService
 		catch ( Exception ex )
 		{
 			report.Failures.Add( $"preview cache delete failed: {ex.Message}" );
+			return false;
+		}
+	}
+
+	/// <summary>
+	/// Raw-JSON heal for the engine-side <c>Sandbox.Doo</c> deserialization bug:
+	/// when an event slot has <c>"Mode": "Doo"</c> with <c>"DooBody": null</c>,
+	/// <c>IJsonConvert.Read</c> throws on the null token and the host
+	/// <c>LoadResource&lt;SuiAsset&gt;</c> silently returns null (no document, no
+	/// log line — engine eats it). Detect those slots, downgrade them to
+	/// <c>"Mode": "Code"</c> with <c>Handler</c> populated from the orphan
+	/// <c>DooPropertyName</c>, save, and let the caller retry the load.
+	///
+	/// Returns true when at least one slot was rewritten. False means the file
+	/// either had no offending slots (real load failure elsewhere) or could not
+	/// be parsed as JSON at all.
+	/// </summary>
+	private static bool TryHealNullDooBodies( string fullPath, string rel )
+	{
+		try
+		{
+			var text = File.ReadAllText( fullPath );
+			var root = JsonNode.Parse( text )?.AsObject();
+			var elements = root?["Document"]?["Elements"]?.AsArray();
+			if ( elements == null ) return false;
+
+			int healed = 0;
+			foreach ( var el in elements )
+			{
+				var events = el?["Events"]?.AsObject();
+				if ( events == null ) continue;
+				foreach ( var (eventName, slotNode) in events )
+				{
+					var slot = slotNode?.AsObject();
+					if ( slot == null ) continue;
+					var mode = slot["Mode"]?.GetValue<string>();
+					if ( !string.Equals( mode, "Doo", StringComparison.Ordinal ) ) continue;
+					// Heal only when DooBody is actually null. JsonNode represents
+					// a JSON null literal as C# null, so the simple ref check is
+					// correct (and an empty {} body is non-null → we skip it,
+					// the user authored it intentionally even if empty).
+					if ( slot["DooBody"] is not null ) continue;
+					var orphanName = slot["DooPropertyName"]?.GetValue<string>();
+					slot["Mode"] = "Code";
+					slot["Handler"] = string.IsNullOrEmpty( orphanName ) ? $"On{eventName}" : orphanName;
+					slot["DooPropertyName"] = null;
+					slot["DooBody"] = null;
+					healed++;
+				}
+			}
+
+			if ( healed == 0 ) return false;
+
+			File.WriteAllText( fullPath, root!.ToJsonString( new System.Text.Json.JsonSerializerOptions { WriteIndented = true } ) );
+			Log.Info( $"[Sui] Force Regen: healed '{rel}' — {healed} event slot(s) with Mode=Doo + DooBody=null downgraded to Code mode." );
+			return true;
+		}
+		catch ( Exception ex )
+		{
+			Log.Warning( $"[Sui] Force Regen: heal pass on '{rel}' failed — {ex.Message}" );
 			return false;
 		}
 	}
