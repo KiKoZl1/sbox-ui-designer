@@ -9,6 +9,8 @@ nav_order: 14
 
 A standalone item icon. Same rendering as [InventorySlot]({% link elements/inventory-slot.md %}) but without the slot frame — use it when you want an icon without an explicit slot context (e.g. floating reward icons, tooltip previews, drag-ghosts).
 
+ItemIcon is an interactive type — V1.5 M3.5 adds the same hover / pressed / disabled / focused state overrides, transitions, sounds, cursor enum, and `ButtonShape` / `BackgroundSize` controls as Button. See [Interactive states]({% link concepts/interactive-states.md %}).
+
 ## Properties
 
 Same Inventory section as InventorySlot:

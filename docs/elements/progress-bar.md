@@ -7,24 +7,28 @@ nav_order: 11
 
 # ProgressBar
 
-A fill bar for stats (health, stamina, mana, hunger, …).
+A fill bar for stats (health, stamina, mana, hunger, …). Every visual property is bindable so you can drive the bar entirely from a Variable.
 
 ## Properties (Progress section)
 
 | Field | Default | Notes |
 |---|---|---|
-| **Value** (alias for Progress Preview Value) | 0.5 | Preview value in the editor (0..1 or 0..MaxValue) |
-| **Max Value** (Progress Max) | 100 | Upper bound |
-| **Min Value** (Progress Min) | 0 | Lower bound |
-| **Direction** | LeftToRight | LeftToRight / RightToLeft / TopToBottom / BottomToTop |
-| **Fill Color** | `#4ade80` | Color of the filled portion |
+| **Value** (alias for Progress Preview Value) | 50 | Preview value in the editor (Min..Max) — bindable |
+| **Min** | 0 | Lower bound — bindable |
+| **Max** | 100 | Upper bound — bindable |
+| **Direction** | `LeftToRight` | `LeftToRight / RightToLeft / TopToBottom / BottomToTop` — bindable |
+| **Fill Color** | `#4ade80` | Color of the filled portion — bindable |
+
+All five fields are bindable in V1.5 — see [Binding-mode matrix]({% link reference/binding-mode-matrix.md %}).
 
 ## Generated output
 
-V1 emits the bar container only — the fill is rendered by the canvas/runtime based on the value.
+V1.5 emits the bar container + an inner `.fill` whose `width` (or `height` for vertical directions) is computed from `Value` / `Min` / `Max`:
 
-```html
-<div class="health-bar sui-health-bar"></div>
+```razor
+<div class="health-bar sui-health-bar">
+    <div class="fill" style="@FillStyle"></div>
+</div>
 ```
 
 ```scss
@@ -35,37 +39,54 @@ V1 emits the bar container only — the fill is rendered by the canvas/runtime b
   border-color: #7f1d1d;
   border-width: 1px;
   border-radius: 4px;
+  overflow: hidden;
+
+  .fill {
+    background-color: #ef4444;
+    height: 100%;
+  }
 }
 ```
 
-## Wiring to runtime data
+The renderer computes `FillStyle` from the current `Value` / `Min` / `Max` per render — change any of them and the bar updates next `BuildHash()` tick.
 
-The `ProgressPreviewValue` is editor-only. At runtime, you bind the bar's fill from your `PanelComponent` code:
+## Wiring from a Variable
+
+Declare a Variable on your `.sui` (e.g. `Health: int`, default 100), then bind `ProgressBar.Value` to it:
+
+1. Select the ProgressBar in the canvas.
+2. Click the chain icon next to **Value** in the Details panel.
+3. Pick `Health` from the Source dropdown. Mode: `OneWay` (default).
+4. (Optional) Add a `Clamp(0, 100)` converter to defensive-clamp out-of-range values.
+5. Save. Compile.
+
+From gameplay code:
 
 ```csharp
-public partial class MyHud
+[Property] public MyHud Hud { get; set; } = new();
+
+protected override void OnUpdate()
 {
-    public float Health { get; set; } = 1f;  // 0..1
+    if ( IsProxy ) return;
+    Hud.Health = Player.Hp;   // wrapper auto-syncs to the View; bar redraws
 }
 ```
 
-And in the Razor (you'll need to edit OUTSIDE the SUI generated block for V1, V1.5 will inline):
-
-```razor
-<div class="health-bar sui-health-bar"
-     style="--progress: @(Health.ToString())">
-  <div class="fill" style="width: @($"{Health * 100}%")"></div>
-</div>
-```
-
-Native ProgressBar binding will be first-class in V1.5.
+See [Bindings]({% link concepts/bindings.md %}) for the full mental model.
 
 ## Tips
 
+- For a "75 / 100 HP" label, layer a `Text` element on top of the ProgressBar and bind its `Text` property using the [Compose converter]({% link concepts/converters.md %}) — `Compose("HP: ", Health, " / ", MaxHealth)`. See the [Health HUD tutorial]({% link tutorials/health-hud-with-converters.md %}).
 - For a glowing effect, add a box-shadow in `.User.scss`:
 
 ```scss
 .health-bar { box-shadow: 0 0 8px rgba(239, 68, 68, 0.6); }
 ```
 
-- For animated transitions, use `transition: width 0.3s ease;` on the inner fill div.
+- For animated transitions, the `.fill` div is hand-emitable — add `transition: width 0.3s ease` in `.User.scss` and the bar smoothly interpolates between Variable updates.
+
+## See also
+
+- [Bindings]({% link concepts/bindings.md %})
+- [Converters]({% link concepts/converters.md %})
+- [Health HUD with converters]({% link tutorials/health-hud-with-converters.md %})

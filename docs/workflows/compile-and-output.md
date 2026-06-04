@@ -37,14 +37,21 @@ Change it later via **File → Change Output Folder…**.
 
 ## What gets written
 
-For a document with `Output.ClassName = "MyHud"`:
+For a document with `Output.ClassName = "MyHud"` (V1.5 emits three generated files + the user-owned sidecar):
 
 ```
 <outputFolder>/
-├── MyHud.razor                # Generated. Has SUI:GENERATED header
-├── MyHud.razor.scss           # Generated. Has SUI:GENERATED header
+├── MyHudPanel.razor           # Generated. The Panel renderer. SUI:GENERATED header
+├── MyHud.razor.scss           # Generated. Stylesheet. SUI:GENERATED header
+├── MyHud.cs                   # Generated. The wrapper class extending SuiPanel<MyHudPanel>
 └── MyHud.User.scss            # User-owned. Created once, never overwritten
                                # Imported by the .razor.scss via @import at the bottom
+```
+
+If you author event handlers in Code mode, the partial-class stub lands in:
+
+```
+└── MyHud.partial.cs           # User-owned (after first creation). Hold your handlers
 ```
 
 Plus, in `<outputFolder>/.sui-manifest/`:
@@ -52,6 +59,9 @@ Plus, in `<outputFolder>/.sui-manifest/`:
 ```
 <DocumentId>.json              # Tracks file paths + hashes for this document
 ```
+
+{: .note }
+Why three generated files? `MyHudPanel.razor` is the Razor markup the engine paints. `MyHud.cs` is the **wrapper** — what gameplay code touches. `MyHud.razor.scss` is the stylesheet. See [Wrapper generation]({% link concepts/wrapper-generation.md %}).
 
 ## Ownership rules
 
@@ -141,6 +151,18 @@ The manifest at `.sui-manifest/<DocumentId>.json` tracks every file the document
 ```
 
 The writer uses the manifest to detect Obsolete entries — files that were in the previous compile but not in this one (e.g. user renamed the class).
+
+## Cascade compile (V1.5)
+
+When a parent `.sui` embeds a child via `SuiReference`, compiling the **child** automatically retriggers compile on every parent that depends on it (driven by `SuiAssetRegistry` dependencies). You never have to manually recompile a deep chain.
+
+## Force Regen (V1.5)
+
+**Tools → Force Regenerate All (migrate + recompile)** walks every `.sui` under the project root, migrates older-schema docs through the V1.5 migration pipeline, resaves them, recompiles every output, clears the preview cache, and reports counts (migrated / resaved / compiled / failed / files written / **orphans deleted**).
+
+The orphan-deletion pass removes generated files that were marked owned by the document in a previous manifest but are no longer produced by the current generator shape (e.g. the old `<Name>.razor` from V1.0 once V1.5 renamed it to `<Name>Panel.razor`). Only files that carry the `SUI:GENERATED:BEGIN` header are deleted — hand-authored files with the same name stay untouched.
+
+Force Regen is also the **upgrade-prompt primary button** the first time a V1.0 project is opened in V1.5 — see the [upgrade guide]({% link UPGRADE_V1_0_TO_V1_5.md %}).
 
 ## Recovery scenarios
 

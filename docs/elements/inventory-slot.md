@@ -7,7 +7,7 @@ nav_order: 13
 
 # InventorySlot
 
-A single inventory slot. Renders a frame with optional preview icon + stack count.
+A single inventory slot. Renders a frame with optional preview icon + stack count. Like Button, InventorySlot is an interactive type — V1.5 M3.5 adds the same hover / pressed / disabled / focused state overrides, transitions, sounds, and cursor enum (see [Interactive states]({% link concepts/interactive-states.md %}) and [Button]({% link elements/button.md %}#appearance--interactive-states-v15-m35)).
 
 ## Properties (Inventory section)
 

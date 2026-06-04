@@ -93,9 +93,30 @@ Set to **All** on interactive elements (Button auto-sets it). Leave as **None** 
 
 Use Hidden for masked content (rounded corners with image fill that should clip). Use Scroll for lists/feeds. See [ScrollPanel]({% link elements/scroll-panel.md %}).
 
+## Background image + size (V1.5 M3.5)
+
+Beyond the solid `Background` color, interactive elements (Button / InventorySlot / ItemIcon) can layer a **Background Image** with a sizing mode:
+
+| `BackgroundSize` | CSS emit |
+|---|---|
+| `Cover` | `background-size: cover` |
+| `Contain` | `background-size: contain` |
+| `Stretch` | `background-size: 100% 100%` |
+| `Custom` | `background-size: <BackgroundWidth>px <BackgroundHeight>px` |
+
+The Details panel offers a **Snap to image aspect** helper that resizes the element to match the image's aspect ratio. Per-state overrides (Hover / Pressed / Disabled / Focused) can each swap a different background image — useful for image-based buttons. See [Interactive states]({% link concepts/interactive-states.md %}).
+
+## Cursor + Transition (V1.5 M3.5)
+
+Interactive elements also expose:
+
+- **Cursor** — Default / Pointer / NotAllowed / Wait / Text / Move / Crosshair / Help / None
+- **Transition Enabled** — emit `transition: all Ns ease` on the root so per-state overrides animate smoothly
+- **Transition Duration** — seconds, default 0.15
+
 ## Customization beyond Appearance
 
-For anything not in the Appearance section (`box-shadow`, `transform`, custom hover states, `transition`, …), use the `.User.scss` sidecar:
+For anything not in the Appearance section (`box-shadow`, `transform`, custom keyframe animation, …) that the M3.5 fields don't already cover, use the `.User.scss` sidecar:
 
 ```scss
 // MyHud.User.scss

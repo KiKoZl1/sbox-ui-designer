@@ -1,4 +1,12 @@
+---
+layout: default
+title: Events & Element refs
+parent: Workflows
+nav_order: 5
+---
+
 # Events & Element References (V1.5 M3)
+{: .no_toc }
 
 Hook UI interactions to your gameplay code from inside the SUI Designer:
 buttons that fire callbacks, sliders that emit values, panels that expose a
@@ -80,7 +88,7 @@ The renderer (`InteractiveHudPanel.razor`):
 ```razor
 <div class="hud-panel" @ref="HudPanel">
     <label>@HpLabelText</label>
-    <div class="fire-button" onclick=@OnFireClick onhover=@OnFireHover>FIRE</div>
+    <div class="fire-button" onclick=@OnFireClick onmouseover=@OnFireHover>FIRE</div>
 </div>
 
 @code
