@@ -59,7 +59,7 @@ public sealed class HealthBarController : Component
 	public void TakeDamage( float amount )
 	{
 		if ( amount <= 0f ) return;
-		Health = MathF.Max( 0f, Health - amount );
+		Health = MathX.Clamp( Health - amount, 0f, MaxHealth );
 		PushToHud();
 	}
 
@@ -67,7 +67,7 @@ public sealed class HealthBarController : Component
 	public void Heal( float amount )
 	{
 		if ( amount <= 0f ) return;
-		Health = MathF.Min( MaxHealth, Health + amount );
+		Health = MathX.Clamp( Health + amount, 0f, MaxHealth );
 		PushToHud();
 	}
 }

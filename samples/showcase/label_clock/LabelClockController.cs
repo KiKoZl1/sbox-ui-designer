@@ -1,4 +1,5 @@
 using Sandbox;
+using SboxUiDesigner.Runtime;
 
 namespace Sandbox.Samples;
 
