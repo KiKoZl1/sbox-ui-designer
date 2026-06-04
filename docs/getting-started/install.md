@@ -67,6 +67,10 @@ git pull
 
 Restart the editor (or trigger a hot-reload by editing any `.cs` in the addon).
 
+### Upgrading from V1.0
+
+If your project has `.sui` documents from V1.0, the first time you open any `.sui` in the V1.5 editor an upgrade prompt appears offering to migrate every document at once. See the [V1.0 → V1.5 upgrade guide]({% link UPGRADE_V1_0_TO_V1_5.md %}) for the full procedure.
+
 ## Project files
 
 After install, your project should contain:
@@ -89,7 +93,8 @@ YourProject/
 
 | Folder | Contents | Notes |
 |---|---|---|
-| `Code/` | `SuiAsset`, `SuiDocument`, `SuiPreviewMount`, `SuiPreviewState`, `SuiScssGenerator`, `SuiRazorGenerator`, `SuiSelfTest` | Compiled into every game that mounts the library |
+| `Code/Runtime/` | `SuiAsset`, `SuiDocument`, `SuiPanel<TView>`, `SuiHostPanelComponent`, `SuiAssetRegistry`, `SuiVariable`, `SuiBinding`, `SuiBuiltinConverters`, `SuiConverterCatalog`, `SuiBindingModeMatrix`, schemas, preview helpers | Compiled into every game that mounts the library |
+| `Code/Generation/` | Razor + SCSS + wrapper emitters | Editor-only |
 | `Editor/` | `SuiDesignerWindow`, `SuiCanvasViewport`, `SuiPreviewLauncher`, all widgets and commands | Editor-only — stripped from packaged games |
 | `Assets/sui_preview/` | `preview_stage.scene` | Used by **Test in Play** workflow |
 

@@ -22,9 +22,12 @@ The editor uses a **fixed 5-region layout** (no DockManager, no drag-to-rearrang
 │Hierarchy │                              │                   │
 │          │                              │                   │
 ├──────────┴──────────────────────────────┴───────────────────┤
-│  Bottom tabs (Animations / Bindings / Compile / Logs)       │
+│  Bottom tabs (Variables / Bindings / Events / Compile /     │
+│              Logs)                                           │
 └──────────────────────────────────────────────────────────────┘
 ```
+
+The Variables / Bindings / Events tabs are new in V1.5 — they replace the old single Bindings stub and unlock M1 (Variables + Bindings), M3 (Events + Doo), and M4 (input widgets) UX. See [Variables]({% link concepts/variables.md %}), [Bindings]({% link concepts/bindings.md %}), and [Events & Actions]({% link concepts/events-and-actions.md %}) for the underlying concepts.
 
 Pages in this section:
 

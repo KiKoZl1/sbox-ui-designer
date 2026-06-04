@@ -34,6 +34,17 @@ Tree view of the entire `.sui` document. Each row is one element.
 | Drag-and-drop | Reparent to another node or reorder among siblings |
 | Right-click | Context menu (Rename, Duplicate, Delete, Move Up, Move Down, Reparent, Lock, Hide in Designer) |
 
+## Name uniqueness
+
+Element `Name` values must be unique within the document — duplicates auto-suffix `_2 / _3 / ...` on rename (V1.5-M2-K3). The name becomes a C# identifier on the generated wrapper / renderer when the element is a `SuiReference` (parent wrapper field) or has `Expose as Variable` set, so collisions would otherwise produce compile errors.
+
+## Visual hints (V1.5)
+
+- Elements with **`Expose as Variable`** (M3) render in **bold** — quick scan for which elements are reachable from gameplay code via `wrapper.View?.<Name>`.
+- Elements with at least one **binding** show a small chain glyph in the row.
+- Elements with at least one **event slot** wired show a small lightning glyph.
+- `SuiReference` rows show their target document name in muted text.
+
 ## Row icons
 
 Right side of each row:

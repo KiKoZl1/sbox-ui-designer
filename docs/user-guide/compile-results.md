@@ -18,7 +18,9 @@ The third tab in the bottom panel. Shows the classification of every file `SuiCo
 | **Preserved** | File existed, our header matched, but content **differs**. Prior content moved to a timestamped backup; new content written. |
 | **User-Owned** | A `.User.scss` sidecar — created once if missing, **never overwritten**. Listed so you know it survived intact. |
 | **Conflicts** | File existed **without** our header (or with another document's header). NOT touched. User must move/rename it manually. |
-| **Obsolete** | File was in the previous manifest but **not** in this generation pass. Probably renamed or removed. Reported, but never auto-deleted in V1. |
+| **Obsolete** | File was in the previous manifest but **not** in this generation pass. Probably renamed or removed. **V1.5 Force Regen deletes obsolete files** when their header marks them as generator-owned. Hand-authored files that happen to share the name stay untouched. |
+| **Broken bindings** | (V1.5 D-026) A binding references a deleted Variable / unknown converter. Each row points at the offending `<element>.<property>`. |
+| **Name collisions** | (V1.5 M3 § 6) The same identifier is used by ≥2 wrapper surfaces (Variable / SuiReference field / event handler / `@ref`). Both contributors are named in the error so you don't have to grep. |
 
 ## Counts
 

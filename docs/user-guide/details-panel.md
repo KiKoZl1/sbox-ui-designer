@@ -39,8 +39,9 @@ Always visible.
 
 | Field | Description |
 |---|---|
-| **Name** | Element identifier — shown in Hierarchy. Used as the variable name when code references this element (e.g. `HealthBar.Value`). |
+| **Name** | Element identifier — shown in Hierarchy. Becomes the C# field name when this element is a `SuiReference` (parent wrapper field) or has `Expose as Variable` set (`@ref` field on the renderer). Must be unique within the document (M2-K3 auto-suffixes duplicates). |
 | **Tooltip Text** | Text shown when the player hovers this element in-game. |
+| **Expose as Variable** | (V1.5 M3) Emits `@ref="<ElementName>"` on the Razor tag and declares a typed property on the renderer Panel — reach the live element from `wrapper.View?.<ElementName>` for imperative pokes. See [Events & Actions]({% link concepts/events-and-actions.md %}). |
 
 ### Transform
 
@@ -91,9 +92,39 @@ Always visible.
 | **Pointer Events** | None (clicks pass through) / All (catches input). Default: None |
 | **Overflow** | Visible / Hidden / Scroll |
 
-### Image, Text, Progress, Grid, Inventory, Binding
+### Image, Text, Progress, Grid, Inventory
 
 Type-specific sections. See the [element reference]({% link index.md %}#element-reference) for what each shows.
+
+### Input widgets (V1.5 M4)
+
+For `TextEntry` / `Slider` / `Toggle` / `DropDown` the Details panel grows a per-type section:
+
+- **TextEntry** — PlaceholderText, MaxLength, ReadOnly, PreviewValue (design-time only).
+- **Slider** — Min / Max / Step / TrackColor / FillColor / HandleColor / ShowValue + tooltip colors / PreviewValue.
+- **Toggle** — Checked (preview) + LabelText.
+- **DropDown** — Options list editor + SelectedIndex (preview).
+
+See the per-type pages: [TextEntry]({% link elements/text-entry.md %}), [Slider]({% link elements/slider.md %}), [Toggle]({% link elements/toggle.md %}), [DropDown]({% link elements/dropdown.md %}).
+
+### Interactive States (V1.5 M3.5)
+
+Buttons / InventorySlots / ItemIcons expose 4 per-state collapsible dropdowns under Appearance — Hover / Pressed / Disabled / Focused. Each lets you override background color, border, text color, scale, etc., and headers tag with `(set)` when any field is authored. A **Clear State** button blanks an override.
+
+Also in this section:
+
+- **Transition** — `TransitionEnabled` + `TransitionDuration` (seconds, 0.15 default).
+- **Hover sound / Press sound** — SoundEvent paths fired on state ingress.
+- **Cursor** — preset (Default / Pointer / NotAllowed / Wait / Text / Move / Crosshair / Help / None).
+- **Button Shape** — `Rectangle / Square / Round / Pill / Custom` — overrides BorderRadius.
+- **Background Image / Size** — image fill mode (`Cover / Contain / Stretch / Custom`).
+- **Snap to image aspect** — helper that resizes the element to match the image aspect ratio.
+
+See [Interactive states]({% link concepts/interactive-states.md %}) for the full mental model.
+
+### Bindings inline indicator
+
+Any property that can be bound shows a small chain icon next to its label. Click it to open the [Bind dialog]({% link workflows/binding-a-variable.md %}). A bound property shows the Variable name + converter chain summary instead of the literal value; a broken binding (missing Variable / unknown converter) shows a red ⚠ icon.
 
 ## Editing
 

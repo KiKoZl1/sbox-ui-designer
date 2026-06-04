@@ -76,6 +76,9 @@ Categorized list of element types. Double-click adds at root (or under the selec
 
 - **COMMON** — Panel, Text, Image, Button
 - **LAYOUT** — HorizontalBox, VerticalBox, Grid, Overlay
+- **INPUT WIDGETS** (V1.5 M4) — TextEntry, Slider, Toggle, DropDown
+- **COMPOSITION** — SuiReference
+- **USER WIDGETS** (dynamic) — every `.sui` in the project as its own palette item
 - **GAME UI (V1)** — ProgressBar, ScrollPanel, InventoryGrid, InventorySlot, ItemIcon, Hotbar
 
 Search bar at the top filters by name (substring match). See [Palette]({% link user-guide/palette.md %}).
@@ -95,21 +98,26 @@ See [Hierarchy]({% link user-guide/hierarchy.md %}).
 
 The **Details panel** — collapsible sections for the currently-selected element:
 
-- **Common** — Name, Tooltip Text
+- **Common** — Name, Tooltip Text, Expose as Variable (V1.5 M3)
 - **Transform** — Mode (Absolute/Flex), Position, Size, Anchor (3×3 picker), Pivot, Z Index, Margin, Padding, and (when Flex) Direction, Justify, Align Items, Wrap, Gap
-- **Appearance** — Background, Border, Border Width, Border Radius, Opacity, Visibility, Pointer Events, Overflow
-- **Image / Text / Progress / Grid / Inventory / Binding** — type-specific sections that appear only when the element type uses them
+- **Appearance** — Background, Border, Border Width, Border Radius, Opacity, Visibility, Pointer Events, Overflow. For interactive types (Button / InventorySlot / ItemIcon) also Hover/Pressed/Disabled/Focused dropdowns + Transition + Cursor + Button Shape + Background Size (V1.5 M3.5).
+- **Image / Text / Progress / Grid / Inventory / TextEntry / Slider / Toggle / DropDown** — type-specific sections.
+
+Bound properties show an inline chain icon + Variable name. See [Details panel]({% link user-guide/details-panel.md %}).
 
 Each section is collapsible. The search bar at the top filters rows by label. See [Details panel]({% link user-guide/details-panel.md %}).
 
 ## Bottom panel
 
-A 4-tab strip:
+A 5-tab strip (V1.5):
 
-- **Animations** — placeholder for V2 (schema reserves space; UI not implemented yet)
-- **Bindings** — placeholder for V2 (Add/Edit/Mode columns coming later)
-- **Compile Results** — last compile run's classification (Generated / Skipped / Preserved / User-Owned / Conflicts / Obsolete)
-- **Logs** — points to the engine console for `[Sui]` / `[SuiPreviewMount]` / `[SuiPreviewLauncher]` messages
+- **Variables** — declare typed UI-local state. Add/Edit/Delete + IsPublic flag for parent-settable params. See [Variables]({% link concepts/variables.md %}).
+- **Bindings** — list every binding in the document with target element/property → source Variable → converter chain → mode + trigger. Click to edit. See [Bindings]({% link concepts/bindings.md %}).
+- **Events** — every wired event in the document with Code/Doo mode, handler name, target element. See [Events & Actions]({% link concepts/events-and-actions.md %}).
+- **Compile Results** — last compile run's classification (Generated / Skipped / Preserved / User-Owned / Conflicts / Obsolete / Orphans deleted). Also surfaces broken bindings + name collisions.
+- **Logs** — points to the engine console for `[Sui]` / `[SuiPreviewMount]` / `[SuiPreviewLauncher]` messages.
+
+(The "Animations" tab is gone in V1.5 — the V2 animation timeline will sit elsewhere.)
 
 ## Status bar
 

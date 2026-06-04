@@ -30,6 +30,16 @@ The canvas does NOT use s&box's runtime Razor renderer. It uses `Editor.Paint` (
 
 The downside: the canvas has its own implementation of layout + image rendering, which can drift from the runtime. Several recent fixes (anchor-aware drag, rgba color parsing, image border-radius clipping) closed those gaps.
 
+## Sub-UI recursive paint (V1.5)
+
+`SuiReference` elements paint their embedded `.sui` document **recursively** — the canvas resolves the referenced doc, applies any per-instance Props overrides, and renders the child's full tree inside the reference's rectangle. Resizing the reference rescales children proportionally (UMG-like). A **purple dashed border** marks the SuiReference rect.
+
+This makes "I can see what I'm designing while I compose sub-UIs" work without `Test in Play`. The child's own Canvas root frame is suppressed via the `SkipRootFrame` flag so it doesn't bleed past the reference bounds. See [Composition]({% link concepts/composition.md %}).
+
+## Interactive states (V1.5 M3.5)
+
+The canvas always renders the **Normal** state. Hover / Pressed / Disabled / Focused overrides ARE NOT painted on the canvas — designers see them via **Test in Play**. This is intentional (the canvas has no input state).
+
 ## Coordinate systems
 
 - **Logical** — pixels in the document's drawable area (`0..PanelSize`, e.g. `0..1920`)

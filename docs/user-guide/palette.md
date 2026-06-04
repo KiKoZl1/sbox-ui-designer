@@ -59,6 +59,29 @@ Top of the panel. Substring match against element type names. Categories with ze
 | **Grid** | Flex, wrap | Wrapped flex grid using `Columns / Rows / CellWidth / CellHeight / GridGap` |
 | **Overlay** | Flex container with `position: relative` | Children get absolute positioning within the overlay |
 
+### INPUT WIDGETS (V1.5 M4)
+
+Four interactive types that **read** user input — the first SUI types that produce values back into your Variables (via [TwoWay bindings]({% link concepts/bindings.md %})).
+
+| Type | Engine backing | Notes |
+|---|---|---|
+| **TextEntry** | `Sandbox.UI.TextEntry` | Single-line text input. See [TextEntry]({% link elements/text-entry.md %}) |
+| **Slider** | Fully custom markup (per D-022) | Horizontal slider — track / fill / thumb / tooltip. See [Slider]({% link elements/slider.md %}) |
+| **Toggle** | `Sandbox.UI.Checkbox` | Boolean checkbox. See [Toggle]({% link elements/toggle.md %}) |
+| **DropDown** | `Sandbox.UI.DropDown` | Selection dropdown. See [DropDown]({% link elements/dropdown.md %}) |
+
+### COMPOSITION
+
+| Type | Purpose |
+|---|---|
+| **SuiReference** | Embed another `.sui` document by GUID. See [SuiReference]({% link elements/sui-reference.md %}) and [Composition]({% link concepts/composition.md %}) |
+
+### USER WIDGETS (dynamic)
+
+Every `.sui` registered in the Asset Registry appears as its own palette item under this category — same row shape as a built-in type, dragging or clicking creates a `SuiReference` element with `SourceGuid` already bound to the picked document. Auto-refreshes when documents are added / removed / renamed.
+
+The host document is filtered from its own list to prevent instant reference cycles.
+
 ### GAME UI (V1)
 
 | Type | Purpose |
@@ -66,8 +89,8 @@ Top of the panel. Substring match against element type names. Categories with ze
 | **ProgressBar** | Fill bar with `ProgressMin`, `ProgressMax`, `ProgressPreviewValue`, `ProgressFillColor`, `ProgressDirection` |
 | **ScrollPanel** | Container with overflow: scroll. Same as Flex container otherwise |
 | **InventoryGrid** | Wrapped-flex slot grid for inventory UIs. Use with `InventorySlot` children |
-| **InventorySlot** | Single slot with `SlotIndex`, optional `PreviewIconPath` + `PreviewCount` |
-| **ItemIcon** | Standalone icon with stack count. Same render as `InventorySlot` but without slot frame |
+| **InventorySlot** | Single slot with `SlotIndex`, optional `PreviewIconPath` + `PreviewCount`. M3.5 interactive states apply |
+| **ItemIcon** | Standalone icon with stack count. Same render as `InventorySlot` but without slot frame. M3.5 interactive states apply |
 | **Hotbar** | Like InventoryGrid but `flex-wrap: nowrap` (single row) |
 
 ## Adding elements
@@ -84,6 +107,17 @@ Newly-added elements:
 ## Tooltips
 
 Hover any palette item for a tooltip describing the type. Tooltips are centralized in [`SuiPaletteTooltips`](https://github.com/KiKoZl1/sbox-ui-designer/blob/main/Editor/Widgets/SuiPaletteTooltips.cs) for easy editing.
+
+## Type defaults
+
+Newly-dropped elements get sensible defaults via `SuiElement.ApplyTypeDefaults()`:
+
+- **Pointer events** — `All` for `Button` / `InventorySlot` / `ScrollPanel` / `TextEntry` / `Slider` / `Toggle` / `DropDown`; `None` for everything else.
+- **Layout.Mode** — `Flex` for `HorizontalBox` / `VerticalBox` / `Grid` / `InventoryGrid` / `Hotbar`; `Absolute` otherwise.
+- **FlexDirection / FlexWrap** — per type (Column for VerticalBox; NoWrap for Hotbar; Wrap for Grid; etc).
+- **TransitionEnabled** — `true` by default on `Button` / `InventorySlot` / `ItemIcon` (M3.5).
+
+See [Element type matrix]({% link reference/element-types.md %}) for the complete table.
 
 ## Reference
 

@@ -103,44 +103,73 @@ The bar now shows 75% filled with bright red.
 - `Ctrl+S` — saves the `.sui` JSON.
 - `Ctrl+B` — runs the validator, generator, and writer.
 
-The **first compile** opens a folder picker asking where the `.razor` + `.razor.scss` should land. Pick `Code/UI/` (or create the folder via the picker). Subsequent compiles remember the choice.
+The **first compile** opens a folder picker asking where the generated files should land. Pick `Code/UI/` (or create the folder via the picker). Subsequent compiles remember the choice.
 
-Open `Code/UI/`. You should see:
+Open `Code/UI/`. You should see **three** generated files plus a sidecar:
 
-- `MyHud.razor` — Razor template with a `<div class="background sui-background">…</div>` tree
+- `MyHudPanel.razor` — the actual `Panel` renderer (`<div class="background sui-background">…</div>` tree)
 - `MyHud.razor.scss` — styles (your color choices, sizes, etc.)
-- `MyHud.User.scss` — empty boilerplate file you can edit to override the generated styles (this file is **never overwritten**)
+- `MyHud.cs` — the **wrapper class** (`SuiPanel<MyHudPanel>`) — this is what your gameplay code touches
+- `MyHud.User.scss` — empty boilerplate you can edit to override generated styles (this file is **never overwritten**)
 
-The engine hot-reloads. `Game.UI.MyHud` is now a `PanelComponent` type your scene can use.
-
-## 6. Use it in a scene
-
-Open any `.scene` in your project. Add a GameObject:
-
-1. **Add Component** → **ScreenPanel** — provides the root for screen-space UI
-2. **Add Component** → search for **MyHud** — instantiates your generated PanelComponent
-
-Click Play. Your title and red bar should appear at the top-left of the screen.
+The engine hot-reloads. `Game.UI.MyHud` is now ready to use.
 
 {: .note }
-The same flow works for any element type — see the [element reference]({% link index.md %}#element-reference) for the full catalog.
+Why three files? `MyHud.cs` exposes a friendly API (`Show()` / `Hide()` / per-Variable `[Property]` mirrors) — this is what you'd type by hand. `MyHudPanel.razor` is the Razor markup the engine paints. The `.razor.scss` is its stylesheet. See [Wrapper generation]({% link concepts/wrapper-generation.md %}) for why.
+
+## 6. Use it from a Component
+
+Open or create any `.cs` Component in your project (or use an existing player Controller):
+
+```csharp
+using Sandbox;
+using Game.UI; // namespace from your .sui's Output.Namespace
+
+public sealed class HudController : Component
+{
+    [Property] public MyHud Hud { get; set; } = new();
+
+    protected override void OnStart()
+    {
+        Hud.Show();           // mount the panel as a ScreenPanel under the scene root
+    }
+
+    protected override void OnUpdate()
+    {
+        if ( IsProxy ) return;
+        // edit any [Property] field — the wrapper auto-syncs to the live View
+    }
+
+    protected override void OnDisabled()
+    {
+        Hud.Remove();         // tear down on shutdown
+    }
+}
+```
+
+Drop `HudController` on any GameObject in your scene. Click Play. Your title and red bar appear at the top-left of the screen.
+
+{: .tip }
+You don't need to manually add `ScreenPanel` to a GameObject. `Hud.Show()` (provided by the `SuiPanel<TView>` base class) creates a child GameObject, attaches a `ScreenPanel` + host `PanelComponent`, and mounts the rendered `Panel` for you.
 
 ## 7. Iterate
 
-Make a change in SUI Designer (e.g. change the bar color from red to yellow) → `Ctrl+S` → `Ctrl+B`. The runtime hot-reloads automatically. Refresh the scene viewport (Stop + Play) to pick up the new styling.
+Make a change in SUI Designer (e.g. change the bar color from red to yellow) → `Ctrl+S` → `Ctrl+B`. The runtime hot-reloads automatically.
 
 For faster iteration, see [Test in Play]({% link getting-started/test-in-play.md %}) — a one-click workflow that loads a pre-baked scene with a TPS player and your UI mounted as a `ScreenPanel`.
 
 ## What you just learned
 
-- A `.sui` document is one JSON file holding the whole tree.
+- A `.sui` document is one JSON file holding the whole element tree.
 - The Palette adds elements. The Details panel edits everything about a selected element.
 - Anchor + Position + Size place an element in its parent's coordinate space.
-- Compile writes 3 files: `.razor` (markup), `.razor.scss` (generated styles), `.User.scss` (your-owned overrides).
-- The runtime uses the generated `.razor` directly — your changes propagate via hot-reload.
+- Compile writes 4 files: `<Name>Panel.razor` (markup), `<Name>.razor.scss` (generated styles), `<Name>.cs` (wrapper class) and `<Name>.User.scss` (your-owned overrides).
+- Gameplay code touches the wrapper — `Hud.Show()`, `Hud.SomeVariable = 75` — never the `Panel` directly.
 
 ## Next
 
 - [Test in Play]({% link getting-started/test-in-play.md %}) — fast preview without scene wiring
 - [Editor tour]({% link user-guide/editor-tour.md %}) — every panel and toolbar explained
-- [Layout modes]({% link concepts/layout-modes.md %}) — Absolute vs Flex, when to use which
+- [Variables]({% link concepts/variables.md %}) — make `Health` a real Variable instead of a baked literal
+- [Bindings]({% link concepts/bindings.md %}) — drive `ProgressBar.Value` from your `Health` Variable
+- [Wrapper generation]({% link concepts/wrapper-generation.md %}) — the `SuiPanel<TView>` pattern explained
