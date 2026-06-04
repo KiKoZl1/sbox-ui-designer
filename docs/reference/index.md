@@ -18,12 +18,17 @@ Look-up material — schemas, lists, matrices, generated-API surface.
 
 ## V1.5 catalogs
 
-- [Converters catalog]({% link reference/converters-catalog.md %}) — all 64 builtin converters
+- [Converters catalog]({% link reference/converters-catalog.md %}) — all 66 builtin converters
 - [Wrapper API]({% link reference/wrapper-api.md %}) — `SuiPanel<TView>` + `Apply` + `ContentHash`
 - [Update-trigger matrix]({% link reference/update-triggers.md %}) — per-widget × trigger
 - [Binding-mode matrix]({% link reference/binding-mode-matrix.md %}) — (element, property) × mode
 
+## Editor surface
+
+- [Tools menu]({% link reference/tools-menu.md %}) — Validate / Regen / Force Regen / Asset Registry / sample installer
+- [Sample index]({% link reference/sample-index.md %}) — every shipped `.sui` sample by feature
+- [Keyboard shortcuts]({% link reference/keyboard-shortcuts.md %}) — every hotkey
+
 ## Misc
 
-- [Keyboard shortcuts]({% link reference/keyboard-shortcuts.md %}) — every hotkey
 - [Known issues]({% link reference/known-issues.md %}) — open bugs and workarounds

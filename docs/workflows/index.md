@@ -14,9 +14,10 @@ End-to-end task guides — multi-step operations that aren't tied to a single pa
 
 - [Binding a Variable]({% link workflows/binding-a-variable.md %}) — the bind popup, step by step
 - [Working with converters]({% link workflows/working-with-converters.md %}) — Compose, Format, custom `[SuiConverter]`
-- [Manual commit with Apply]({% link workflows/manual-commit-with-apply.md %}) — `UpdateTrigger.Manual` + `wrapper.Apply.<Field>()`
+- [Manual commit with Apply]({% link workflows/manual-commit-with-apply.md %}) — `UpdateTrigger.Manual` + `wrapper.Apply.<ElementName>Value()`
 - [Embedding sub-UIs]({% link workflows/embedding-sub-uis.md %}) — `SuiReference` + ForEach
 - [Events & Element refs]({% link workflows/events-and-refs.md %}) — wire `OnClick`, expose `@ref`
+- [Writing a custom converter]({% link workflows/writing-a-custom-converter.md %}) — `[SuiConverter]` + the `GameConverters.cs` scaffold
 
 ## Build & ship
 

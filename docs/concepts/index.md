@@ -31,4 +31,9 @@ Deeper explanations of the ideas behind the editor. Read these once and the rest
 - [Interactive states]({% link concepts/interactive-states.md %}) — Hover / Pressed / Disabled / Focused with transitions + sounds
 - [Input & Update triggers]({% link concepts/input-and-update-triggers.md %}) — when TwoWay bindings commit (`OnChange / OnLostFocus / OnSubmit / OnRelease / Manual`)
 
+## Under the hood
+
+- [Sandbox.UI CSS limitations]({% link concepts/sandbox-ui-css-limitations.md %}) — the parser gotchas (silent-drop selectors, `!important` ignored, etc.)
+- [Reactivity & BuildHash]({% link concepts/reactivity-and-buildhash.md %}) — when does a SUI panel re-render, and why mutating `Hud.Health = 50` just works
+
 If you're new to flex/CSS layout, the [Layout modes]({% link concepts/layout-modes.md %}) page is the place to start. If you're already comfortable with the V1.0 designer and want to learn the V1.5 wiring story, start with [Variables]({% link concepts/variables.md %}) → [Bindings]({% link concepts/bindings.md %}) → [Wrapper generation]({% link concepts/wrapper-generation.md %}).
