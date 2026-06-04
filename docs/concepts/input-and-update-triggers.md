@@ -48,9 +48,9 @@ Default is `OnChange` — pre-V1.5 behaviour. Existing V1.5 documents authored b
 |---|---|---|
 | `TextEntry` | `Value` | `OnChange` / `OnLostFocus` / `OnSubmit` / `Manual` |
 | `Slider` | `Value` | `OnChange` / `OnRelease` / `Manual` |
-| `Toggle` | `Checked` | `OnChange` / `Manual` (combo hidden — only choice that matters) |
-| `DropDown` | `Value` | `OnChange` / `Manual` |
-| (everything else with TwoWay) | (any) | `OnChange` / `Manual` |
+| `Toggle` | `Checked` | `OnChange` only (atomic — combo hidden) |
+| `DropDown` | `Value` | `OnChange` only (atomic — combo hidden) |
+| (everything else with TwoWay) | (any) | `OnChange` only |
 
 See [Update-trigger matrix]({% link reference/update-triggers.md %}) for the per-widget table.
 

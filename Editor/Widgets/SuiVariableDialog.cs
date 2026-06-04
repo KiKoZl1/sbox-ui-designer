@@ -13,9 +13,9 @@ namespace SboxUiDesigner.EditorUi.Widgets;
 /// <see cref="SuiVariable"/> carrying the entered values (the caller wraps it in
 /// the appropriate command).
 ///
-/// M1-B scope: the closed primitive + engine-type + asset-ref type set, Manual
-/// source only. Enum/Component/List types and FromComponent/FromActionGraph
-/// sources need secondary inputs and land in a later M1 pass.
+/// V1.5 — Manual source only. The FromComponent / FromActionGraph kinds
+/// were ripped at M4 close (DEVIATION D-017). Enum / Component / List types
+/// are still M-something polish items.
 /// </summary>
 public sealed class SuiVariableDialog : Window
 {

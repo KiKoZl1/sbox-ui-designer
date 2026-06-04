@@ -129,19 +129,17 @@ A `SuiBinding` stores `Source.VariableId` (the GUID) — not the display name. R
 
 If you delete a Variable, every binding that referenced it shows a **red ⚠ icon** (broken binding, DEVIATIONS D-026). The Compile Results panel surfaces them before generation runs so you never ship a `default`-emitting silent failure.
 
-## Source kinds (Manual / FromComponent / FromActionGraph)
+## Source kinds — V1.5 ships Manual only
 
-Every Variable carries a `Source.Kind` field controlling where its runtime value comes from. Three values declared in `SuiVariableSourceKind` (closed enum, additions require a schema migration):
+Every Variable carries a `Source.Kind` field. The `SuiVariableSourceKind` enum is a closed set; V1.5 has **exactly one** member:
 
-| Kind | Where the value comes from | V1.5 status |
-|---|---|---|
-| **`Manual`** | Gameplay code writes the wrapper's generated `[Property]` directly | Default. Fully wired. |
-| **`FromComponent`** | Pulled from a sibling Component property on every refresh | Schema present (`ComponentVariableId` + `PropertyPath`); codegen treats non-Manual Variables as **not auto-assigned** (`EmitVariableAssignments` skips them) — wiring is partial |
-| **`FromActionGraph`** | Computed by a `.action` asset on every `BuildHash()` | Schema present (`ActionGraphAssetPath`); same partial wiring as FromComponent |
+| Kind | Where the value comes from |
+|---|---|
+| **`Manual`** | Gameplay code writes the wrapper's generated `[Property]` directly |
 
-V1.5 default + fully-exercised path is `Manual`. The two pull-based kinds are intentionally shipped as data-model placeholders so future runs can drive Variables from external sources without breaking existing `.sui` files — but the Designer's wiring + emit for them remains polish work. If you set a Variable to FromComponent in the current build, the wrapper still exposes the `[Property]` mirror, but it won't auto-pull — you'll need to assign it manually each frame.
+Earlier alpha builds shipped two more kinds — `FromComponent` (pull from a sibling Component property) and `FromActionGraph` (compute via `.action` asset). Both were **ripped at M4 close per DEVIATIONS D-017**: Doo replaces ActionGraph as the visual scripting backend, and the Component source was never user-pickable from the dialog anyway. If you have old `.sui` files with the legacy kinds, Force Regen (see [Upgrade guide]({% link UPGRADE_V1_0_TO_V1_5.md %})) normalises them to Manual on first open.
 
-Source of truth: `Code/Runtime/SuiVariableSource.cs` + `Code/Generation/SuiWrapperEmitter.cs` `EmitVariableAssignments` (filters `Kind == Manual`).
+Source of truth: `Code/Runtime/SuiVariableSource.cs`.
 
 ## See also
 

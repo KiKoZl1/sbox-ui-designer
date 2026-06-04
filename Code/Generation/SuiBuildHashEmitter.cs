@@ -98,9 +98,6 @@ public static class SuiBuildHashEmitter
 	{
 		if ( string.IsNullOrEmpty( varId ) ) return;
 		if ( !varsById.TryGetValue( varId, out var v ) || v == null || string.IsNullOrEmpty( v.Name ) ) return;
-		// Only Manual variables are emitted as fields in M1-D — the others are
-		// TODO comments and won't be in the runtime hash.
-		if ( v.Source?.Kind != SuiVariableSourceKind.Manual ) return;
 		if ( seen.Add( v.Name ) ) reactive.Add( v.Name );
 	}
 }

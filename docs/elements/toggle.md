@@ -41,7 +41,7 @@ The engine `Toggle` type doesn't exist — only `Checkbox` does (PRD 21 § 11 #3
 | `Checked` | OneTime / OneWay / **TwoWay** (default) | `bool` |
 | Style + Universal | OneWay | per matrix |
 
-`Checked` UpdateTrigger options: `OnChange` (atomic — single click) / `Manual`. The Bind popup **hides the dropdown** since there's no meaningful third option.
+`Checked` UpdateTrigger: `OnChange` only. The Bind popup hides the dropdown — Toggle is atomic (1 click = 1 commit), so deferred-commit modes (`Manual` etc.) don't model any real UX. Matrix-restricted at M4 close.
 
 ## Events surfaced
 
@@ -60,25 +60,6 @@ The engine `Toggle` type doesn't exist — only `Checkbox` does (PRD 21 § 11 #3
 ```
 
 Native `Checked:bind=` writes the new bool into the wrapper's `[Property] bool MusicEnabled` on click.
-
-## Codegen — `Manual` trigger
-
-```razor
-<Checkbox Checked="@MusicEnabled" @ref="MusicToggleRef" />
-```
-
-No bind. **Known gap (V1.5):** the wrapper emits an `@ref` but does NOT generate an `Apply.*` method for Toggle (the Apply codegen only fires for TextEntry + Slider — see `Code/Generation/SuiWrapperEmitter.cs` `EmitManualCommitMethods`). User code must read the checkbox state manually:
-
-```csharp
-void OnSaveClick()
-{
-    if ( Settings.View?.MusicToggleRef is { } cb )
-        Settings.MusicEnabled = cb.Checked;
-    Settings.Apply.All();   // covers TextEntry / Slider Manual bindings
-}
-```
-
-A future release will extend `Apply` to cover Toggle (and DropDown) — see [Manual commit with Apply]({% link workflows/manual-commit-with-apply.md %}).
 
 ## Tutorial — drop + bind + read
 

@@ -427,7 +427,7 @@ Top-level array. Each entry:
   "IsPublic": false,             // V1.5-M2-K — when true, parent-settable + reachable
   "Group": "Stats",
   "ResourceType": null,          // only meaningful when Type = "Resource"
-  "Source": { "Kind": "Manual" } // SuiVariableSource — Manual / FromComponent / FromDoo etc.
+  "Source": { "Kind": "Manual" } // SuiVariableSource — only Manual ships in V1.5 (D-017)
 }
 ```
 

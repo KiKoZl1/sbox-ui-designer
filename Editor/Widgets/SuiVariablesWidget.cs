@@ -158,15 +158,8 @@ public class SuiVariablesWidget : Widget
 			"border-radius: 3px; padding: 1px 6px;" );
 		tagRow.Layout.Add( typePill );
 
-		var srcText = v.Source?.Kind switch
-		{
-			SuiVariableSourceKind.FromComponent   => "from Component",
-			SuiVariableSourceKind.FromActionGraph => "from ActionGraph",
-			_                                     => "Manual",
-		};
-		var srcLbl = new Label( srcText, tagRow );
-		srcLbl.SetStyles( "color: #6b7280; font-size: 9px;" );
-		tagRow.Layout.Add( srcLbl );
+		// V1.5 — only Manual source ships. The labels for FromComponent /
+		// FromActionGraph were removed with the enum entries (D-017).
 
 		// V1.5-M2-K — public Variables are exposed to parent SuiReferences AND
 		// reachable as Parent.ChildName.VarName from gameplay. Surface with a

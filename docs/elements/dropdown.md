@@ -41,7 +41,7 @@ V1.5 ships static options (authored in the Designer). **Dynamic options** (bind 
 | `Value` | OneTime / OneWay / **TwoWay** (default) | `int` (via `Option.Value` index) |
 | Style + Universal | OneWay | per matrix |
 
-`Value` UpdateTrigger options: `OnChange` / `Manual`. The Bind popup **hides the dropdown** since there's no meaningful third option.
+`Value` UpdateTrigger: `OnChange` only. The Bind popup hides the dropdown — DropDown is atomic (1 pick = 1 commit), so deferred-commit modes (`Manual` etc.) don't model any real UX. Matrix-restricted at M4 close.
 
 ## Events surfaced
 
@@ -85,25 +85,6 @@ Two things to note:
 
 1. The Options list is a **public `List<Sandbox.UI.Option>` field on the renderer Panel** named `<ElementName>Options` (`GraphicsDropdownOptions` here). It's wired into the `<DropDown>` tag via `Options=@...`. The bound Variable `GraphicsPreset` updates per click via native `Value:bind`.
 2. Each `Option.Value` carries the index, so the bound `int` field reads exactly which option is selected.
-
-## Codegen — `Manual` trigger
-
-```razor
-<DropDown Options=@GraphicsDropdownOptions @ref="GraphicsDropdownRef" />
-```
-
-No bind. **Known gap (V1.5):** the wrapper emits an `@ref` but does NOT generate an `Apply.*` method for DropDown (the Apply codegen only fires for TextEntry + Slider — see `Code/Generation/SuiWrapperEmitter.cs` `EmitManualCommitMethods`). User code must read the dropdown's `Value` manually:
-
-```csharp
-void OnSaveClick()
-{
-    if ( Settings.View?.GraphicsDropdownRef is { } dd && dd.Value is int v )
-        Settings.GraphicsPreset = v;
-    Settings.Apply.All();   // covers TextEntry / Slider Manual bindings
-}
-```
-
-A future release will extend `Apply` to cover DropDown — see [Manual commit with Apply]({% link workflows/manual-commit-with-apply.md %}).
 
 ## Tutorial — drop + bind + read
 

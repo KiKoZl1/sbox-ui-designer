@@ -23,7 +23,7 @@ nav_order: 8
 
 A typical Settings panel has:
 
-- Multiple input widgets (TextEntry, Slider, Toggle, DropDown).
+- Multiple input widgets — **`Manual` applies only to TextEntry and Slider** (the continuous-input widgets where deferring write-back makes sense). Toggle and DropDown are atomic and always use `OnChange`.
 - A **Save** button that commits every change at once.
 - A **Cancel** button that discards every change.
 

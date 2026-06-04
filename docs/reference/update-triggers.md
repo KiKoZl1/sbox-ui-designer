@@ -28,7 +28,7 @@ public enum SuiBindingUpdateTrigger
     OnLostFocus,    // TextEntry only — commit on blur (click outside / Tab)
     OnSubmit,       // TextEntry only — commit on Enter key
     OnRelease,      // Slider only — commit on mouse-up after drag
-    Manual,         // never auto-commit; user calls wrapper.Apply.<ElementName>Value() explicitly (TextEntry / Slider only — Toggle / DropDown need manual read)
+    Manual,         // never auto-commit; user calls wrapper.Apply.<ElementName>Value() explicitly. Only TextEntry + Slider expose this; Toggle / DropDown can't pick it (atomic widgets).
 }
 ```
 
@@ -40,11 +40,13 @@ See [Input & Update triggers]({% link concepts/input-and-update-triggers.md %}) 
 |---|---|---|---|---|---|---|---|---|
 | **TextEntry** | `Value` | ✓ | ✓ | ✓ | — | ✓ | OnChange | Yes |
 | **Slider** | `Value` | ✓ | — | — | ✓ | ✓ | OnChange | Yes |
-| **Toggle** | `Checked` | ✓ | — | — | — | ✓ | OnChange | No (hidden — only 1 meaningful choice) |
-| **DropDown** | `Value` | ✓ | — | — | — | ✓ | OnChange | No |
-| (any other TwoWay) | (any) | ✓ | — | — | — | ✓ | OnChange | No |
+| **Toggle** | `Checked` | ✓ | — | — | — | — | OnChange | No (only 1 meaningful choice) |
+| **DropDown** | `Value` | ✓ | — | — | — | — | OnChange | No |
+| (any other TwoWay) | (any) | ✓ | — | — | — | — | OnChange | No |
 
 ✓ = exposed by `AllowedUpdateTriggers`. The Bind popup's UpdateTrigger combo is **hidden entirely when only one trigger is meaningful** (no UI noise for widgets that have no real choice).
+
+Toggle / DropDown intentionally do **not** allow `Manual`: their interaction is atomic (one click = one value change), so deferring the commit doesn't model any real UX. Earlier alpha builds exposed `Manual` here but the codegen never emitted matching `Apply.<Name>Value()` methods for those widgets — picking Manual was a no-op. Resolved at M4 close (2026-06-04 matrix cleanup).
 
 ## Codegen per trigger
 
@@ -65,9 +67,11 @@ Native Sandbox.UI `Property:bind=` syntax for the widget. Writes back on every c
 
 Visual-buffer float decoupled from the bound Variable. `Tick()` detects the `HasActive` true→false transition and commits.
 
-### `Manual`
+### `Manual` (TextEntry + Slider only)
 
-No bind, no auto-write handler. For TextEntry + Slider, the wrapper exposes `Apply.<ElementName>Value()` and `Apply.All()` — the method name is derived from the element's Name in the Hierarchy + the literal suffix `"Value"`. For Toggle + DropDown, the Apply codegen is NOT emitted (V1.5 gap — `Code/Generation/SuiWrapperEmitter.cs` `EmitManualCommitMethods` only fires for TextEntry + Slider); user code reads the widget's state via the auto-emitted `@ref`. See [Manual commit with Apply]({% link workflows/manual-commit-with-apply.md %}).
+No bind, no auto-write handler. The wrapper exposes `Apply.<ElementName>Value()` and `Apply.All()` — the method name is derived from the element's Name in the Hierarchy + the literal suffix `"Value"`. See [Manual commit with Apply]({% link workflows/manual-commit-with-apply.md %}).
+
+Toggle + DropDown can't pick `Manual` — they're atomic (1 click = 1 commit), and the matrix no longer offers the choice.
 
 ## When TwoWay isn't allowed
 

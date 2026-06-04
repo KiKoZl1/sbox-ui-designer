@@ -125,7 +125,6 @@ public static class SuiWrapperEmitter
 		foreach ( var v in doc.Variables )
 		{
 			if ( v == null || string.IsNullOrEmpty( v.Name ) ) continue;
-			if ( (v.Source?.Kind ?? SuiVariableSourceKind.Manual) != SuiVariableSourceKind.Manual ) continue;
 
 			var csType = SuiTypeMapper.ToCSharp( v.Type );
 			var def = SuiTypeMapper.DefaultLiteral( v.Type, v.Default );
@@ -166,7 +165,6 @@ public static class SuiWrapperEmitter
 		foreach ( var v in doc.Variables )
 		{
 			if ( v == null || string.IsNullOrEmpty( v.Name ) ) continue;
-			if ( (v.Source?.Kind ?? SuiVariableSourceKind.Manual) != SuiVariableSourceKind.Manual ) continue;
 			sb.Append( "\t\t" ).Append( varName ).Append( '.' ).Append( v.Name )
 				.Append( " = " ).Append( v.Name ).AppendLine( ";" );
 		}
@@ -474,7 +472,6 @@ public static class SuiWrapperEmitter
 			foreach ( var v in doc.Variables )
 			{
 				if ( v == null || string.IsNullOrEmpty( v.Name ) ) continue;
-				if ( (v.Source?.Kind ?? SuiVariableSourceKind.Manual) != SuiVariableSourceKind.Manual ) continue;
 				sb.Append( "\t\th.Add( " ).Append( v.Name ).AppendLine( " );" );
 			}
 		}

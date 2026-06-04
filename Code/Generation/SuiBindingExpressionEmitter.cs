@@ -113,8 +113,9 @@ public static class SuiBindingExpressionEmitter
 	/// <list type="bullet">
 	///   <item><c>builtin.Name</c>       → <c>global::SboxUiDesigner.Runtime.SuiBuiltinConverters.Name</c></item>
 	///   <item><c>user.Foo.Bar.Method</c> → <c>global::Foo.Bar.Method</c></item>
-	///   <item><c>graph.path/to.action</c> → null (ActionGraph integration is M3)</item>
 	/// </list>
+	/// Legacy <c>graph.*</c> refs (ActionGraph integration) were ripped at M4
+	/// close per DEVIATION D-017 — Doo is the visual scripting backend.
 	/// </summary>
 	public static string ResolveConverterFqn( string converterRef )
 	{

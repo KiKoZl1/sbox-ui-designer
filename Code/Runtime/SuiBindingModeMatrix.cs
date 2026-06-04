@@ -216,11 +216,14 @@ public static class SuiBindingModeMatrix
 		}
 
 		// Everything else (Checkbox.Checked, DropDown.Value, anything else
-		// reading back from the UI) is atomic — only OnChange + Manual.
+		// reading back from the UI) is atomic — only OnChange is meaningful.
+		// Manual was previously offered here but the codegen never produced
+		// Apply.<Name>Value() methods for these widgets (filter only fires
+		// for TextEntry + Slider), so the user picked a trigger that did
+		// nothing. Cleaner: don't offer it at all (audit-fix 2026-06-04).
 		return new[]
 		{
 			SuiBindingUpdateTrigger.OnChange,
-			SuiBindingUpdateTrigger.Manual,
 		};
 	}
 }

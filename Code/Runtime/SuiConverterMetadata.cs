@@ -45,6 +45,6 @@ public sealed class SuiConverterMetadata
 	/// <summary>C# type name of the converter's return value.</summary>
 	public string ReturnType { get; set; }
 
-	/// <summary>True for the shipped <see cref="SuiBuiltinConverters"/>; false for user / ActionGraph converters.</summary>
+	/// <summary>True for the shipped <see cref="SuiBuiltinConverters"/>; false for user-authored converters.</summary>
 	public bool IsBuiltin { get; set; }
 }

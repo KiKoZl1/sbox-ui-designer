@@ -13,8 +13,10 @@ namespace SboxUiDesigner.EditorUi.Widgets;
 /// <see cref="SuiUserConverterScaffolder"/> which writes the stub into the
 /// user-converters file.
 ///
-/// M1-C2-c scope: Code path only. The ActionGraph backed-converter route
-/// (PRD 18 § 5.5) lands with the broader ActionGraph integration in M3.
+/// V1.5 — Code-path converters only (a stub method in <c>GameConverters.cs</c>
+/// with <c>[SuiConverter]</c>). The ActionGraph-backed converter route was
+/// ripped at M4 close per DEVIATION D-017 — Doo replaces ActionGraph as
+/// the visual scripting backend.
 /// </summary>
 public sealed class SuiCustomConverterDialog : Window
 {
