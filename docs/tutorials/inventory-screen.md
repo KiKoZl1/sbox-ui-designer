@@ -228,3 +228,10 @@ Detailed drag-and-drop is covered in a separate tutorial when V1.5 ships the [Pr
 ## Next
 
 - [Death modal]({% link tutorials/death-modal.md %}) — full-screen overlays with timed actions.
+
+## See also
+
+- [Composition]({% link concepts/composition.md %}) — embed an InventorySlot sub-UI as a SuiReference and iterate via ForEach (V1.5 pattern)
+- [InventorySlot]({% link elements/inventory-slot.md %}) — per-slot element reference
+- [ItemIcon]({% link elements/item-icon.md %}) — per-icon element reference
+- [Sample index]({% link reference/sample-index.md %}) — `inventory_screen.sui` + `inventory_basic.sui` are the shipped references

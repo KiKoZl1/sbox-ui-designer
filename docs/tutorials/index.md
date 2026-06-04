@@ -22,3 +22,5 @@ End-to-end walkthroughs that go from empty document to a working UI. Each tutori
 - [Death modal]({% link tutorials/death-modal.md %}) — Full-screen overlay with respawn timer + buttons
 
 These are written for someone who has read [Getting Started]({% link getting-started/index.md %}) but hasn't built a full UI yet.
+
+If you'd rather learn by remix, the [Sample index]({% link reference/sample-index.md %}) catalogs every `.sui` shipped with the project + what feature each one exercises.

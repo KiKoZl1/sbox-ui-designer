@@ -204,4 +204,11 @@ Recompile → Play → in your C# component, `HealthBar.SetClass("low-health", c
 ## Next steps
 
 - [Inventory screen]({% link tutorials/inventory-screen.md %}) — grid layouts, slot interactions.
+
+## See also
+
+- [Health HUD with converters]({% link tutorials/health-hud-with-converters.md %}) — modern V1.5 take using bindings + Compose
+- [Bindings]({% link concepts/bindings.md %}) — for the V1.5 binding-driven HUD pattern
+- [Variables]({% link concepts/variables.md %}) — declare Hp / MaxHp as typed Variables instead of hard-coding
+- [Wrapper generation]({% link concepts/wrapper-generation.md %}) — the `<Name>.cs` your gameplay code sets fields on
 - [Death modal]({% link tutorials/death-modal.md %}) — full-screen overlays with countdown.

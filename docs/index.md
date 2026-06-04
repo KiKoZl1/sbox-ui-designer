@@ -144,7 +144,7 @@ If you want to extend the editor:
 - [Element type matrix]({% link reference/element-types.md %})
 - [Keyboard shortcuts]({% link reference/keyboard-shortcuts.md %})
 - [Known issues]({% link reference/known-issues.md %})
-- **[Converters catalog]({% link reference/converters-catalog.md %})** — all 64 builtins
+- **[Converters catalog]({% link reference/converters-catalog.md %})** — all 66 builtins
 - **[Wrapper API]({% link reference/wrapper-api.md %})** — `SuiPanel<TView>` surface
 - **[Update-trigger matrix]({% link reference/update-triggers.md %})** — which triggers each widget allows
 - **[Binding-mode matrix]({% link reference/binding-mode-matrix.md %})** — OneTime / OneWay / TwoWay per property

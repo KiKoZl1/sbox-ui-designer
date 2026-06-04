@@ -274,3 +274,9 @@ You've built three real UIs:
 3. [Death modal]({% link tutorials/death-modal.md %}) — full-screen overlay with logic.
 
 From here, the [Element reference]({% link elements/index.md %}) and the [Concepts]({% link concepts/index.md %}) section cover everything else. The [Architecture]({% link architecture/index.md %}) section is for when you want to extend or modify SUI Designer itself.
+
+## See also
+
+- [Settings screen]({% link tutorials/settings-screen.md %}) — modern V1.5 modal pattern using input widgets + Apply API
+- [Events & Actions]({% link concepts/events-and-actions.md %}) — wire the Respawn / Quit buttons via Code or Doo handlers
+- [Wrapper API]({% link reference/wrapper-api.md %}) — `Show()` / `Hide()` / `SuiInputMode` for full-screen modals
