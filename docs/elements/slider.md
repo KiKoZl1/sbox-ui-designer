@@ -68,26 +68,40 @@ The wrapper carries `flex-grow: 0` (intentional override of the engine pattern) 
 
 ## Codegen — `OnChange` trigger
 
+For a Slider **element named `VolumeSlider`** bound TwoWay to a `float` Variable `Volume` (verbatim shape from `InputWidgetsShowcase.sui` → `InputWidgetsShowcasePanel.razor`):
+
 ```razor
-<div class="sui-slider sui-volume-slider" @ref="VolumeSliderTrackRef"
-     onmousedown=@(e => OnVolumeSlider_OnTrackInput(e))
-     onmousemove=@(e => OnVolumeSlider_OnTrackMove(e))>
-    <div class="sui-slider-track" style="background-color: #22222288"></div>
-    <div class="sui-slider-fill"  style="background-color: #4ade80; width: @($"{(Volume - 0f) / (100f - 0f) * 100f}%")"></div>
-    <div class="sui-slider-thumb" style="background-color: #ffffff; left: @($"{(Volume - 0f) / (100f - 0f) * 100f}%")"></div>
-    @if ( SliderShowValue && HasActive )
-    {
-        <div class="sui-slider-tooltip" ...>@Volume</div>
-    }
+<div class="slider sui-el-volume-slider sui-slider"
+     onmousedown=@Volume_OnTrackInput
+     onmousemove=@Volume_OnTrackMove>
+    <div class="sui-slider-track" style="background-color: #22222288;"></div>
+    <div class="sui-slider-fill"  style="background-color: #4ade80; width: @(VolumeSliderSliderPosition)%;"></div>
+    <div class="sui-slider-thumb" style="background-color: #ffffff; left: @(VolumeSliderSliderPosition)%;"></div>
+    <div class="sui-slider-tooltip" style="left: @(VolumeSliderSliderPosition)%;">
+        <label class="sui-slider-tooltip-label">@(Volume.ToString("0.##"))</label>
+    </div>
 </div>
 
 @code {
-    public float Volume { get; set; }
+    public float Volume { get; set; } = 50f;
+    private float _volumeVisual = 50f;
 
-    private void OnVolumeSlider_OnTrackInput( PanelEvent e ) { /* compute Volume from mouse pos */ }
-    private void OnVolumeSlider_OnTrackMove ( PanelEvent e ) { /* drag */ }
+    // Position % derived from the visual buffer, NOT the bound Variable directly,
+    // so the displayed thumb tracks the drag in real time.
+    private float VolumeSliderSliderPosition
+        => global::Sandbox.MathX.LerpInverse( _volumeVisual, 0f, 100f, true ) * 100f;
+
+    private global::Sandbox.UI.Panel Volume_TrackPanel;
+    private void Volume_OnTrackInput( global::Sandbox.UI.PanelEvent baseEvent ) { /* mousedown: snap Volume */ }
+    private void Volume_OnTrackMove ( global::Sandbox.UI.PanelEvent baseEvent ) { /* mousemove + HasActive: drag */ }
+    private void Volume_ScreenToValue( global::Vector2 pos )                    { /* LerpInverse + step round + commit */ }
 }
 ```
+
+Two naming patterns to note:
+
+1. The drag handlers are named **`<BoundVariableName>_*`**, NOT `<ElementName>_*` — so a Slider bound to Variable `Volume` produces `Volume_OnTrackInput` / `Volume_OnTrackMove` / `Volume_ScreenToValue`.
+2. The fill / thumb / tooltip position is the **`<ElementName>SliderPosition`** property — element-name based, drives the inline `width` / `left` styles.
 
 CSS chains are kept ≤ 2 deep (selector form `.sui-slider-fill` / `.sui-slider-thumb` / `.sui-slider-tooltip` — descendants of the wrapper, never `> > >` chained — required after Sandbox.UI parser drops deeper chains).
 
@@ -95,14 +109,16 @@ CSS chains are kept ≤ 2 deep (selector form `.sui-slider-fill` / `.sui-slider-
 
 ```razor
 @code {
-    public float Volume { get; set; }
-    private float _volumeVisual;   // visual buffer
+    public float Volume { get; set; } = 50f;
+    private float _volumeVisual = 50f;   // visual buffer, updates per drag tick
 
     protected override void Tick()
     {
         // Detect HasActive true → false transition for OnRelease — commit _volumeVisual → Volume
         // Idle ticks resync _volumeVisual = Volume so external writes flow back to displayed position
     }
+
+    public void CommitVolume() => Volume = _volumeVisual;   // called by wrapper.Apply.VolumeSliderValue()
 }
 ```
 
