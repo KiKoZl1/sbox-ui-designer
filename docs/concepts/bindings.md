@@ -41,9 +41,10 @@ The matrix `SuiBindingModeMatrix` decides which modes are allowed for each `(ele
 | **`OneTime`** | Source → Property | First render only | Never |
 | **`OneWay`** | Source → Property | Every `BuildHash()` change | Never |
 | **`TwoWay`** | Source ↔ Property | Every change | Per `UpdateTrigger` (default `OnChange`) |
-| **`OneWayToSource`** | Property → Source | Never | Per `UpdateTrigger` | (reserved for V1.6) |
 
 `TwoWay` is only allowed for input widgets (`TextEntry.Value` / `Slider.Value` / `Toggle.Checked` / `DropDown.Value`) — these are the V1.5 widgets that actually produce values back from user input. See [Binding-mode matrix]({% link reference/binding-mode-matrix.md %}) for the per-property table.
+
+`SuiBindingMode.OneWayToSource` exists in the enum but is hard-wired to **disallowed** by `SuiBindingModeMatrix.IsModeAllowed` (always returns `false`). The Bind popup never offers it. Reserved for V1.6.
 
 ## How bindings generate
 

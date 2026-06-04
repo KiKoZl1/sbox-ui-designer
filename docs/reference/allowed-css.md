@@ -78,9 +78,12 @@ animation, animation-name, animation-duration, animation-iteration-count, animat
 ```
 pointer-events
 sound-in, sound-out
+cursor
 ```
 
 `sound-in` / `sound-out` are engine extensions — play a sound when the element appears or disappears.
+
+`cursor` is in the engine CSS subset (verified against `game/addons/base/code/Styles/base.scss`); common values like `pointer` work directly, project-specific named cursors should be quoted (`cursor: "bug-hover";`). V1.5 M3.5 (D-021) added cursor support to the Button polish pass.
 
 ## Hard-blocked properties
 
@@ -131,7 +134,6 @@ Web CSS that doesn't exist here:
 - **`@supports`** — there's no feature-query mechanism.
 - **Pseudo-elements** like `::before`, `::after` — not supported.
 - **`content` property** — pseudo-element only; not supported.
-- **`cursor`** — runtime UI doesn't theme the cursor.
 - **`filter`** — no backdrop blur, no drop-shadow filter (use `box-shadow` instead).
 - **`backdrop-filter`** — not supported.
 - **CSS variables (`--var`)** — not supported. Use SCSS `$variables` instead (compiled away at SCSS time).

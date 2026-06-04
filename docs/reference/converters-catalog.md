@@ -8,7 +8,7 @@ nav_order: 6
 # Converters catalog
 {: .no_toc }
 
-Every builtin converter (64 total) with signature, category, description, defaults. Source: `Code/Runtime/SuiBuiltinConverters.cs`.
+Every builtin converter (66 total) with signature, category, description, defaults. Source: `Code/Runtime/SuiBuiltinConverters.cs`.
 {: .fs-6 .fw-300 }
 
 ## Table of contents
@@ -80,7 +80,7 @@ User-declared converters via `[SuiConverter]` use `user.<Name>` by default (the 
 | `Or` | `Or(bool a, bool b) → bool` | `a || b` |
 | `Not` | `Not(bool v) → bool` | `!v` |
 
-## String (14)
+## String (15)
 
 | Name | Signature | Description |
 |---|---|---|
