@@ -44,7 +44,7 @@ Font Size / Weight / Color / Padding come from the **Text** section (TextEntry i
 | `Placeholder` | OneTime / OneWay | `string` |
 | Style + Universal | OneWay | per matrix |
 
-`Value` is TwoWay by default. Per-binding `UpdateTrigger` (V1.5 D-028) — pick `OnChange` (per keystroke) / `OnLostFocus` (commit on blur) / `OnSubmit` (commit on Enter) / `Manual` (call `wrapper.Apply.<Field>()`). See [Input & Update triggers]({% link concepts/input-and-update-triggers.md %}).
+`Value` is TwoWay by default. Per-binding `UpdateTrigger` (V1.5 D-028) — pick `OnChange` (per keystroke) / `OnLostFocus` (commit on blur) / `OnSubmit` (commit on Enter) / `Manual` (call `wrapper.Apply.<ElementName>Value()`). See [Input & Update triggers]({% link concepts/input-and-update-triggers.md %}).
 
 ## Events surfaced
 
@@ -77,11 +77,13 @@ The `Value="@PlayerName"` reads into the widget per render; `onblur` writes back
 
 ## Codegen — `Manual` trigger
 
+For a TextEntry **element named `PlayerNameField`** bound `Manual` to a Variable `PlayerName`:
+
 ```razor
-<TextEntry Value="@PlayerName" @ref="PlayerNameRef" />
+<TextEntry Value="@PlayerName" @ref="PlayerNameFieldRef" />
 ```
 
-No write-back handler. The wrapper exposes `Settings.Apply.PlayerName()` — call it from gameplay code (typically a Save button handler). See [Manual commit with Apply]({% link workflows/manual-commit-with-apply.md %}).
+No write-back handler. The wrapper exposes `Settings.Apply.PlayerNameFieldValue()` (method name = element name + `"Value"`) — call it from gameplay code (typically a Save button handler). See [Manual commit with Apply]({% link workflows/manual-commit-with-apply.md %}).
 
 ## Use it from gameplay code
 

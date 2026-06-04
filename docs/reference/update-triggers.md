@@ -28,7 +28,7 @@ public enum SuiBindingUpdateTrigger
     OnLostFocus,    // TextEntry only — commit on blur (click outside / Tab)
     OnSubmit,       // TextEntry only — commit on Enter key
     OnRelease,      // Slider only — commit on mouse-up after drag
-    Manual,         // never auto-commit; user calls wrapper.Apply.<Field>() explicitly
+    Manual,         // never auto-commit; user calls wrapper.Apply.<ElementName>Value() explicitly (TextEntry / Slider only — Toggle / DropDown need manual read)
 }
 ```
 
@@ -67,7 +67,7 @@ Visual-buffer float decoupled from the bound Variable. `Tick()` detects the `Has
 
 ### `Manual`
 
-No bind, no auto-write handler. The wrapper exposes `Apply.<Name>()` and `Apply.All()`. See [Manual commit with Apply]({% link workflows/manual-commit-with-apply.md %}).
+No bind, no auto-write handler. For TextEntry + Slider, the wrapper exposes `Apply.<ElementName>Value()` and `Apply.All()` — the method name is derived from the element's Name in the Hierarchy + the literal suffix `"Value"`. For Toggle + DropDown, the Apply codegen is NOT emitted (V1.5 gap — `Code/Generation/SuiWrapperEmitter.cs` `EmitManualCommitMethods` only fires for TextEntry + Slider); user code reads the widget's state via the auto-emitted `@ref`. See [Manual commit with Apply]({% link workflows/manual-commit-with-apply.md %}).
 
 ## When TwoWay isn't allowed
 

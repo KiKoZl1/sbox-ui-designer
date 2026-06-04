@@ -61,45 +61,49 @@ V1.5 DEVIATIONS D-024 ships:
 
 ## Codegen — `OnChange` trigger (default)
 
-```razor
-<DropDown Value:bind=@GraphicsPreset>
-    <option value="0">Low</option>
-    <option value="1">Medium</option>
-    <option value="2">High</option>
-    <option value="3">Ultra</option>
-</DropDown>
-```
-
-Wait — that's not actually how `Sandbox.UI.DropDown` consumes options. The real codegen builds the Options list at construction:
+For a DropDown element named `GraphicsDropdown` bound TwoWay to a Variable `GraphicsPreset: int`, with options `["Low", "Medium", "High", "Ultra"]`:
 
 ```razor
-<DropDown Value:bind=@GraphicsPreset @ref="GraphicsPresetRef" />
+<DropDown class="dropdown sui-el-graphics-dropdown"
+          Options=@GraphicsDropdownOptions
+          Value:bind="@GraphicsPreset" />
 
 @code {
-    public int GraphicsPreset { get; set; }
+    public int GraphicsPreset { get; set; } = 1;
 
-    protected override void OnAfterTreeRender( bool firstTime )
-    {
-        if ( firstTime && GraphicsPresetRef != null )
-        {
-            GraphicsPresetRef.Options.Add( new global::Sandbox.UI.Option( "Low",    0 ) );
-            GraphicsPresetRef.Options.Add( new global::Sandbox.UI.Option( "Medium", 1 ) );
-            GraphicsPresetRef.Options.Add( new global::Sandbox.UI.Option( "High",   2 ) );
-            GraphicsPresetRef.Options.Add( new global::Sandbox.UI.Option( "Ultra",  3 ) );
-        }
-    }
+    public global::System.Collections.Generic.List<global::Sandbox.UI.Option> GraphicsDropdownOptions { get; set; }
+        = new global::System.Collections.Generic.List<global::Sandbox.UI.Option> {
+            new global::Sandbox.UI.Option( "Low",    0 ),
+            new global::Sandbox.UI.Option( "Medium", 1 ),
+            new global::Sandbox.UI.Option( "High",   2 ),
+            new global::Sandbox.UI.Option( "Ultra",  3 ),
+        };
 }
 ```
 
-The bound `int GraphicsPreset` updates per click.
+Two things to note:
+
+1. The Options list is a **public `List<Sandbox.UI.Option>` field on the renderer Panel** named `<ElementName>Options` (`GraphicsDropdownOptions` here). It's wired into the `<DropDown>` tag via `Options=@...`. The bound Variable `GraphicsPreset` updates per click via native `Value:bind`.
+2. Each `Option.Value` carries the index, so the bound `int` field reads exactly which option is selected.
 
 ## Codegen — `Manual` trigger
 
 ```razor
-<DropDown @ref="GraphicsPresetRef" />
+<DropDown Options=@GraphicsDropdownOptions @ref="GraphicsDropdownRef" />
 ```
 
-No bind. The wrapper exposes `Settings.Apply.GraphicsPreset()`. See [Manual commit with Apply]({% link workflows/manual-commit-with-apply.md %}).
+No bind. **Known gap (V1.5):** the wrapper emits an `@ref` but does NOT generate an `Apply.*` method for DropDown (the Apply codegen only fires for TextEntry + Slider — see `Code/Generation/SuiWrapperEmitter.cs` `EmitManualCommitMethods`). User code must read the dropdown's `Value` manually:
+
+```csharp
+void OnSaveClick()
+{
+    if ( Settings.View?.GraphicsDropdownRef is { } dd && dd.Value is int v )
+        Settings.GraphicsPreset = v;
+    Settings.Apply.All();   // covers TextEntry / Slider Manual bindings
+}
+```
+
+A future release will extend `Apply` to cover DropDown — see [Manual commit with Apply]({% link workflows/manual-commit-with-apply.md %}).
 
 ## Tutorial — drop + bind + read
 

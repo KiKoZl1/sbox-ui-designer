@@ -110,7 +110,7 @@ By default, on every change (keystroke / drag tick / click) — `UpdateTrigger.O
 - Slider — `OnRelease` (commit on mouse-up) / `Manual`.
 - Toggle / DropDown — atomic only — `OnChange` or `Manual`.
 
-For `Manual` triggers the wrapper exposes `Settings.Apply.PlayerName()` / `Settings.Apply.All()` — call from your Save button handler. See [Input & Update triggers]({% link concepts/input-and-update-triggers.md %}) and [Manual commit with Apply]({% link workflows/manual-commit-with-apply.md %}).
+For `Manual` triggers the wrapper exposes `Settings.Apply.<ElementName>Value()` (e.g. `Settings.Apply.PlayerNameFieldValue()` for a TextEntry named `PlayerNameField`) plus `Settings.Apply.All()` — call from your Save button handler. Apply codegen only fires for TextEntry + Slider in V1.5; Toggle + DropDown Manual bindings need direct widget read via `@ref`. See [Input & Update triggers]({% link concepts/input-and-update-triggers.md %}) and [Manual commit with Apply]({% link workflows/manual-commit-with-apply.md %}).
 
 ## Compose vs Format?
 

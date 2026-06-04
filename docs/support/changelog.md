@@ -29,9 +29,9 @@ Major feature release. **Fully backward-compatible** — V1.0 documents load unc
 
 - **Variables** — string / int / long / float / bool / Color / Vector / engine types / `Enum:` / `Component:` / `List<T>` + `IsPublic` flag.
 - **Bindings** — OneTime / OneWay / TwoWay (+ reserved OneWayToSource), per-`(elementType, property)` matrix.
-- **Converters** — 64 builtins (Math / Range / Conversion / Logic / String / Color / Collection) + custom `[SuiConverter]` scaffolding into `Code/GameConverters.cs`. Variadic `params object[]` support. Literal args + chain reposition + broken-binding warnings.
+- **Converters** — 66 builtins (Math 10 / Range 9 / Conversion 6 / Logic 10 / String 15 / Color 10 / Collection 6) + custom `[SuiConverter]` scaffolding into `Code/GameConverters.cs`. Variadic `params object[]` support. Literal args + chain reposition + broken-binding warnings.
 - **Composition** — `SuiReference` embeds another `.sui`. Recursive canvas paint. Recursive `ContentHash` (DEVIATIONS D-015).
-- **Wrapper class** — every `.sui` compiles to `<Name>Panel.razor` + `<Name>.razor.scss` + `<Name>.cs` (extends `SuiPanel<<Name>Panel>`). Add / Show / Hide / Remove API. `Apply.<Field>()` namespace for `UpdateTrigger.Manual`. (DEVIATIONS D-013, D-014.)
+- **Wrapper class** — every `.sui` compiles to `<Name>Panel.razor` + `<Name>.razor.scss` + `<Name>.cs` (extends `SuiPanel<<Name>Panel>`). Add / Show / Hide / Remove API. `Apply.<ElementName>Value()` namespace for `UpdateTrigger.Manual` (TextEntry + Slider only — Toggle + DropDown Manual flush is a V1.5 gap). (DEVIATIONS D-013, D-014, D-029.)
 - **Events** — Doo replaces ActionGraph as the visual scripting backend (DEVIATIONS D-017). Doo body stored inside the `.sui` (WBP-like, DEVIATIONS D-018).
 - **Asset Registry** — stable GUID resolution for SuiReference + cascade compile + USER WIDGETS palette section.
 

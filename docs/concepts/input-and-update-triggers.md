@@ -34,7 +34,7 @@ public enum SuiBindingUpdateTrigger
     OnLostFocus,    // TextEntry only — commit on blur (click outside / Tab)
     OnSubmit,       // TextEntry only — commit on Enter key
     OnRelease,      // Slider only — commit on mouse-up after drag
-    Manual,         // never auto-commit; user calls wrapper.Apply.<Field>() explicitly
+    Manual,         // never auto-commit; user calls wrapper.Apply.<ElementName>Value() explicitly
 }
 ```
 
@@ -109,12 +109,14 @@ No `onblur` / `onsubmit` handler at all. The wrapper exposes a commit method (se
 
 ## The Apply API
 
-For `Manual` triggers, the wrapper grows a nested `Apply` namespace exposed as `public ApplyApi Apply { get; }`:
+For `Manual` triggers, the wrapper grows a nested `Apply` namespace exposed as `public ApplyApi Apply { get; }`. Each method is named after the **element's Name in the Hierarchy**, with `"Value"` appended:
 
 ```csharp
-Settings.Apply.PlayerName();   // commit one Manual binding
-Settings.Apply.Volume();        // commit another
-Settings.Apply.All();           // commit every Manual field at once
+// .sui has elements named PlayerNameField (TextEntry), VolumeSlider (Slider),
+// GraphicsDropdown (DropDown), each bound Manual:
+Settings.Apply.PlayerNameFieldValue();   // commit one Manual binding
+Settings.Apply.VolumeSliderValue();      // commit another
+Settings.Apply.All();                    // commit every Manual field at once
 ```
 
 The `Apply` class is **only emitted when at least one Manual binding exists** in the document — wrappers with no Manual bindings have no `Apply` property (autocomplete stays clean; `wrapper.Apply.X` compile-errors clearly when there's nothing to apply).
@@ -126,10 +128,12 @@ The `.All()` method invokes every Manual method in declaration order — the can
 
 void OnSaveClick()
 {
-    Settings.Apply.All();   // flush PlayerName + Volume + Difficulty + ...
+    Settings.Apply.All();   // flush every Manual binding the document declares
     SaveSettingsToDisk();
 }
 ```
+
+See [Manual commit with Apply]({% link workflows/manual-commit-with-apply.md %}) for the full naming-rule callout + a worked codegen example.
 
 ## Why these triggers (the use cases)
 

@@ -87,7 +87,7 @@ The compile log names both contributors ("name collision on 'Health': Variable '
 
 The slider binding has `UpdateTrigger.OnRelease` set — the wrapper field only updates when the mouse releases. If you want per-tick updates, switch the trigger to `OnChange` in the Bind popup. See [Input & Update triggers]({% link concepts/input-and-update-triggers.md %}).
 
-For `UpdateTrigger.Manual`, the field never auto-updates — call `wrapper.Apply.<FieldName>()` (or `.Apply.All()`) explicitly. See [Manual commit with Apply]({% link workflows/manual-commit-with-apply.md %}).
+For `UpdateTrigger.Manual`, the field never auto-updates — call `wrapper.Apply.<ElementName>Value()` (or `.Apply.All()`) explicitly. The method name = the **element's Name in the Hierarchy** + the literal suffix `"Value"`. See [Manual commit with Apply]({% link workflows/manual-commit-with-apply.md %}).
 
 ## "Compile failed — file Conflict"
 

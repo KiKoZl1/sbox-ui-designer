@@ -154,21 +154,38 @@ The renderer's `BuildHash()` mirrors this set. Mutations at any depth propagate 
 
 ## The `Apply` namespace (V1.5 D-029)
 
-Generated **only** when at least one binding on the document has `UpdateTrigger.Manual`. One method per Manual binding + `All()`:
+Generated **only** when at least one binding on the document is `UpdateTrigger.Manual` AND on a TextEntry / Slider element (Toggle + DropDown Manual bindings produce no Apply method — see "Known gap" below). One method per qualifying Manual binding + `All()`:
 
 ```csharp
+// Hierarchy: TextEntry "PlayerNameField", Slider "VolumeSlider", both bound Manual.
 public sealed class ApplyApi
 {
-    public void PlayerName()     { ... }
-    public void Volume()         { ... }
-    public void GraphicsPreset() { ... }
-    public void All()            { PlayerName(); Volume(); GraphicsPreset(); }
+    private readonly SettingsPanel _w;
+    internal ApplyApi( SettingsPanel w ) { _w = w; }
+
+    public void PlayerNameFieldValue()  { /* read view.PlayerNameFieldRef.Text → _w.PlayerName */ }
+    public void VolumeSliderValue()     { _w.View?.CommitVolume(); }
+
+    public void All()
+    {
+        PlayerNameFieldValue();
+        VolumeSliderValue();
+    }
 }
 
-public ApplyApi Apply { get; }
+private ApplyApi _apply;
+public ApplyApi Apply => _apply ??= new ApplyApi( this );
 ```
 
-Wrappers without Manual bindings have no `Apply` property — `wrapper.Apply.X` compile-errors clearly. See [Manual commit with Apply]({% link workflows/manual-commit-with-apply.md %}).
+The method name = the **element's Name in the Hierarchy** with `"Value"` appended. Not the Variable name. Not the property name. Source: `Code/Generation/SuiWrapperEmitter.cs` `EmitManualCommitMethods`.
+
+Wrappers without any qualifying Manual binding have no `Apply` property — `wrapper.Apply.X` compile-errors clearly.
+
+### Known gap — Toggle + DropDown Manual
+
+`Apply` codegen only fires for `TextEntry.Value` and `Slider.Value` bindings (the `EmitManualCommitMethods` filter). Toggle + DropDown Manual bindings still get an `@ref` but no Apply method — user code reads the widget directly through the renderer's `<ElementName>Ref` field. Future release will close this gap.
+
+See [Manual commit with Apply]({% link workflows/manual-commit-with-apply.md %}).
 
 ## Lifecycle summary diagram
 

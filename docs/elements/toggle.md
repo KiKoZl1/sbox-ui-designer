@@ -64,10 +64,21 @@ Native `Checked:bind=` writes the new bool into the wrapper's `[Property] bool M
 ## Codegen — `Manual` trigger
 
 ```razor
-<Checkbox Checked="@MusicEnabled" @ref="MusicEnabledRef" />
+<Checkbox Checked="@MusicEnabled" @ref="MusicToggleRef" />
 ```
 
-No bind. The wrapper exposes `Settings.Apply.MusicEnabled()` — call from a Save button. See [Manual commit with Apply]({% link workflows/manual-commit-with-apply.md %}).
+No bind. **Known gap (V1.5):** the wrapper emits an `@ref` but does NOT generate an `Apply.*` method for Toggle (the Apply codegen only fires for TextEntry + Slider — see `Code/Generation/SuiWrapperEmitter.cs` `EmitManualCommitMethods`). User code must read the checkbox state manually:
+
+```csharp
+void OnSaveClick()
+{
+    if ( Settings.View?.MusicToggleRef is { } cb )
+        Settings.MusicEnabled = cb.Checked;
+    Settings.Apply.All();   // covers TextEntry / Slider Manual bindings
+}
+```
+
+A future release will extend `Apply` to cover Toggle (and DropDown) — see [Manual commit with Apply]({% link workflows/manual-commit-with-apply.md %}).
 
 ## Tutorial — drop + bind + read
 

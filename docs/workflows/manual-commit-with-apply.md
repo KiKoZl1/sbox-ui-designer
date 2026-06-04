@@ -8,7 +8,7 @@ nav_order: 8
 # Manual commit with `Apply`
 {: .no_toc }
 
-`UpdateTrigger.Manual` + the `wrapper.Apply.<Field>()` namespace — the explicit-save pattern for forms, Apply/Cancel dialogs, and any UI where commits shouldn't happen on every change.
+`UpdateTrigger.Manual` + the `wrapper.Apply.<ElementName>Value()` namespace — the explicit-save pattern for forms, Apply/Cancel dialogs, and any UI where commits shouldn't happen on every change.
 {: .fs-6 .fw-300 }
 
 ## Table of contents
@@ -27,7 +27,22 @@ A typical Settings panel has:
 - A **Save** button that commits every change at once.
 - A **Cancel** button that discards every change.
 
-With realtime `OnChange` triggers, every keystroke / drag tick / click would write through to the underlying Variables — there's no "tentative changes vs committed" distinction. With `UpdateTrigger.Manual`, the widget keeps its current visual state but **never writes back** until you call `wrapper.Apply.<Field>()` explicitly.
+With realtime `OnChange` triggers, every keystroke / drag tick / click would write through to the underlying Variables — there's no "tentative changes vs committed" distinction. With `UpdateTrigger.Manual`, the widget keeps its current visual state but **never writes back** until you call the matching `Apply.<ElementName>Value()` method explicitly.
+
+## Naming rule (read this first)
+
+The method name on `Apply` is derived from the **element's Name in the Hierarchy**, with `"Value"` appended:
+
+```
+Element name in Hierarchy    →  Apply method name
+"PlayerNameField"            →  Apply.PlayerNameFieldValue()
+"VolumeSlider"               →  Apply.VolumeSliderValue()
+"GraphicsDropdown"           →  Apply.GraphicsDropdownValue()
+```
+
+Not the Variable name. Not the property name. **The element name + `"Value"`.** Source of truth: `Code/Generation/SuiWrapperEmitter.cs` `EmitManualCommitMethods` (lines 398-428).
+
+Whenever in doubt, call `Apply.All()` — it flushes every Manual binding the document declares.
 
 ## Authoring
 
@@ -37,28 +52,32 @@ In the Bind popup for each input widget:
 2. **UpdateTrigger** — **Manual**.
 3. OK.
 
-The codegen now emits a widget without bind/handler (renderer keeps the ref but doesn't write back) and the wrapper grows an `Apply` class:
+The codegen now emits a widget without bind/handler (renderer keeps the ref but doesn't write back) and the wrapper grows an `Apply` class. For a document with three elements named `PlayerNameField` / `VolumeSlider` / `GraphicsDropdown`, all bound `Manual`:
 
 ```csharp
 public sealed class SettingsPanel : SuiPanel<SettingsPanelView>
 {
-    [Property] public string PlayerName { get; set; } = "Player";
-    [Property] public float  Volume      { get; set; } = 50f;
+    [Property] public string PlayerName     { get; set; } = "Player";
+    [Property] public float  Volume         { get; set; } = 50f;
     [Property] public int    GraphicsPreset { get; set; } = 1;
 
-    public ApplyApi Apply { get; }
+    private ApplyApi _apply;
+    public ApplyApi Apply => _apply ??= new ApplyApi( this );
 
     public sealed class ApplyApi
     {
-        public void PlayerName()     { /* copy view.PlayerNameRef.Text → wrapper.PlayerName */ }
-        public void Volume()         { /* copy view's slider visual → wrapper.Volume */ }
-        public void GraphicsPreset() { /* copy view.GraphicsPresetRef.Value → wrapper.GraphicsPreset */ }
+        private readonly SettingsPanel _w;
+        internal ApplyApi( SettingsPanel w ) { _w = w; }
+
+        public void PlayerNameFieldValue()    { /* read view.PlayerNameFieldRef.Text → _w.PlayerName */ }
+        public void VolumeSliderValue()       { _w.View?.CommitVolume(); }
+        public void GraphicsDropdownValue()   { /* read view.GraphicsPreset, write _w.GraphicsPreset */ }
 
         public void All()
         {
-            PlayerName();
-            Volume();
-            GraphicsPreset();
+            PlayerNameFieldValue();
+            VolumeSliderValue();
+            GraphicsDropdownValue();
         }
     }
 }
@@ -98,7 +117,7 @@ public sealed class SettingsController : Component
 For a partial save (only commit one field), call the method directly:
 
 ```csharp
-Settings.Apply.PlayerName();   // commit only this one — Volume / GraphicsPreset stay tentative
+Settings.Apply.PlayerNameFieldValue();   // commit only this one — Volume / GraphicsPreset stay tentative
 ```
 
 ## Mixing triggers within a panel
@@ -116,19 +135,15 @@ For sliders with `Manual` or `OnRelease`, the wrapper carries a `_<name>Visual` 
 
 ## TextEntry — `@ref` path
 
-Manual TextEntry uses the `@ref` Panel to read the live `.Text`:
+For a TextEntry element named `PlayerNameField` bound `Manual` to a Variable `PlayerName`, the emitted method reads the live `.Text` via the auto-generated `@ref`:
 
 ```csharp
-public sealed class ApplyApi
+public void PlayerNameFieldValue()
 {
-    private readonly SettingsPanel _wrapper;
-    public ApplyApi( SettingsPanel w ) { _wrapper = w; }
-
-    public void PlayerName()
-    {
-        var text = _wrapper.View?.PlayerNameRef?.Text;
-        if ( text != null ) _wrapper.PlayerName = text;
-    }
+    if ( _w.View == null ) return;
+    var entry = _w.View.PlayerNameFieldRef;   // @ref named "<ElementName>Ref"
+    if ( entry == null ) return;
+    _w.PlayerName = entry.Text ?? "";          // bound Variable property
 }
 ```
 

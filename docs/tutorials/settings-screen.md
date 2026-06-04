@@ -170,10 +170,14 @@ public sealed class SettingsController : Component
 
     void HandleApply()
     {
-        // Flush every Manual binding (PlayerName + GraphicsPreset).
-        // Volume was already committed at the last slider release; MusicEnabled
-        // committed at the last click. So Apply.All() picks up only the deferred ones.
+        // Flush every Manual binding. Apply.All() in V1.5 covers TextEntry
+        // (PlayerNameField → Apply.PlayerNameFieldValue) + Slider Manual
+        // bindings (none here — Volume is OnRelease). Manual Toggle / DropDown
+        // bindings are NOT in Apply yet (V1.5 gap) — we read them directly.
         Settings.Apply.All();
+        // Read GraphicsDropdown Manual binding directly (no Apply method yet).
+        if ( Settings.View?.GraphicsFieldRef is { } dd && dd.Value is int gp )
+            Settings.GraphicsPreset = gp;
 
         SavedPlayerName = Settings.PlayerName;
         SavedVolume     = Settings.Volume;

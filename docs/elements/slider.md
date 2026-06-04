@@ -56,7 +56,7 @@ The wrapper carries `flex-grow: 0` (intentional override of the engine pattern) 
 | `Max` | OneTime / OneWay | `float` |
 | Style + Universal | OneWay | per matrix |
 
-`Value` UpdateTrigger options: `OnChange` (write per drag tick) / `OnRelease` (commit on mouse-up) / `Manual` (call `wrapper.Apply.<Field>()`). See [Input & Update triggers]({% link concepts/input-and-update-triggers.md %}).
+`Value` UpdateTrigger options: `OnChange` (write per drag tick) / `OnRelease` (commit on mouse-up) / `Manual` (call `wrapper.Apply.<ElementName>Value()`). See [Input & Update triggers]({% link concepts/input-and-update-triggers.md %}).
 
 ## Events surfaced
 
@@ -106,7 +106,7 @@ CSS chains are kept ≤ 2 deep (selector form `.sui-slider-fill` / `.sui-slider-
 }
 ```
 
-For `Manual`, the wrapper exposes `Settings.Apply.Volume()` — call it explicitly. The slider visually responds to drag in real time but the bound Variable only updates when you call Apply.
+For a Slider **element named `VolumeSlider`** bound `Manual`, the wrapper exposes `Settings.Apply.VolumeSliderValue()` (method name = element name + `"Value"`) — call it explicitly. The slider visually responds to drag in real time but the bound Variable only updates when you call Apply.
 
 ## Tutorial — drop + bind + read
 
