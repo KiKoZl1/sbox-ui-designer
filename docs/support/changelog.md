@@ -11,6 +11,58 @@ Release history. The authoritative version is in [CHANGELOG.md](https://github.c
 
 ---
 
+## V1.5 — 2026-06-03
+
+Major feature release. **Fully backward-compatible** — V1.0 documents load unchanged and get migrated via the upgrade prompt (see the [V1.0 → V1.5 upgrade guide]({% link UPGRADE_V1_0_TO_V1_5.md %})). The internal deviations log (`docs/prd/_V15_DEVIATIONS.md`) is the authoritative catalogue of changes between the locked PRDs and the shipped code.
+
+### Milestones
+
+| Milestone | Headline feature |
+|---|---|
+| **M1** — Variables & Bindings | Typed UI-local state. Each `.sui` declares `SuiVariable` slots; element properties bind to them through optional converter chains. PRD 18. |
+| **M2** — Composition | One `.sui` can embed another via `SuiReference`. ForEach replication. USER WIDGETS dynamic palette section. PRD 19. Wrapper class always generated (DEVIATIONS D-013). |
+| **M3** — Events & Element Refs | `OnClick` / `OnHover` / `OnValueChanged` slots on every interactive element, with two modes: **Code** (Action handler) or **Doo** (visual script stored inside the `.sui`). Element `@ref` exposure flag. PRD 20. |
+| **M3.5** — Button Polish | Hover / Pressed / Disabled / Focused per-state SCSS overrides. Cursor presets. Hover / press sound slots. Smooth transitions. ButtonShape + BackgroundSize. PRD 25. |
+| **M4** — Input Widgets | TextEntry, Slider, Toggle, DropDown. TwoWay bindings + `UpdateTrigger` (`OnChange / OnLostFocus / OnSubmit / OnRelease / Manual`). `Apply` API for Manual commits. 13 new builtin converters + UI overhaul (literal args, type-tinting, broken-binding visuals, step reorder, Compose converter). PRD 21. |
+
+### Concepts that landed
+
+- **Variables** — string / int / long / float / bool / Color / Vector / engine types / `Enum:` / `Component:` / `List<T>` + `IsPublic` flag.
+- **Bindings** — OneTime / OneWay / TwoWay (+ reserved OneWayToSource), per-`(elementType, property)` matrix.
+- **Converters** — 64 builtins (Math / Range / Conversion / Logic / String / Color / Collection) + custom `[SuiConverter]` scaffolding into `Code/GameConverters.cs`. Variadic `params object[]` support. Literal args + chain reposition + broken-binding warnings.
+- **Composition** — `SuiReference` embeds another `.sui`. Recursive canvas paint. Recursive `ContentHash` (DEVIATIONS D-015).
+- **Wrapper class** — every `.sui` compiles to `<Name>Panel.razor` + `<Name>.razor.scss` + `<Name>.cs` (extends `SuiPanel<<Name>Panel>`). Add / Show / Hide / Remove API. `Apply.<Field>()` namespace for `UpdateTrigger.Manual`. (DEVIATIONS D-013, D-014.)
+- **Events** — Doo replaces ActionGraph as the visual scripting backend (DEVIATIONS D-017). Doo body stored inside the `.sui` (WBP-like, DEVIATIONS D-018).
+- **Asset Registry** — stable GUID resolution for SuiReference + cascade compile + USER WIDGETS palette section.
+
+### Schema
+
+Bumped to **V3**:
+
+- V1 → V2 — adds Variables + Bindings + Events + SuiReference element type.
+- V2 → V3 — adds per-state interactive style overrides + Transition + Sound + Cursor + ButtonShape + BackgroundSize on `SuiElementProps`.
+
+V1 + V2 documents migrate automatically on first open (lossless — every existing field still loads). See [SUI JSON schema]({% link reference/sui-json-schema.md %}).
+
+### Elements (5 new)
+
+- **SuiReference** — composition.
+- **TextEntry** / **Slider** / **Toggle** / **DropDown** — input widgets.
+
+See [Element type matrix]({% link reference/element-types.md %}).
+
+### Known gaps (V1.5 final)
+
+- Action Graph picker on Code-mode `[Property] Action` slots persists but doesn't fire in Play (DEVIATIONS D-020).
+- `TextEntry.IsPassword` / `AutoFocus` / `IsNumeric` deferred to V1.6 (DEVIATIONS D-023).
+- `Toggle` ships only the default Checkbox visual; Pill / Switch variants deferred to V1.6 (DEVIATIONS D-025).
+- Dynamic `DropDown.Options` binding deferred to V1.6 (DEVIATIONS D-024).
+- Drag `.sui` from Asset Browser onto canvas deferred to V1.6 (DEVIATIONS D-011).
+- Find Usages cache deferred (DEVIATIONS D-008).
+- Standalone PreviewData panel deferred (DEVIATIONS D-009).
+
+---
+
 ## V1.0 — 2026-05-11
 
 First public release.

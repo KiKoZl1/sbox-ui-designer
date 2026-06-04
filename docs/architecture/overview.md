@@ -117,14 +117,21 @@ Read more: [Canvas renderer]({% link architecture/canvas-renderer.md %}) · [Lay
 
 ### Generator (`Code/Generation/`)
 
-Pure functions: take a `SuiDocument` + `SuiGenerationMode`, return an in-memory `SuiGenerationResult` (Razor string + SCSS string + diagnostics). Does not touch the filesystem.
+Pure functions: take a `SuiDocument` + `SuiGenerationMode`, return an in-memory `SuiGenerationResult` (Razor + SCSS + **wrapper C#** + diagnostics). Does not touch the filesystem.
+
+V1.5 emits four artefacts per `.sui`:
+
+1. **`<Name>Panel.razor`** — the `Panel`-derived renderer (renamed from `<Name>` per DEVIATIONS D-014).
+2. **`<Name>.razor.scss`** — stylesheet.
+3. **`<Name>.cs`** — the wrapper class extending `SuiPanel<<Name>Panel>` with `Add` / `Show` / `Hide` / `Remove`, per-Variable `[Property]` mirrors, named-instance fields for embedded SuiReferences, an `Apply` namespace for `Manual` triggers, and a recursive `ContentHash` (DEVIATIONS D-015).
+4. **`<Name>.User.scss`** sidecar (created once if missing, then never overwritten).
 
 Two modes:
 
 - `Final` — emits `@import "<ClassName>.User.scss"` at the bottom. For real compile.
 - `Preview` — no User import. For Test in Play.
 
-Read more: [Generator pipeline]({% link architecture/generator.md %}).
+Read more: [Generator pipeline]({% link architecture/generator.md %}) and [Wrapper generation]({% link concepts/wrapper-generation.md %}).
 
 ### Compile writer (`Editor/SuiCompileWriter.cs`)
 
@@ -161,6 +168,16 @@ Read more: [Preview system]({% link architecture/preview-system.md %}).
 | `Editor/Commands/` | `SboxUiDesigner.EditorUi.Commands` | Command interface + concrete commands |
 | `Editor/Widgets/` | `SboxUiDesigner.EditorUi.Widgets` | All dockable widgets |
 | `Editor/Tools/` | `SboxUiDesigner.EditorUi.Tools` | Tools menu actions (Clean caches, etc.) |
+
+### Asset Registry (V1.5)
+
+`SuiAssetRegistry` (`Code/Runtime/`) keeps a stable GUID → path/name map of every `.sui` in the project. Drives:
+
+- The dynamic **USER WIDGETS** palette category (DEVIATIONS D-002).
+- The **SuiReference** resolver — looks up the target child by stable GUID.
+- Cascade compile — when a child compiles, every parent that depends on it is recompiled.
+
+The registry is split for sandbox-compat (DEVIATIONS D-004): the runtime registry is filesystem-clean; `SuiAssetRegistryService` (Editor) owns the filesystem walk + `FileSystemWatcher` + JSON cache persistence.
 
 ## Why this split?
 

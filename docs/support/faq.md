@@ -82,12 +82,56 @@ See [User SCSS customization]({% link workflows/user-scss-customization.md %}) f
 
 ## How do I bind data to my UI?
 
-V1 only supports static content. V1.5 introduces:
+(V1.5 — fully supported.) Declare a typed Variable on the document (`Health: int`), then bind any element property to it through the Bind popup. The wrapper class auto-exposes the Variable as `[Property] public int Health` — gameplay code sets it and the View redraws.
 
-- `[Property]` on generated C# class (set values from gameplay code).
-- A Bindings tab in the designer (declare `Element.Text ← Source.Path`).
+```csharp
+[Property] public MyHud Hud { get; set; } = new();
+Hud.Show();
+Hud.Health = 75;     // wrapper syncs to View; ProgressBar.Value re-evaluates the chain
+```
 
-Until V1.5, you wire things up by hand in a `.partial.cs` file — see the [Death modal tutorial]({% link tutorials/death-modal.md %}) for the pattern.
+See [Bindings]({% link concepts/bindings.md %}) + [Binding a Variable]({% link workflows/binding-a-variable.md %}).
+
+## What's the difference between the wrapper and the renderer?
+
+Every `.sui` compiles to three files:
+
+- `<Name>Panel.razor` — the **renderer**, a `Panel` subclass that owns the Razor markup.
+- `<Name>.razor.scss` — the renderer's stylesheet.
+- `<Name>.cs` — the **wrapper**, `SuiPanel<<Name>Panel>`. Gameplay code touches the wrapper — `Hud.Show()` / `Hud.Health = 75` — the wrapper auto-syncs to the renderer via `SyncFieldsTo`. See [Wrapper generation]({% link concepts/wrapper-generation.md %}).
+
+The split shipped in V1.5-M2-K7 (DEVIATIONS D-014) so Razor markup can nest one `.sui`'s output inside another's via `<HealthBarPanel ... />` tags.
+
+## When does my TwoWay binding actually write back to the Variable?
+
+By default, on every change (keystroke / drag tick / click) — `UpdateTrigger.OnChange`. Some triggers can defer the write:
+
+- TextEntry — `OnLostFocus` (commit on blur) / `OnSubmit` (commit on Enter) / `Manual`.
+- Slider — `OnRelease` (commit on mouse-up) / `Manual`.
+- Toggle / DropDown — atomic only — `OnChange` or `Manual`.
+
+For `Manual` triggers the wrapper exposes `Settings.Apply.PlayerName()` / `Settings.Apply.All()` — call from your Save button handler. See [Input & Update triggers]({% link concepts/input-and-update-triggers.md %}) and [Manual commit with Apply]({% link workflows/manual-commit-with-apply.md %}).
+
+## Compose vs Format?
+
+Both build strings from parts. Pick **Compose** for the common "literal + variable" stitching — no `{N}` placeholders, parts are typed in order. Pick **Format** when you genuinely need format strings or culture-specific number formatting. See [Working with converters]({% link workflows/working-with-converters.md %}).
+
+## How do I write a custom converter?
+
+Add a static method anywhere in your game code and tag it with `[SuiConverter]`:
+
+```csharp
+using SboxUiDesigner.Runtime;
+
+public static class MyConverters
+{
+    [SuiConverter( "RemainingTime", Category = "Game" )]
+    public static string RemainingTime( float seconds )
+        => TimeSpan.FromSeconds( seconds ).ToString( @"mm\:ss" );
+}
+```
+
+The Bind popup picks it up automatically. The Designer also has a "New custom converter" dialog that scaffolds the method signature into `Code/GameConverters.cs` for you. See [Converters]({% link concepts/converters.md %}).
 
 ## Why doesn't my element scale when I resize its parent?
 
@@ -126,13 +170,15 @@ Open in SUI Designer in the new project. Set Output → Class Name + Namespace +
 
 The `DocumentId` is preserved; manifest will start fresh in the new output folder.
 
-## What's the V1 → V2 plan?
+## What's the V1.5 → V2 plan?
 
-V1 (current): visual design + Razor/SCSS codegen + Test in Play.
+V1.0: visual design + Razor/SCSS codegen + Test in Play.
 
-V1.5: bindings, `[Property]` exposure, event hookup, animations.
+V1.5 (current): Variables + Bindings (M1) + Composition / SuiReference (M2) + Events / Doo (M3) + Button polish (M3.5) + Input widgets / UpdateTrigger / Apply API (M4).
 
-V2: WorldPanel support, full flex algorithm, themes, palette pre-builds, drag-and-drop logic shared in addon.
+V1.6 (next polish wave): drag `.sui` from Asset Browser (D-011), Find Usages cache (D-008), PreviewData panel (D-009), per-Connection panel manager (D-006), TextEntry password / AutoFocus / Numeric (D-023), Toggle Pill / Switch variants (D-025), dynamic DropDown options (D-024), per-element `[Property] IsDisabled` exposure.
+
+V2: WorldPanel support, full flex algorithm, themes, animation timeline, drag-and-drop logic shared in addon.
 
 ## What if I need a property that's not in the Details panel?
 

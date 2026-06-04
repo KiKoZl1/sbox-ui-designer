@@ -19,26 +19,31 @@ Every element type, what it does, and what fields it cares about.
 
 ---
 
-## The 16 types
+## The 21 types (V1.5)
 
 | Type | Category | Razor output | Has children |
 |---|---|---|---|
-| **Canvas** | Root | `<MyHud>` (root selector) | yes (root only) |
+| **Canvas** | Root | `<root>` selector | yes (root only) |
 | **Panel** | Container | `<div>` | yes |
 | **Overlay** | Container (stacking) | `<div>` | yes |
 | **Text** | Leaf | `<label>` | no |
 | **Image** | Leaf | `<div>` w/ bg-image | no |
-| **Button** | Interactive | `<button>` | no (label is intrinsic) |
+| **Button** | Interactive | `<div>` w/ label | no (label is intrinsic) |
 | **HorizontalBox** | Flex container | `<div class="hbox">` | yes |
 | **VerticalBox** | Flex container | `<div class="vbox">` | yes |
 | **Grid** | Container | `<div>` (wrapped flex) | yes |
 | **ScrollPanel** | Container | `<div>` w/ overflow:scroll | yes |
 | **ProgressBar** | Leaf-ish | `<div><div class="fill" /></div>` | no |
 | **InventoryGrid** | Container | `<div>` (wrapped flex) | yes (slots) |
-| **InventorySlot** | Interactive container | `<div>` | yes (icon, count) |
-| **ItemIcon** | Leaf | `<div>` w/ bg-image | no |
+| **InventorySlot** | Interactive container | `<div>` (M3.5 states) | yes (icon, count) |
+| **ItemIcon** | Leaf-interactive | `<div>` w/ bg-image (M3.5 states) | no |
 | **Tooltip** | Hidden runtime | not emitted in canvas | yes |
 | **Hotbar** | Flex container | `<div>` | yes (slots) |
+| **SuiReference** | Composition (V1.5) | `<ChildPanel ... />` tag | n/a (resolved at compile) |
+| **TextEntry** | Input widget (V1.5 M4) | `Sandbox.UI.TextEntry` | no |
+| **Slider** | Input widget (V1.5 M4) | custom track/fill/thumb/tooltip divs (per D-022) | no |
+| **Toggle** | Input widget (V1.5 M4) | `Sandbox.UI.Checkbox` | no |
+| **DropDown** | Input widget (V1.5 M4) | `Sandbox.UI.DropDown` | no |
 
 ## Field matrix
 
@@ -82,17 +87,22 @@ Every type uses `Style.ClassName`, CustomClasses, BackgroundColor, BorderColor, 
 - **Overlay** — z-stacking container. Children are absolute-positioned and overlap by ZIndex. Use for HUDs where 5 elements share the same area.
 - **Text** — single-line or wrapped text. Auto-sizes to content by default.
 - **Image** — render a texture. Path resolved relative to project root.
-- **Button** — interactive box with a label. Auto-sets `pointer-events: all`. Hover/active states via `.User.scss`.
+- **Button** — interactive box with a label. Auto-sets `pointer-events: all`. M3.5 interactive states (Hover / Pressed / Disabled / Focused) + Transition + Sound + Cursor + ButtonShape + BackgroundSize.
 - **HorizontalBox** — flex container with `direction: row`. Children flow left-to-right.
 - **VerticalBox** — flex container with `direction: column`. Children flow top-to-bottom.
 - **Grid** — wrapped flex container with regular tiles. Use for any "N columns × M rows" layout.
 - **ScrollPanel** — overflow scrollable container. Catches scroll wheel + drag.
-- **ProgressBar** — horizontal/vertical bar with a filled portion. PreviewValue shown in editor.
+- **ProgressBar** — horizontal/vertical bar with a filled portion. PreviewValue shown in editor. All fields bindable.
 - **InventoryGrid** — Grid configured for inventory layouts. Sets up CellW/H/Gap with sensible defaults.
-- **InventorySlot** — single inventory slot. Holds an ItemIcon. Catches clicks.
-- **ItemIcon** — image + count badge. Used inside InventorySlot or standalone.
-- **Tooltip** — runtime-only popup. Hidden in canvas (no preview).
+- **InventorySlot** — single inventory slot. Holds an ItemIcon. Catches clicks. M3.5 interactive states.
+- **ItemIcon** — image + count badge. Used inside InventorySlot or standalone. M3.5 interactive states.
+- **Tooltip** — runtime-only popup. Hidden in canvas (deferred — V1.6).
 - **Hotbar** — single-row flex container of fixed slots. Like Grid but row-only and no wrap.
+- **SuiReference** (V1.5) — embeds another `.sui` doc by `SourceGuid`. Recursive paint on the canvas. ForEach for dynamic lists. See [Composition]({% link concepts/composition.md %}).
+- **TextEntry** (V1.5 M4) — single-line text input backed by `Sandbox.UI.TextEntry`. `Value` TwoWay-bindable.
+- **Slider** (V1.5 M4) — fully custom track / fill / thumb / tooltip markup (per D-022). `Value` TwoWay-bindable.
+- **Toggle** (V1.5 M4) — boolean checkbox backed by `Sandbox.UI.Checkbox`. `Checked` TwoWay-bindable.
+- **DropDown** (V1.5 M4) — selection dropdown backed by `Sandbox.UI.DropDown`. `Value` (int via `Option.Value` index) TwoWay-bindable per D-024.
 
 ## Per-type detail pages
 
@@ -113,6 +123,11 @@ Each type has its own page with examples, common patterns, and gotchas:
 - [InventorySlot]({% link elements/inventory-slot.md %})
 - [ItemIcon]({% link elements/item-icon.md %})
 - [Hotbar]({% link elements/hotbar.md %})
+- [SuiReference]({% link elements/sui-reference.md %}) — V1.5
+- [TextEntry]({% link elements/text-entry.md %}) — V1.5 M4
+- [Slider]({% link elements/slider.md %}) — V1.5 M4
+- [Toggle]({% link elements/toggle.md %}) — V1.5 M4
+- [DropDown]({% link elements/dropdown.md %}) — V1.5 M4
 
 ## Type defaults
 

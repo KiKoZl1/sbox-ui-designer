@@ -24,7 +24,7 @@ The shape of a `.sui` document — what gets serialized, how the tree is stored,
 ```csharp
 public sealed class SuiDocument
 {
-    public int SchemaVersion { get; set; }      // 1 currently
+    public int SchemaVersion { get; set; }      // 1 (V1.0) / 2 (V1.5 M1/M2) / 3 (V1.5 M3.5+)
     public string DocumentId { get; set; }      // e.g. "sui_my_hud_a3b2c1d4"
     public string Name { get; set; }            // matches the .sui filename
 
@@ -36,12 +36,38 @@ public sealed class SuiDocument
     public SuiOutputSettings Output { get; set; }
     public SuiGeneratedFileManifest Manifest { get; set; }
 
-    // Reserved for V1.5+
+    // V1.5 — typed UI-local state (PRD 18, see DEVIATIONS D-005 for IsPublic)
+    public List<SuiVariable> Variables { get; set; }
+    public SuiPreviewData PreviewData { get; set; }  // deferred — see DEVIATIONS D-009
+
+    // V1.5 — event slots (PRD 20)
     public List<SuiEventBinding> Events { get; set; }
+
+    // Reserved
     public List<SuiAnimationData> Animations { get; set; }
-    // Document.Bindings (List<SuiPropertyBinding>) was removed pre-M3 — it was
-    // a V1.0 stub that never wired into codegen. The real binding model is
-    // per-element (SuiElement.Bindings of List<SuiBinding>).
+}
+```
+
+Per-element side:
+
+```csharp
+public sealed class SuiElement
+{
+    public string Id { get; set; }
+    public string Name { get; set; }
+    public SuiElementType Type { get; set; }
+    public string ParentId { get; set; }
+    public List<string> Children { get; set; }
+
+    public SuiElementFlags Flags { get; set; }
+    public SuiLayoutData    Layout { get; set; }
+    public SuiStyleData     Style  { get; set; }
+    public SuiElementProps  Props  { get; set; }
+
+    // V1.5 additions
+    public List<SuiBinding> Bindings { get; set; }
+    public List<SuiEventBinding> Events { get; set; }   // per-element handler refs
+    public SuiForEachData ForEach { get; set; }         // SuiReference iteration
 }
 ```
 

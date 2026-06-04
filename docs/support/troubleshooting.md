@@ -55,6 +55,40 @@ Switch to canvas mode in SUI Designer and verify the design renders there. If ca
 
 ---
 
+## "My binding shows a red ⚠ icon"
+
+(V1.5 D-026 — broken-binding visual.) The binding references a Variable that was deleted, or a converter step uses an `Ref` that no longer resolves (custom converter renamed / deleted). Hover the binding row for a tooltip pointing at the missing identity. Fix:
+
+- Re-pick the Variable in the Bind popup.
+- Remove the broken converter step (↑/↓ reorder + delete in the chain editor).
+- If the Variable was renamed, re-bind through the popup so the binding picks the new name.
+
+The Compile Results panel surfaces every broken binding before generation runs — no silent emit of `default`.
+
+## "Compile error: name collision on '<Name>'"
+
+(V1.5 PRD 20 § 6 — `SuiNameConflictDetector`.) Two of these surfaces use the same identifier:
+
+1. Variable name.
+2. SuiReference field name (the element's sanitized `Name`).
+3. Code-mode event handler name.
+4. Doo-mode event slot property name.
+5. `@ref` exposed element field name.
+
+The compile log names both contributors ("name collision on 'Health': Variable 'Health' vs FireButton.OnClick (Code handler)"). Rename one — the wrapper field would otherwise clash.
+
+## "I bound a `[Property] public Action` slot to an Action Graph but nothing fires in Play"
+
+(V1.5 D-020 — documented known gap.) Code-mode events emit `[Property] public Action OnX` on the **wrapper** (`SuiPanel<TView>`), which is a plain class — not a `Component`. The Action Graph picker persists to scene JSON but the delegate is lost when entering Play (the snapshot pipeline doesn't appear to round-trip an `Action` that lives outside a Component).
+
+**Workaround:** use **Code mode** for C# handlers (`Hud.OnFireClick = HandleFire;`) and **Doo mode** for visual scripting that survives Play. The Action Graph picker is cosmetic on SUI wrappers.
+
+## "Slider drag works but my code receives stale values"
+
+The slider binding has `UpdateTrigger.OnRelease` set — the wrapper field only updates when the mouse releases. If you want per-tick updates, switch the trigger to `OnChange` in the Bind popup. See [Input & Update triggers]({% link concepts/input-and-update-triggers.md %}).
+
+For `UpdateTrigger.Manual`, the field never auto-updates — call `wrapper.Apply.<FieldName>()` (or `.Apply.All()`) explicitly. See [Manual commit with Apply]({% link workflows/manual-commit-with-apply.md %}).
+
 ## "Compile failed — file Conflict"
 
 The writer found a file at the target path that **doesn't have the SUI:GENERATED header**, OR has a header pointing at a different `DocumentId`.
