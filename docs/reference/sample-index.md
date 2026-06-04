@@ -8,7 +8,7 @@ nav_order: 10
 # Sample index
 {: .no_toc }
 
-Every `.sui` shipped with the project's `Assets/SuiSamples/` folder, indexed by feature. Pick the closest one to what you want to build, open it in the Designer, and learn by remix.
+The SUI Designer ships a curated set of **beginner showcase samples** under `samples/showcase/`. Each sample is the smallest possible end-to-end example of one specific feature — open the `.sui`, drop the companion `Component` on a `GameObject`, and you have a working UI in seconds.
 {: .fs-6 .fw-300 }
 
 ## Table of contents
@@ -21,127 +21,55 @@ Every `.sui` shipped with the project's `Assets/SuiSamples/` folder, indexed by 
 
 ## How to use this index
 
-The Sbox UI Designer ships ~20 sample `.sui` files in `Assets/SuiSamples/`. They double as integration tests + reference implementations for every feature the V1.5 release covers. Most have a companion C# controller under `Code/SuiSamples/`.
+Every showcase sample lives in its own folder under `samples/showcase/<name>/` in the source repo and ships with:
 
-The table below groups them by what they showcase. Each row:
+- A `.sui` document — the UI definition you open in the Designer.
+- A `<Name>Controller.cs` — the companion `Component` that mounts the wrapper and drives the Variables.
+- A `README.md` — what it does, how to use it, the Variables / Bindings / Events tables, and ideas for extending it.
 
-- **Sample** — the `.sui` filename.
-- **Companion code** — the `.cs` controller if any (under `Code/SuiSamples/` or `Code/BindTest/`).
-- **Features exercised** — the V1.5 surfaces the sample touches.
+Pick the closest sample to what you want to build, read its README, copy the pattern. **The per-sample READMEs are the primary docs** — this page is the catalog that helps you find the right one.
 
-Open a sample with **File → Open** in the Designer (Asset Browser → double-click works too).
+For a deeper, doc-site-native catalog with the Variables / Bindings tables inlined, see [Showcase samples]({% link reference/showcase-samples.md %}).
 
 ---
 
-## Layout + visuals
+## Beginner showcase samples (V1.5)
 
-Foundational samples — drag, drop, position, paint. No bindings, no events.
+The five baseline samples cover the entire "Variable → Binding → Event" loop one concept at a time. Work through them in order if you're new to SUI Designer.
 
-| Sample | Companion code | Features exercised |
+| Sample | What it demonstrates | Difficulty |
 |---|---|---|
-| `simple_panel.sui` | — | Single Panel + Text. Smallest end-to-end smoke test. |
-| `hotbar_basic.sui` | — | Grid + InventorySlot row. No data wiring. |
-| `inventory_basic.sui` | — | Basic InventoryGrid + InventorySlot grid layout. |
-| `loot_pickup.sui` | — | Overlay + Image + Text — short transient pickup HUD. |
+| [`empty_canvas`](https://github.com/KiKoZl1/sbox-ui-designer/tree/main/samples/showcase/empty_canvas) | Minimum viable SUI document — `Show()` / `Hide()` lifecycle | Beginner |
+| [`label_clock`](https://github.com/KiKoZl1/sbox-ui-designer/tree/main/samples/showcase/label_clock) | `OneWay` binding from gameplay → UI Variable | Beginner |
+| [`health_bar`](https://github.com/KiKoZl1/sbox-ui-designer/tree/main/samples/showcase/health_bar) | `OneWay` `ProgressBar` binding + `float` Variable | Beginner |
+| [`counter_button`](https://github.com/KiKoZl1/sbox-ui-designer/tree/main/samples/showcase/counter_button) | `Button.OnClick` (Code mode) + Variable update from event | Beginner |
+| [`toggle_pause`](https://github.com/KiKoZl1/sbox-ui-designer/tree/main/samples/showcase/toggle_pause) | `Toggle` `TwoWay` binding to `bool` Variable | Beginner |
+
+Each row links to the sample's README on GitHub — start there for the full setup walkthrough.
 
 ---
 
-## Bindings + Variables
+## Coming in V1.5.1
 
-Samples that exercise the [Bindings]({% link concepts/bindings.md %}) system + Variables.
+A second wave of samples is planned to cover intermediate and advanced patterns. None of these ship in V1.5 — they're tracked here so you know what to expect (and can stop waiting and build them yourself if you can't wait).
 
-| Sample | Companion code | Features exercised |
-|---|---|---|
-| `hud_bindtest.sui` | `Code/BindTest/HudBindtestController.cs` | OneWay bindings, Compose converter, Health/MaxHealth scenario. |
-| `hud_stats_v2.sui` | — | Multi-row stats display + bindings on every row. |
-| `hud_survival.sui` | — | Survival HUD — hunger/thirst/stamina bars driven from gameplay. |
-| `composed_stat_row.sui` | — | Sub-UI exposed for embedding — bind targets for a parent's ForEach. |
+**Intermediate** — multi-binding flows, composition, scrollable layouts:
 
----
+- `settings_screen` — every V1.5 M4 input widget (`TextEntry`, `Slider`, `Toggle`, `DropDown`) on one panel + the **Apply API**.
+- `chat_panel` — scrollable message log + `TextEntry` submit + RPC fan-out.
+- `inventory_grid` — `ForEach` over a `List<Item>` Variable + slot composition via `SuiReference`.
 
-## Composition + sub-UIs
+**Advanced** — full game flows, modal sequencing, multi-screen state:
 
-Samples that exercise [SuiReference]({% link elements/sui-reference.md %}) + nested wrapper hierarchies.
-
-| Sample | Companion code | Features exercised |
-|---|---|---|
-| `TestParent.sui` | `Code/SuiSamples/TestParentController.cs` | Parent embedding `TestSlot.sui` — basic single-child composition. |
-| `TestSlot.sui` | — | The child of `TestParent` — Variables flagged `IsPublic` for the parent's Props editor. |
-| `TestGrand.sui` | — | Depth-3 composition — Grand → Parent → Slot. Exercises recursive `ContentHash`. |
-| `TestTwins.sui` | `Code/SuiSamples/TestTwinsController.cs` | Two embeds of the same child — Style.ClassName disambiguation (D-010). |
-| `TestForEach.sui` | `Code/SuiSamples/TestForEachController.cs` | ForEach over a `List<T>` Variable — member-name matching. |
-| `instance_hud.sui` | — | Hud that embeds nested instances of a single sub-UI definition. |
-
----
-
-## Events + Interaction
-
-Samples that exercise [Events & Actions]({% link concepts/events-and-actions.md %}) — Code mode, Doo mode, `@ref` exposure, M3.5 interactive states.
-
-| Sample | Companion code | Features exercised |
-|---|---|---|
-| `InteractiveHud.sui` | `Code/BindTest/InteractiveHudController.cs` | Full M3 event story — Code OnClick, Doo OnHover, `@ref` for direct Panel access, M3.5 hover / pressed / disabled / focused states. |
-| `EventTest.sui` | — | Smaller event smoke — Code-mode handlers wired across multiple Buttons. |
-
----
-
-## Input widgets (V1.5 M4)
-
-Samples that exercise the V1.5 M4 input widgets: TextEntry, Slider, Toggle, DropDown + the Apply API.
-
-| Sample | Companion code | Features exercised |
-|---|---|---|
-| `InputWidgetsShowcase.sui` | `Code/SuiSamples/InputWidgetsShowcaseController.cs` | Every input widget on one panel — TextEntry, Slider with OnRelease + visual buffer, Toggle, DropDown with options list, Apply / Cancel button events. The reference for the Settings Screen tutorial. |
-
----
-
-## Death / modal patterns
-
-Samples that exercise modal flows, full-screen overlays, and discrete UI moments.
-
-| Sample | Companion code | Features exercised |
-|---|---|---|
-| `death_screen.sui` | — | Full-screen overlay with respawn / quit buttons. Anchored Stretch. |
-
----
-
-## Inventory + game UI
-
-Samples that approximate fuller game HUDs.
-
-| Sample | Companion code | Features exercised |
-|---|---|---|
-| `inventory_screen.sui` | — | Larger inventory + tabbed categories — composition + scroll behaviour. |
-| `quest_log.sui` | — | List-style quest log — text-heavy layout + scrolling. |
-
----
-
-## How to find what you need
-
-Start from the goal:
-
-- **"I want a HUD that displays Hp from gameplay code."** → `hud_bindtest.sui` + the controller.
-- **"I want a settings panel with sliders and dropdowns."** → `InputWidgetsShowcase.sui` + the [Settings screen tutorial]({% link tutorials/settings-screen.md %}).
-- **"I want a parent panel that embeds N rows of a small sub-UI."** → `TestForEach.sui` for ForEach mechanics, then `composed_stat_row.sui` for a publishable embed.
-- **"I want hover / pressed / disabled button states."** → `InteractiveHud.sui` (M3.5 polish).
-- **"I want to wire OnClick to a Doo graph."** → `InteractiveHud.sui` (PauseButton uses Doo).
-- **"I want to verify deep composition doesn't break reactivity."** → `TestGrand.sui` (depth-3 + each level mutates).
-
-When in doubt, open the sample in the Designer and look at the **Variables** tab + **Events** tab — they're the contract surfaces.
-
----
-
-## Caveats
-
-- Sample C# controllers live in different folders (`Code/SuiSamples/` for newer ones, `Code/BindTest/` for the V1.5 spike-era ones). The grouping is historical — not architectural.
-- Some samples (`hotbar_basic`, `loot_pickup`) have no companion C# because they showcase layout-only patterns.
-- The `Test*.sui` cluster is integration-testing-oriented — they exist primarily to exercise the runtime, not as design references. Prefer the named samples (`Hud*`, `Interactive*`, `InputWidgetsShowcase`) when learning a pattern.
+- `survival_hud_full` — health / hunger / stamina / thirst bars + ammo counter + pickup toast, all driven from a single `PlayerStats` component.
+- `death_respawn_modal` — full-screen overlay, respawn countdown, two action buttons, modal focus capture.
+- `quest_journal` — tabbed quest log with active / completed / failed lists, expandable entries, scroll-to-active.
 
 ---
 
 ## See also
 
-- [Wrapper generation]({% link concepts/wrapper-generation.md %}) — how samples become C# you can `new()` and `Show()`
-- [Composition]({% link concepts/composition.md %}) — recursive ContentHash explained
-- [Settings screen tutorial]({% link tutorials/settings-screen.md %}) — guided walk through `InputWidgetsShowcase`
-- [Health HUD with converters tutorial]({% link tutorials/health-hud-with-converters.md %}) — guided binding + Compose walk-through
+- [Showcase samples]({% link reference/showcase-samples.md %}) — the inline catalog with Variables / Bindings tables.
+- [Wrapper generation]({% link concepts/wrapper-generation.md %}) — how a `.sui` becomes the C# `new()`able wrapper the samples mount.
+- [Bindings]({% link concepts/bindings.md %}) — the model behind `OneWay` / `TwoWay` / `Compose`.
+- [Events & Actions]({% link concepts/events-and-actions.md %}) — what `counter_button` is exercising.
