@@ -51,7 +51,7 @@ Same Inventory section as InventorySlot:
 | Tooltip preview of an item | ItemIcon |
 | Drag ghost during a drag-and-drop | ItemIcon |
 
-Both render identically — the choice is semantic and affects how V1.5+ might bind data differently (slots get a slot index, icons don't).
+Both render identically — the choice is semantic and affects how data binds (slots get a slot index, icons don't).
 
 ## Bindable properties
 

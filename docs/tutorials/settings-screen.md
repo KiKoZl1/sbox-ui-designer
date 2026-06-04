@@ -27,7 +27,7 @@ A 400×460 panel with:
 - **Player Name** — TextEntry → `PlayerName: string`, UpdateTrigger `Manual`.
 - **Master Volume** — Slider → `Volume: float (0..100)`, UpdateTrigger `OnRelease`.
 - **Music Enabled** — Toggle → `MusicEnabled: bool`, UpdateTrigger `OnChange` (atomic).
-- **Graphics Preset** — DropDown (Low / Medium / High / Ultra) → `GraphicsPreset: int`, UpdateTrigger `OnChange` (only option — see [D-030]({% link reference/deviations.md %})).
+- **Graphics Preset** — DropDown (Low / Medium / High / Ultra) → `GraphicsPreset: int`, UpdateTrigger `OnChange` (only option — DropDown commits atomically per V1.5 deviation D-030).
 - **Apply** button + **Cancel** button.
 
 Save → commits PlayerName (the only Manual binding). The slider releases on its own. The toggle and dropdown are always live (atomic OnChange).
@@ -89,13 +89,13 @@ Inside the VerticalBox:
 - **Text** "Graphics:" — Width 80.
 - **DropDown** — Name `GraphicsField`. Width 280. (See note below for how to populate the four options — the Details panel doesn't expose an `+ Add Option` affordance yet; runtime options binding ships in V1.6.)
 
-> **Populating DropDown options in V1.5.** The Details panel currently lists already-defined options as `Option [0]`, `Option [1]`, … text rows but has no "Add Option" button. Easiest path today: open the saved `.sui` file in a text editor and seed the `DropDownOptions` array under your `GraphicsField` element with `["Low","Medium","High","Ultra"]`, then reopen the asset — the four rows will now be editable inline. Alternatively, add them at runtime from a `@code` partial (`partial class SettingsPanel { protected override void OnAfterTreeRender( bool first ) { /* set GraphicsField.Options once */ } }`). Track [Designer #YYY — DropDown options list editor]({% link reference/known-gaps.md %}) for the inline editor.
+> **Populating DropDown options in V1.5.** The Details panel currently lists already-defined options as `Option [0]`, `Option [1]`, … text rows but has no "Add Option" button. Easiest path today: open the saved `.sui` file in a text editor and seed the `DropDownOptions` array under your `GraphicsField` element with `["Low","Medium","High","Ultra"]`, then reopen the asset — the four rows will now be editable inline. The inline editor is tracked for V1.6 — see [known issues]({% link reference/known-issues.md %}) for status.
 
 ### Buttons row
 
 **HorizontalBox** gap 12, JustifyContent FlexEnd, Height 48. (Optional: drop a blank Panel above the buttons row and set its Layout → Flex Grow to 1 to push the buttons to the bottom of the VerticalBox.)
 - **Button** — Name `CancelButton`. ButtonText "Cancel". Width 100. In the **Hover** dropdown of the Final Appearance section → Background → pick a slightly brighter shade than the default.
-- **Button** — Name `ApplyButton`. ButtonText "Apply". Width 100. BackgroundColor #4ade80. In the **Hover** dropdown → Background → brighter green. (See [Button states]({% link elements/button.md %}#interactive-states) for the per-state dropdown walkthrough.)
+- **Button** — Name `ApplyButton`. ButtonText "Apply". Width 100. BackgroundColor #4ade80. In the **Hover** dropdown → Background → brighter green. (See [Button — interactive states]({% link elements/button.md %}) for the per-state dropdown walkthrough.)
 
 > **Element name vs Variable name.** The wrapper's `Apply.<Method>()` API names methods after the **element name** (not the bound Variable name) suffixed with the bound property: `PlayerNameField` → `Apply.PlayerNameFieldValue()`. If you'd rather call `Apply.PlayerNameValue()`, rename the TextEntry element to `PlayerName`. We keep the `*Field` suffix in this tutorial to disambiguate the widget from the Variable in screenshots. Full rules in [wrapper API reference]({% link reference/wrapper-api.md %}).
 
@@ -126,7 +126,7 @@ Select **GraphicsField** → click chain icon next to **Value**:
 
 - Source: `GraphicsPreset`
 - Mode: TwoWay
-- **UpdateTrigger: OnChange** (only option — DropDown commits atomically per [D-030]({% link reference/deviations.md %}); Manual isn't offered).
+- **UpdateTrigger: OnChange** (only option — DropDown commits atomically per V1.5 deviation D-030; Manual isn't offered).
 - OK.
 
 ## 5. Wire the events

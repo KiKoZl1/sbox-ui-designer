@@ -19,6 +19,17 @@ Install SUI Designer into an s&box project as a library (addon).
 
 ---
 
+## Prerequisites
+
+Before installing, make sure you have:
+
+| Requirement | Notes |
+|---|---|
+| **s&box editor** | Minimum tested build: `s&box-dev 1.0.1+50a05caa8fe89592` (snapshot 2026-05-06, the V1.5 baseline pin recorded in [`README.md`](https://github.com/KiKoZl1/sbox-ui-designer/blob/main/README.md#engine-compatibility)). Newer dev builds usually work; Editor APIs are not version-stable, so very old builds may fail to load editor widgets. |
+| **An s&box project** (`.sbproj`) | SUI Designer is installed as a library *inside* a host project's `Libraries/` folder — there is no standalone install. |
+| **`local.dooeditor`** | Optional but recommended companion library. Required if you want **Doo** graph bodies for events; **Code** mode events work without it. See [Required companion library: dooeditor](#required-companion-library-dooeditor) below. |
+| **Git** (optional) | Only needed for Option 1 (clone) and `git pull` updates. Option 2 below covers the no-git path. |
+
 ## Option 1 — Clone the repository
 
 Recommended for development or staying on the bleeding edge.
@@ -45,9 +56,26 @@ If you don't have git:
 
 ## Required companion library: dooeditor
 
-V1.5 events can be wired to a visual [Doo](https://docs.facepunch.com/s/sbox-dev/doc/doo) graph stored inside the `.sui` document. The editor UI for Doo bodies is provided by Facepunch's `local.dooeditor` library, which SUI Designer declares as an `EditorReferences` entry in its `.sbproj`.
+V1.5 events can be wired to a visual [Doo](https://docs.facepunch.com/s/sbox-dev/doc/doo) graph stored inside the `.sui` document. The editor UI for Doo bodies is provided by Facepunch's `local.dooeditor` library, which SUI Designer declares as an `EditorReferences` entry in its [`sbox_ui_designer.sbproj`](https://github.com/KiKoZl1/sbox-ui-designer/blob/main/sbox_ui_designer.sbproj):
 
-If you don't already have it, install it the same way you installed SUI Designer (place it under `Libraries/` so the engine mounts it as `local.dooeditor`). Without it, the **Events** Details section still works in **Code** mode but the **Doo** mode picker will be unavailable.
+```json
+"EditorReferences": [
+  "local.dooeditor"
+]
+```
+
+The `local.` prefix is the s&box convention for libraries the engine resolves from the host project's `Libraries/` folder (as opposed to a published `org.ident` package fetched from sbox.game). Concretely, the editor expects to find:
+
+```
+YourProject/
+└── Libraries/
+    └── local.dooeditor/
+        └── dooeditor.sbproj
+```
+
+Doo and `local.dooeditor` ship with Facepunch's official sample projects — if you already have a recent s&box editor install with the sample/template projects, the easiest path is to copy that `local.dooeditor` folder into your project's `Libraries/`. Check the Facepunch [Doo documentation](https://docs.facepunch.com/s/sbox-dev/doc/doo) for the current canonical source.
+
+Without `local.dooeditor` installed, the **Events** Details section still works in **Code** mode, but the **Doo** mode picker will be unavailable and any existing Doo bodies in a `.sui` document won't be editable from the designer.
 
 ## Verify the install
 

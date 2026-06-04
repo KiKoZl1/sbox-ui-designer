@@ -166,8 +166,10 @@ When the renderer paints a `Panel` and the SCSS generator emits styles for the s
 From `SuiRazorGenerator`:
 
 ```html
-<div class="sui-elem-42 my-user-class">
+<div class="my-user-class sui-myslot">
 ```
+
+The unique class is `sui-<sanitized-id>` — the element's `Id` run through `SuiNameSanitizer.ToCssClass`. When the Id is empty the fallback is the bare literal `sui-el`.
 
 The canvas renderer doesn't need this class — it picks values from the element directly. The class matters for the generated SCSS so that `.slot-icon` rules don't bleed across siblings (every slot has the same `ClassName="slot"` but different `sui-<id>`).
 

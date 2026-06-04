@@ -181,7 +181,7 @@ This matches UMG default behavior exactly.
 
 ### Why we don't have a "scale everything proportionally" mode
 
-This is a feature gap on purpose. UMG has the `ScaleBox` widget for this case, and we don't ship an equivalent in V1.0. **It's on the V1.5+ roadmap as a candidate `ScaleBox`-equivalent element type or a `AutoScaleChildren` flag on Panel.**
+This is a feature gap on purpose. UMG has the `ScaleBox` widget for this case, and we don't ship an equivalent today. **A `ScaleBox`-equivalent element type or an `AutoScaleChildren` flag on Panel remains a candidate for a future release.**
 
 If you need proportional scaling today, the workaround is:
 - Use a **Flex container** (HorizontalBox / VerticalBox / Grid) — children scale within the flex layout

@@ -98,21 +98,17 @@ Hotbar is always single-row, so only `Columns` is bindable — `Rows`, `CellWidt
 
 ### Input widgets (V1.5 M4)
 
-TwoWay-capable; TwoWay is the default. DropDown bind target is `SelectedIndex` (int via `Option.Value` index, exposed as `Value` on the wrapper) per DEVIATIONS D-024.
+TwoWay-capable; TwoWay is the default. DropDown bind target is `Value` (int — the engine `DropDown.Value` returns the selected `Option.Value` index) per DEVIATIONS D-024.
 
 | Property | OneTime | OneWay | TwoWay | Default | TargetType |
 |---|---|---|---|---|---|
 | `TextEntry.Value` | ✓ | ✓ | **✓** | **TwoWay** | string |
-| `TextEntry.PlaceholderText` | ✓ | ✓ | — | OneWay | string |
-| `TextEntry.ReadOnly` | ✓ | ✓ | — | OneWay | bool |
+| `TextEntry.Placeholder` | ✓ | ✓ | — | OneWay | string |
 | `Slider.Value` | ✓ | ✓ | **✓** | **TwoWay** | float |
 | `Slider.Min` | ✓ | ✓ | — | OneWay | float |
 | `Slider.Max` | ✓ | ✓ | — | OneWay | float |
 | `Toggle.Checked` | ✓ | ✓ | **✓** | **TwoWay** | bool |
-| `Toggle.LabelText` | ✓ | ✓ | — | OneWay | string |
-| `DropDown.SelectedIndex` | ✓ | ✓ | **✓** | **TwoWay** | int |
-
-> **Note:** Some slugs above (`TextEntry.PlaceholderText`, `TextEntry.ReadOnly`, `Toggle.LabelText`, `DropDown.SelectedIndex`) are surfaced by the Details panel's chain icons but may not yet exist as matrix keys in `SuiBindingModeMatrix._matrix`. Until the runtime matrix is extended, the bind popup will reject them via `IsBindable=false`. Track the alignment against `Editor/Widgets/SuiDetailsWidget.cs` `bindingProperty:` strings.
+| `DropDown.Value` | ✓ | ✓ | **✓** | **TwoWay** | int |
 
 ## Universal entries (any element type)
 
@@ -122,9 +118,7 @@ Style / layout / state knobs from `SuiStyleData` + `SuiLayoutData` — bindable 
 |---|---|---|---|---|---|
 | `Visibility` | ✓ | ✓ | — | OneWay | bool |
 | `Enabled` | ✓ | ✓ | — | OneWay | bool |
-| `IsDisabled` | ✓ | ✓ | — | OneWay | bool |
 | `BackgroundColor` | ✓ | ✓ | — | OneWay | Color |
-| `BackgroundImage` | ✓ | ✓ | — | OneWay | string |
 | `BorderColor` | ✓ | ✓ | — | OneWay | Color |
 | `BorderWidth` | ✓ | ✓ | — | OneWay | float |
 | `BorderRadius` | ✓ | ✓ | — | OneWay | float |
@@ -132,7 +126,27 @@ Style / layout / state knobs from `SuiStyleData` + `SuiLayoutData` — bindable 
 | `Width` | ✓ | ✓ | — | OneWay | float |
 | `Height` | ✓ | ✓ | — | OneWay | float |
 
-> **Note:** `IsDisabled` and `BackgroundImage` are surfaced by the Details panel's chain icons (see `Editor/Widgets/SuiDetailsWidget.cs` lines 1473, 1547) but may not yet exist as entries in `SuiBindingModeMatrix._universal`. Until that runtime entry lands, `IsBindable` returns false for these and the bind popup will reject the attempt. For now, drive disabled state via the universal `Enabled` property (see `widgets/Button.md` workaround).
+## Matrix gaps deferred to V1.6
+
+The Details panel surfaces chain icons for a few properties that intentionally have **no** entry in `SuiBindingModeMatrix._matrix` / `_universal` for V1.5. The bind popup rejects them via `IsBindable=false`, which is the correct behaviour — the rows below are listed here so users understand the gap is deliberate, not a stale doc.
+
+Per-type slugs surfaced in `Editor/Widgets/SuiDetailsWidget.cs` that are **not** matrix keys:
+
+| Slug | Surfaced at | Workaround for V1.5 |
+|---|---|---|
+| `TextEntry.PlaceholderText` | `SuiDetailsWidget.cs:805` | Set the literal in the Details panel — `Placeholder` is the matrix key if you want it bound. |
+| `TextEntry.ReadOnly` | `SuiDetailsWidget.cs:813` | Drive via the universal `Enabled` property. |
+| `Toggle.LabelText` | `SuiDetailsWidget.cs:860` | Bind a sibling `Text` element next to the toggle. |
+| `DropDown.SelectedIndex` | `SuiDetailsWidget.cs:867` | Bind `DropDown.Value` instead — engine returns the selected `Option.Value` (int). |
+
+Universal slugs surfaced but **not** in `_universal`:
+
+| Slug | Surfaced at | Workaround for V1.5 |
+|---|---|---|
+| `IsDisabled` | `SuiDetailsWidget.cs:1473` | Drive disabled state via the universal `Enabled` property (see `widgets/Button.md`). |
+| `BackgroundImage` | `SuiDetailsWidget.cs:1547` | Set the literal in the Details panel; image-path binding lands in V1.6. |
+
+Tracked for V1.6. Until the runtime matrix is extended, these slugs stay non-bindable.
 
 ## Validator behaviour
 

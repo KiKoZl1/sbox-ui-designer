@@ -127,7 +127,7 @@ The Value field in Details now shows as bound (chain icon filled). The canvas pr
 
 The **first compile** opens a folder picker asking where the generated files should land. Pick `Code/UI/` (or create the folder via the picker). Subsequent compiles remember the choice.
 
-Open `Code/UI/`. You should see **three** generated files plus a sidecar:
+Open `Code/UI/`. You should see **four** generated files:
 
 - `MyHudPanel.razor` — the actual `Panel` renderer (`<div class="background sui-background">…</div>` tree)
 - `MyHudPanel.razor.scss` — styles (your color choices, sizes, etc.)
@@ -137,7 +137,7 @@ Open `Code/UI/`. You should see **three** generated files plus a sidecar:
 The engine hot-reloads. `Game.UI.MyHud` is now ready to use.
 
 {: .note }
-Why three files? `MyHud.cs` exposes a friendly API (`Show()` / `Hide()` / per-Variable `[Property]` mirrors) — this is what you'd type by hand. `MyHudPanel.razor` is the Razor markup the engine paints. The `.razor.scss` is its stylesheet. See [Wrapper generation]({% link concepts/wrapper-generation.md %}) for why.
+Why four files? `MyHud.cs` exposes a friendly API (`Show()` / `Hide()` / per-Variable `[Property]` mirrors) — this is what you'd type by hand. `MyHudPanel.razor` is the Razor markup the engine paints. The `.razor.scss` is its stylesheet. See [Wrapper generation]({% link concepts/wrapper-generation.md %}) for why.
 
 ## 7. Use it from a Component
 

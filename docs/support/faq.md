@@ -42,7 +42,7 @@ No — it **generates** Razor. You can still hand-edit Razor for things the desi
 - **`.razor`** — generated, do not edit (overwritten on Compile).
 - **`.razor.scss`** — generated, do not edit.
 - **`.User.scss`** — yours, edit freely. Never overwritten.
-- **`.cs` partial** (V1.5+) — yours, edit freely.
+- **`.cs` partial** (since V1.5) — yours, edit freely.
 
 ## Can I use it for in-world UI (WorldPanel)?
 
@@ -139,7 +139,7 @@ This is a frequent question, especially from UMG users.
 
 **Short answer:** elements with single-point anchors (TopLeft, MiddleCenter, BottomRight, etc.) **stay the same size** when the parent resizes — they just reposition to the new anchor point. To make a child grow with its parent, use a **Stretch anchor** (`Stretch`, `StretchHorizontal`, or `StretchVertical`) or put the child inside a **Flex container** (HorizontalBox / VerticalBox / Grid).
 
-This matches UMG default behavior. UMG's `ScaleBox` widget (which proportionally scales children) doesn't have an equivalent in SUI V1 — that's planned for V1.5+ as either a new element type or a Panel flag.
+This matches UMG default behavior. UMG's `ScaleBox` widget (which proportionally scales children) doesn't have an equivalent in SUI today — a `ScaleBox`-equivalent element type or an `AutoScaleChildren` flag on Panel remains a candidate for a future release.
 
 See [Anchors and Pivot → What happens when the parent resizes]({% link concepts/anchors-and-pivot.md %}#what-happens-when-the-parent-resizes) for the full explanation with worked examples.
 
@@ -233,7 +233,7 @@ The `.sui` schema is documented in [SUI JSON schema]({% link reference/sui-json-
 
 ## Will this be in the s&box marketplace?
 
-Currently distributed as a Library you add to your project's `Libraries/`. Marketplace listing is on the V1.0 release checklist.
+Currently distributed as a Library you add to your project's `Libraries/`. A marketplace listing is still under consideration for a future release.
 
 ## Where can I see real examples?
 
