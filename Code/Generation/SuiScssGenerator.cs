@@ -1050,14 +1050,27 @@ public sealed class SuiScssGenerator
 		EmitStateBlock( depth, "&:hover:not(:active)", p.HoverStyle, p.HoverSound );
 		EmitStateBlock( depth, "&:focus", p.FocusedStyle, null );
 		EmitStateBlock( depth, "&:active", p.PressedStyle, p.PressSound );
-		// `.highlighted` sits between `:active` and `.disabled` in source
-		// order so the priority chain is Normal < Hover < Focus < Active <
-		// Highlighted < Disabled. Same-specificity collisions resolve to
-		// the later rule, so a highlighted element stays visually highlighted
-		// even while hovered; disabled still wins over highlighted (sticky /
-		// unrecoverable). Gated on HighlightedStyle being authored so V3
-		// documents without the override emit no rule.
-		EmitStateBlock( depth, "&.highlighted", p.HighlightedStyle, null );
+		// `&.highlighted:not(:active)` — sticky-on identity that overrides
+		// Hover but yields to Pressed (so user still sees the press
+		// micro-feedback when clicking an already-selected button). The
+		// `:not(:active)` mirror of the hover selector keeps both at the
+		// same specificity (1 class + 2 pseudos vs 2 classes + 1 pseudo —
+		// both = 3 atoms); source order then decides, and Highlighted
+		// (later) wins over Hover when both match. During a click the
+		// `:active` block fires alone — both `:hover:not(:active)` and
+		// `:highlighted:not(:active)` are excluded — so press feedback
+		// always shines through even on highlighted buttons.
+		//
+		// Hover/Highlighted composition: when both match, CSS cascade
+		// merges per-property. Hover sets transform: scale(1.03), the
+		// highlighted rule typically doesn't touch transform (Scale=1 is
+		// the no-emit default) — so the scale pop from hover still fires
+		// over the highlighted background. Chrome-tab pattern.
+		//
+		// Disabled still wins via `pointer-events: none` (hover/active
+		// can't physically fire on a disabled element) even though its
+		// 2-atom specificity is lower than the 3-atom states above.
+		EmitStateBlock( depth, "&.highlighted:not(:active)", p.HighlightedStyle, null );
 		// `.disabled` always emits at least `pointer-events: none` so the
 		// class actually suppresses input — the user's DisabledStyle override
 		// stacks on top via EmitStateBlock when authored.
