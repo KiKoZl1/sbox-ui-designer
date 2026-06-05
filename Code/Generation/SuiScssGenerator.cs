@@ -252,22 +252,35 @@ public sealed class SuiScssGenerator
 			if ( l.MaxHeight.HasValue ) Emit( depth, "max-height", $"{Px( l.MaxHeight.Value )}" );
 		}
 
-		// If THIS element is a Flex container, emit display:flex + its props
-		// regardless of how it's positioned by its parent (a flex item can itself
-		// be a flex container — that's how rows-inside-columns work).
-		if ( l.Mode == SuiLayoutMode.Flex )
-		{
-			Emit( depth, "display", "flex" );
+		// Flex CONTAINER properties — these control how THIS element lays out
+		// its OWN children. They're orthogonal to Layout.Mode (which only
+		// controls how THIS element is positioned in ITS parent). Sandbox.UI
+		// defaults every Panel to display:flex with the CSS defaults
+		// flex-direction:row + justify-content:flex-start + align-items:stretch
+		// + flex-wrap:nowrap + gap:0, so emit ONLY the props that diverge.
+		//
+		// Previously these were gated behind `Mode == Flex`, which meant a
+		// panel with Mode=Absolute but FlexDirection=Column got NO
+		// flex-direction rule and its runtime-added children stacked
+		// horizontally (chat_panel.sui MessageList — Bug observed 2026-06-05).
+		// flex-direction is a CHILDREN concern; Mode is a SELF concern. Don't
+		// conflate them.
+		if ( l.FlexDirection != SuiFlexDirection.Row )
 			Emit( depth, "flex-direction", FlexDirection( l.FlexDirection ) );
-			if ( l.JustifyContent != SuiJustifyContent.FlexStart )
-				Emit( depth, "justify-content", JustifyContent( l.JustifyContent ) );
-			// Default align-items in s&box runtime is `stretch`; only emit if different
-			if ( l.AlignItems != SuiAlignItems.Stretch )
-				Emit( depth, "align-items", AlignItems( l.AlignItems ) );
-			if ( l.FlexWrap != SuiFlexWrap.NoWrap )
-				Emit( depth, "flex-wrap", FlexWrap( l.FlexWrap ) );
-			if ( l.Gap > 0f ) Emit( depth, "gap", Px( l.Gap ) );
-		}
+		if ( l.JustifyContent != SuiJustifyContent.FlexStart )
+			Emit( depth, "justify-content", JustifyContent( l.JustifyContent ) );
+		if ( l.AlignItems != SuiAlignItems.Stretch )
+			Emit( depth, "align-items", AlignItems( l.AlignItems ) );
+		if ( l.FlexWrap != SuiFlexWrap.NoWrap )
+			Emit( depth, "flex-wrap", FlexWrap( l.FlexWrap ) );
+		if ( l.Gap > 0f )
+			Emit( depth, "gap", Px( l.Gap ) );
+
+		// `display: flex` is redundant under Sandbox.UI's defaults but kept
+		// as a safety belt when the author explicitly opts into flex-item
+		// semantics via Mode=Flex.
+		if ( l.Mode == SuiLayoutMode.Flex )
+			Emit( depth, "display", "flex" );
 
 		// Overlay containers are flexed but each child uses absolute — emit
 		// position: relative so children with position: absolute anchor here.

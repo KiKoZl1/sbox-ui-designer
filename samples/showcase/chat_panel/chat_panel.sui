@@ -625,7 +625,7 @@
           "PivotX": 0,
           "PivotY": 0,
           "ZIndex": 0,
-          "FlexDirection": "Row",
+          "FlexDirection": "Column",
           "JustifyContent": "FlexStart",
           "AlignItems": "Stretch",
           "FlexWrap": "NoWrap",
