@@ -1,4 +1,4 @@
-﻿{
+{
   "Document": {
     "SchemaVersion": 3,
     "DocumentId": "sui_showcase_health_bar_a3f8c2",
@@ -37,9 +37,9 @@
       "ShowLayoutBounds": true,
       "ShowWidgetInfo": false,
       "ResponsiveDebug": false,
-      "CanvasZoom": 1,
-      "CanvasPanX": 0,
-      "CanvasPanY": 0
+      "CanvasZoom": 1.6105098,
+      "CanvasPanX": 1040.2941,
+      "CanvasPanY": 802.59216
     },
     "Elements": [
       {
@@ -200,8 +200,8 @@
           "Mode": "Absolute",
           "X": 32,
           "Y": 32,
-          "Width": 280,
-          "Height": 88,
+          "Width": 256,
+          "Height": 40,
           "MinWidth": null,
           "MinHeight": null,
           "MaxWidth": null,
@@ -337,7 +337,7 @@
           "Mode": "Absolute",
           "X": 0,
           "Y": 0,
-          "Width": 248,
+          "Width": 40,
           "Height": 16,
           "MinWidth": null,
           "MinHeight": null,
@@ -472,10 +472,10 @@
         },
         "Layout": {
           "Mode": "Absolute",
-          "X": 0,
-          "Y": 0,
+          "X": -0,
+          "Y": 16,
           "Width": 248,
-          "Height": 14,
+          "Height": 16,
           "MinWidth": null,
           "MinHeight": null,
           "MaxWidth": null,
@@ -621,10 +621,10 @@
         },
         "Layout": {
           "Mode": "Absolute",
-          "X": 0,
-          "Y": 0,
-          "Width": 248,
-          "Height": 18,
+          "X": 80,
+          "Y": 16,
+          "Width": 88,
+          "Height": 16,
           "MinWidth": null,
           "MinHeight": null,
           "MaxWidth": null,

@@ -334,7 +334,7 @@
         },
         "Layout": {
           "Mode": "Absolute",
-          "X": 0,
+          "X": -0,
           "Y": 0,
           "Width": 240,
           "Height": 96,
@@ -342,7 +342,7 @@
           "MinHeight": null,
           "MaxWidth": null,
           "MaxHeight": null,
-          "Anchor": "TopLeft",
+          "Anchor": "TopCenter",
           "PivotX": 0,
           "PivotY": 0,
           "ZIndex": 0,
@@ -483,8 +483,8 @@
         },
         "Layout": {
           "Mode": "Absolute",
-          "X": 0,
-          "Y": 0,
+          "X": 88,
+          "Y": 136,
           "Width": 120,
           "Height": 56,
           "MinWidth": null,

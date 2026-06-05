@@ -37,9 +37,9 @@
       "ShowLayoutBounds": true,
       "ShowWidgetInfo": false,
       "ResponsiveDebug": false,
-      "CanvasZoom": 1,
-      "CanvasPanX": 0,
-      "CanvasPanY": 0
+      "CanvasZoom": 0.9090904,
+      "CanvasPanX": -108.82556,
+      "CanvasPanY": 398.04736
     },
     "Elements": [
       {
@@ -196,17 +196,17 @@
           "ExposeAsVariable": false
         },
         "Layout": {
-          "Mode": "Flex",
-          "X": 0,
-          "Y": 0,
-          "Width": 0,
-          "Height": 0,
+          "Mode": "Absolute",
+          "X": 8,
+          "Y": 72,
+          "Width": 224,
+          "Height": 32,
           "MinWidth": null,
           "MinHeight": null,
           "MaxWidth": null,
           "MaxHeight": null,
           "Anchor": "TopCenter",
-          "PivotX": 0.5,
+          "PivotX": 0,
           "PivotY": 0,
           "ZIndex": 0,
           "FlexDirection": "Row",
@@ -333,16 +333,16 @@
           "ExposeAsVariable": false
         },
         "Layout": {
-          "Mode": "Flex",
-          "X": 0,
+          "Mode": "Absolute",
+          "X": -40,
           "Y": 0,
-          "Width": 0,
-          "Height": 28,
+          "Width": 88,
+          "Height": 32,
           "MinWidth": null,
           "MinHeight": null,
           "MaxWidth": null,
           "MaxHeight": null,
-          "Anchor": "TopLeft",
+          "Anchor": "MiddleCenter",
           "PivotX": 0,
           "PivotY": 0,
           "ZIndex": 0,
@@ -352,12 +352,12 @@
           "FlexWrap": "NoWrap",
           "Gap": 0,
           "Margin": {
-            "Left": 0,
+            "Left": -22,
             "Top": 0,
             "Right": 0,
             "Bottom": 0,
-            "IsZero": true,
-            "IsUniform": true
+            "IsZero": false,
+            "IsUniform": false
           },
           "Padding": {
             "Left": 0,
@@ -482,16 +482,16 @@
           "ExposeAsVariable": false
         },
         "Layout": {
-          "Mode": "Flex",
-          "X": 0,
-          "Y": 0,
-          "Width": 0,
-          "Height": 22,
+          "Mode": "Absolute",
+          "X": 48,
+          "Y": -0,
+          "Width": 88,
+          "Height": 24,
           "MinWidth": null,
           "MinHeight": null,
           "MaxWidth": null,
           "MaxHeight": null,
-          "Anchor": "TopLeft",
+          "Anchor": "MiddleCenter",
           "PivotX": 0,
           "PivotY": 0,
           "ZIndex": 0,
