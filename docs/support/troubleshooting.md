@@ -88,6 +88,34 @@ The compile log names both contributors ("name collision on 'Health': Variable '
 
 See [Events & Actions → Known gap: Action Graph picker on Code-mode slots]({% link concepts/events-and-actions.md %}#known-gap--action-graph-picker-on-code-mode-slots) for the underlying explanation.
 
+## "My Code-mode button click does nothing (hover animates, click silently no-ops)"
+
+The wrapper exposes the OnClick handler as a public `Action` property on
+the wrapper class (`[Property, Group("Events")] public Action OnFireClick { get; set; }`).
+**You must assign that delegate before calling `Hud.Show()`** — `Show()`
+triggers `SyncFieldsTo`, which is the only path that copies the wrapper's
+delegate into the renderer Panel's matching field. If you assign after
+`Show()`, the renderer's field stays `null` and the Razor's
+`onclick=@OnFireClick` resolves to nothing.
+
+```csharp
+protected override void OnStart()
+{
+    Hud.OnFireClick = HandleFire;          // 1. assign FIRST
+    Hud.Show(GameObject, SuiInputMode.MouseOnly); // 2. then mount
+}
+```
+
+Common trap: declaring a method on your Controller with the same name as
+the wrapper's Action property and assuming the generator resolves it by
+name. **It doesn't.** Name parity is convention for readability; the
+wrapper never sees your Controller — it sees only the delegate you assign.
+
+To reassign at runtime (e.g. swap handlers mid-game), call `Hud.RefreshView()`
+after the new assignment to push the delegate through.
+
+See [Events & Actions → Code mode]({% link concepts/events-and-actions.md %}#code-mode) for the full Action property shape.
+
 ## "Slider drag works but my code receives stale values"
 
 The slider binding has `UpdateTrigger.OnRelease` set — the wrapper field only updates when the mouse releases. If you want per-tick updates, switch the trigger to `OnChange` in the Bind popup. See [Input & Update triggers]({% link concepts/input-and-update-triggers.md %}).

@@ -33,7 +33,23 @@ The Component's `Count` property is exposed in the Inspector if you want to insp
 
 | Element | Event | Mode | Handler |
 |---|---|---|---|
-| `IncrementButton` (Button) | `OnClick` | Code | `OnIncrementClick` (resolved on the companion `Component`) |
+| `IncrementButton` (Button) | `OnClick` | Code | `OnIncrementClick` (delegate assigned in `OnStart` before `Show()`) |
+
+> **Note on Code-mode wiring.** The generator emits the OnClick handler as
+> `[Property, Group("Events")] public Action OnIncrementClick { get; set; }`
+> on the `CounterButton` wrapper class — **not** as a method named-resolved
+> on the controller. The controller must explicitly assign the delegate
+> *before* `Hud.Show()`:
+>
+> ```csharp
+> Hud.OnIncrementClick = OnIncrementClick;     // assign FIRST
+> Hud.Show(GameObject, SuiInputMode.MouseOnly); // then mount
+> ```
+>
+> `Show()` triggers `SyncFieldsTo`, which copies the wrapper's delegate
+> into the renderer Panel. Assigning after `Show()` leaves the renderer
+> with `null` and the button hover animates but the click silently no-ops.
+> See the full pattern in [Events & Actions → Code mode](https://kikozl1.github.io/sbox-ui-designer/concepts/events-and-actions.html#code-mode).
 
 ## Extending it
 

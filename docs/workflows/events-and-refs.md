@@ -32,7 +32,8 @@ typed handle to `@ref`. Two interaction shapes today:
 5. Type the handler name. The popup pre-suggests `On<Element><EventSuffix>`
    (e.g. `OnFireButtonClick`).
 6. **Code mode** — OK saves; the generator emits the slot. Your `.cs`
-   Component assigns it: `Hud.OnFireClick = HandleFire;`
+   Component assigns it: `Hud.OnFireClick = HandleFire;` **before**
+   calling `Hud.Show()` (see warning below).
 7. **Doo mode** — click **Open Full Editor** to author the Doo's Body in
    the engine's DooEditor. Close the editor, then OK in the popup. The
    Body persists into the `.sui`.
@@ -40,6 +41,27 @@ typed handle to `@ref`. Two interaction shapes today:
 The Events tab lists every wired event project-wide. Per-row Edit reopens
 the popup pre-filled; Delete clears the slot (undo-safe via the standard
 command stack).
+
+{: .warning }
+> **Code-mode delegate must be assigned before `Show()`.** The wrapper's
+> `[Property] public Action OnFireClick { get; set; }` is null by default.
+> `Hud.Show()` triggers `SyncFieldsTo`, which is the *only* path that
+> copies the wrapper's delegate into the renderer Panel's matching field.
+> Assigning `Hud.OnFireClick = HandleFire` **after** `Show()` leaves the
+> renderer with `null`, the Razor `onclick=@OnFireClick` resolves to
+> nothing, and the button's hover animation plays but the click does
+> silently nothing. Pattern:
+>
+> ```csharp
+> protected override void OnStart()
+> {
+>     Hud.OnFireClick = HandleFire;          // 1. assign delegate
+>     Hud.Show(GameObject, SuiInputMode.MouseOnly); // 2. THEN mount
+> }
+> ```
+>
+> Reassigning at runtime is fine but requires `Hud.RefreshView()` to push
+> the new delegate through. See [Events & actions]({% link concepts/events-and-actions.md %}#code-mode) for the full Action property shape.
 
 ## Exposing an element as `@ref`
 

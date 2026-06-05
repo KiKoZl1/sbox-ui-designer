@@ -77,6 +77,20 @@ The renderer's Razor:
 
 `SyncFieldsTo` copies the wrapper's Action into the renderer's matching field. Reassigning `Hud.OnFireClick` at runtime requires `Hud.RefreshView()` to push the new delegate through.
 
+{: .warning }
+> **Assign the delegate BEFORE `Show()`.** `Show()` triggers `SyncFieldsTo`,
+> which is the only path that copies the wrapper's `OnFireClick` into the
+> renderer's matching field. If you assign `Hud.OnFireClick = HandleFire`
+> *after* `Show()`, the renderer's field stays `null` and the button's
+> `onclick=@OnFireClick` resolves to nothing — click does nothing, no
+> error, just silence. Either assign first (preferred) or call
+> `Hud.RefreshView()` after the late assignment.
+>
+> The handler's method name on your Component does **not** have to match
+> the wrapper's `Action` property name — name parity is convention for
+> readability, not a binding the generator resolves at runtime. The wrapper
+> never sees your Component; it sees only the delegate you assign.
+
 ### Known gap — Action Graph picker on Code-mode slots
 
 The s&box inspector automatically offers an **Action Graph** picker next to any `Action` property. For Code-mode slots on SUI wrappers, the picker **persists to scene JSON fine** but the delegate is **lost when entering Play** — the Play-mode snapshot doesn't appear to round-trip an `Action` that lives in a non-Component wrapper. Equivalent slots on built-in Components (`Sandbox.Mapping.Button`) work because the property lives directly on a Component.
