@@ -398,7 +398,18 @@ public static class SuiWrapperEmitter
 		{
 			if ( el.Type == SuiElementType.TextEntry )
 			{
-				var refName = SuiNameSanitizer.ToCSharpIdentifier( baseName + "Ref" );
+				// V1.5-fix — when the element is ALSO exposed-as-variable, the
+				// renderer Panel exposes the field under its bare element name
+				// (typed Sandbox.UI.TextEntry via the M4 MapElementTypeToRefType
+				// addition). The bind emitter suppresses its separate `<Name>Ref`
+				// in that case (would otherwise produce a dual `@ref` attribute
+				// that breaks Sandbox.UI's parser). The Apply API must reach the
+				// SAME field — use the exposed name when exposed, else fall back
+				// to the historical `<Name>Ref` suffix.
+				var isExposed = el.Flags?.ExposeAsVariable == true && !string.IsNullOrEmpty( el.Name );
+				var refName = isExposed
+					? SuiNameSanitizer.ToCSharpIdentifier( el.Name )
+					: SuiNameSanitizer.ToCSharpIdentifier( baseName + "Ref" );
 				var fieldName = SuiNameSanitizer.ToCSharpIdentifier( baseName + "Value" );
 				var boundVarName = ResolveBindingVariableName( doc, b );
 				if ( string.IsNullOrEmpty( boundVarName ) ) continue;

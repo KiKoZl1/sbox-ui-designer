@@ -58,6 +58,15 @@ public static class SuiElementRefEmitter
 		SuiElementType.Text        => "global::Sandbox.UI.Label",
 		SuiElementType.Image       => "global::Sandbox.UI.Image",
 		SuiElementType.Button      => "global::Sandbox.UI.Button",
+		// V1.5 M4 — input widgets get their concrete runtime type so the
+		// bind handler can reach .Text / .Value / .Checked / .Selected
+		// without a cast. Critical for the "exposed + Manual TwoWay" path
+		// where the bind emitter reuses the exposed field name to avoid
+		// a dual @ref collision (see SuiRazorGenerator TextEntry switch).
+		SuiElementType.TextEntry   => "global::Sandbox.UI.TextEntry",
+		SuiElementType.Slider      => "global::Sandbox.UI.Slider",
+		SuiElementType.Toggle      => "global::Sandbox.UI.Toggle",
+		SuiElementType.DropDown    => "global::Sandbox.UI.DropDown",
 		// ProgressBar in Sandbox.UI is a Panel subclass without a separate
 		// public type at the time of writing; capture it as Panel until/unless
 		// Facepunch exposes a typed one. The .partial.cs author can still
