@@ -645,7 +645,15 @@ public sealed class SuiRazorGenerator
 
 		var bindAttrs = SuiBindingEmitter.EmitElementAttributes( el, _doc );
 		_sb.Append( indent ).Append( "<label class=\"" ).Append( className ).Append( "\"" )
-			.Append( bindAttrs ).Append( ">" )
+			.Append( bindAttrs );
+		// V1.5 — Text elements with ExposeAsVariable=true need the @ref so
+		// the renderer's typed Label field captures the live engine instance.
+		// Without this the field stays null forever and controllers can't
+		// reach the live label to mutate .Text per frame (typewriter, runtime
+		// scoreboard, etc.). Container emitters already call this; Text
+		// was the lone code path that skipped it.
+		SuiElementRefEmitter.EmitRazorRef( el, _sb );
+		_sb.Append( ">" )
 			.Append( body )
 			.AppendLine( "</label>" );
 	}
