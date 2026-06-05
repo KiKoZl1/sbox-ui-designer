@@ -29,6 +29,13 @@ public sealed class CounterButtonController : Component
 
 	protected override void OnStart()
 	{
+		// Wire the click handler BEFORE Show() so SyncFieldsTo carries the
+		// delegate into the rendered Panel on first mount. The generator
+		// emits OnIncrementClick as an Action property on the wrapper
+		// (Events.Mode = Code in the .sui), so the controller assigns it
+		// to its own method — name parity is convention, not magic.
+		Hud.OnIncrementClick = OnIncrementClick;
+
 		// Mount the UI as a child of this GameObject. MouseOnly so the
 		// player can click the button without the panel grabbing keyboard
 		// focus away from gameplay.
@@ -42,11 +49,12 @@ public sealed class CounterButtonController : Component
 	}
 
 	/// <summary>
-	/// Wired to <c>IncrementButton.OnClick</c> in the .sui (Events.Mode = Code,
-	/// Handler = "OnIncrementClick"). The generator emits a delegate slot on the
-	/// wrapper that resolves to this method by name.
+	/// Called when the +1 button is clicked. Assigned to
+	/// <c>Hud.OnIncrementClick</c> in <see cref="OnStart"/> — the wrapper
+	/// exposes that as a public <c>Action</c> property which the generator
+	/// wires to the button's <c>onclick</c> in the renderer Panel.
 	/// </summary>
-	public void OnIncrementClick()
+	private void OnIncrementClick()
 	{
 		Count++;
 		Hud.CountText = Count.ToString();
