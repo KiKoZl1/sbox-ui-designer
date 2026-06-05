@@ -8,7 +8,7 @@ nav_order: 11
 # Showcase samples
 {: .no_toc }
 
-The 13 showcase samples shipped with V1.5 — 5 beginner ones that isolate a single SUI Designer concept each, 3 intermediate samples that wire multiple features onto realistic surfaces, and 5 advanced samples that combine the full runtime into game-flow surfaces (modals, multi-tab navigation, dramatic single-element drives, chat history, class pickers). Open the `.sui`, drop the companion `Component` on a `GameObject`, and you have a working UI in seconds.
+The 16 showcase samples shipped with V1.5 — 5 beginner ones that isolate a single SUI Designer concept each, 3 intermediate samples that wire multiple features onto realistic surfaces, and 8 advanced samples that combine the full runtime into game-flow surfaces (modals, multi-tab navigation, dramatic single-element drives, chat history, class pickers, dialog trees, drag-and-drop, and stacking toast queues). Open the `.sui`, drop the companion `Component` on a `GameObject`, and you have a working UI in seconds.
 {: .fs-6 .fw-300 }
 
 ## Table of contents

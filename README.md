@@ -6,7 +6,8 @@
 
 Visual UI Designer for [s&box](https://sbox.game). Author UI layouts in a UMG-like editor and generate native `.razor` and `.razor.scss` files. The `.sui` document is the source of truth; generated files are disposable; user-owned files are protected.
 
-📚 **Full documentation:** [kikozl1.github.io/sbox-ui-designer](https://kikozl1.github.io/sbox-ui-designer/) — install, tutorials, architecture, reference.
+- **Docs:** [kikozl1.github.io/sbox-ui-designer](https://kikozl1.github.io/sbox-ui-designer/) — install, tutorials, architecture, reference.
+- **Samples gallery:** [`samples/showcase/`](samples/showcase/README.md) — 16 polished demos covering every V1.5 feature.
 
 **Status:** V1.0 release. See [`ISSUES.md`](ISSUES.md) for known issues and [CHANGELOG.md](CHANGELOG.md) for release history.
 
@@ -18,11 +19,26 @@ Visual UI Designer for [s&box](https://sbox.game). Author UI layouts in a UMG-li
 2. **Open the editor in s&box** — File → New Project → ensure your `.sbproj` references the library.
 3. **Create your first .sui** — right-click in Asset Browser → New → **Sbox UI Document**. Name it (e.g. `InventoryUI`).
 4. **Open it** — double-click. The Sbox UI Designer window appears.
-5. **Drag elements from the Palette onto the canvas** OR click to add them at root.
+5. **Drag elements from the Palette onto the canvas** OR click to add them at root. For ready-made layouts to dissect, browse [`samples/showcase/`](samples/showcase/README.md).
 6. **Edit properties in the Details panel** on the right (anchor, position, size, color, text content, etc.).
 7. **Click Compile** in the toolbar (or `Ctrl+B`). First time: a folder picker asks where the generated files should land (typically `Code/UI/` or similar inside your project).
 8. **The engine hot-loads the new `.razor` + `.razor.scss`** — your `PanelComponent` type is now available to mount in your scene.
 9. **Use the Preview button** to see the live render in a modal without leaving the designer.
+
+---
+
+## Samples
+
+The full showcase ships **16 polished `.sui` demos** covering every V1.5 feature. Open [`samples/showcase/README.md`](samples/showcase/README.md) for the index page with browse-by-category, browse-by-concept lookups, and "I want to..." pattern recipes.
+
+Highlights:
+
+- [`inventory_grid_full`](samples/showcase/inventory_grid_full/) — flagship 6×4 inventory grid (runtime-rendered).
+- [`chat_panel`](samples/showcase/chat_panel/) — runtime AddChild + Manual TextEntry commit (runtime-rendered).
+- [`settings_full`](samples/showcase/settings_full/) — every input widget + Apply.All() (input-widgets).
+- [`survival_hud_aaa`](samples/showcase/survival_hud_aaa/) — every Variable type in one HUD (full-feature-showcase).
+
+The Tools menu has **Install Sample Documents** which copies the showcase set into your project's `Assets/SuiSamples/`.
 
 ---
 
@@ -33,19 +49,6 @@ Visual UI Designer for [s&box](https://sbox.game). Author UI layouts in a UMG-li
 - **Manifest tracks ownership.** `<output>/.sui-manifest/<DocumentId>.json` records which files this document owns + their hashes at last write. Recompile-with-changes triggers a backup before overwrite, recompile-without-changes is a no-op (Skipped).
 - **Backups are outside `Code/`.** Backups land in `<projectRoot>/.sui-backups/<DocName>/<UTC-timestamp>/...` so the engine never compiles them as duplicate `partial class` declarations.
 - **Preview cache is separate from final output.** Preview cache lives at `<projectRoot>/Code/_sui_preview/<ClassName>/` and uses a sub-namespace `.SuiPreview` to avoid colliding with the final-compiled type.
-
----
-
-## Sample documents
-
-The Tools menu has **Install Sample Documents** which writes 4 canonical samples into `Assets/SuiSamples/`:
-
-- **`simple_panel.sui`** — minimal panel + centered text. Anchor + pivot basics.
-- **`inventory_basic.sui`** — InventoryGrid + 15 InventorySlot composition.
-- **`hotbar_basic.sui`** — bottom-anchored Hotbar with 9 slots, first one highlighted.
-- **`hud_survival.sui`** — composite top-left HUD with Health / Stamina / Hunger ProgressBars + labels.
-
-Open any of them to see the schema in action.
 
 ---
 
@@ -155,7 +158,9 @@ Editor/                        (s&box editor code root)
   Canvas/                      Paint-based design canvas (renderer, solver, viewport, toolbar)
   Commands/                    Undo/redo command stack
   Widgets/                     Palette, Hierarchy, Details, CompileResults
-samples/ui/                    sample .sui files (also installable via Tools menu)
+samples/
+  showcase/                    16 polished demo .sui samples — see samples/showcase/README.md
+  README.md                    samples landing stub pointing at showcase/
 docs/                          published docs site (Jekyll, GitHub Pages)
 sbox_ui_designer.sbproj        library manifest
 CHANGELOG.md                   release history
@@ -167,6 +172,8 @@ ISSUES.md                      known unresolved issues
 ## Contributing
 
 Bug reports, feature requests, and PRs welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for the guide. For questions, design talk, or to show off what you built — [Discussions](https://github.com/KiKoZl1/sbox-ui-designer/discussions) is the right place.
+
+Adding a new sample? See the contributing section in [`samples/showcase/README.md`](samples/showcase/README.md#contributing-a-new-sample).
 
 Security issues: please follow [SECURITY.md](SECURITY.md) — don't open a public issue.
 
