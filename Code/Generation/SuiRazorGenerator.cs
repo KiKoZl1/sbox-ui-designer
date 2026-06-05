@@ -1224,20 +1224,7 @@ public sealed class SuiRazorGenerator
 					var teTarget = TryGetBoundVariableName( el, "Value" )
 						?? SuiNameSanitizer.ToCSharpIdentifier( baseName + "Value" );
 					var trigger = TryGetBindUpdateTrigger( el, "Value" );
-					// V1.5-fix — when the element is ALSO exposed-as-variable, the
-					// SuiElementRefEmitter at line ~1309 will emit `@ref="<Name>"`.
-					// Emitting our own `@ref="<Name>Ref"` here too produces a dual
-					// @ref attribute on the same tag, which Sandbox.UI's parser
-					// silently drops or picks the wrong one — caret, placeholder,
-					// onsubmit all break (chat_panel bug, 2026-06-05). Resolve by
-					// reusing the exposed name and suppressing our own @ref emit
-					// in that case. SuiElementRefEmitter.MapElementTypeToRefType
-					// now types exposed TextEntry fields as Sandbox.UI.TextEntry
-					// so `.Text` lookups in our handlers still compile.
-					var isExposed = el.Flags?.ExposeAsVariable == true && !string.IsNullOrEmpty( el.Name );
-					var refName = isExposed
-						? SuiNameSanitizer.ToCSharpIdentifier( el.Name )
-						: SuiNameSanitizer.ToCSharpIdentifier( baseName + "Ref" );
+					var refName = SuiNameSanitizer.ToCSharpIdentifier( baseName + "Ref" );
 
 					switch ( trigger )
 					{
@@ -1249,27 +1236,24 @@ public sealed class SuiRazorGenerator
 						case SuiBindingUpdateTrigger.OnLostFocus:
 							// One-way pre-fill + onblur captures the typed text
 							// and commits to the bound field.
-							_sb.Append( " Value=\"@" ).Append( teTarget ).Append( "\"" );
-							if ( !isExposed )
-								_sb.Append( " @ref=\"" ).Append( refName ).Append( "\"" );
-							_sb.Append( " onblur=@(e => " ).Append( teTarget ).Append( " = " ).Append( refName ).Append( "?.Text ?? \"\")" );
+							_sb.Append( " Value=\"@" ).Append( teTarget ).Append( "\"" )
+								.Append( " @ref=\"" ).Append( refName ).Append( "\"" )
+								.Append( " onblur=@(e => " ).Append( teTarget ).Append( " = " ).Append( refName ).Append( "?.Text ?? \"\")" );
 							break;
 
 						case SuiBindingUpdateTrigger.OnSubmit:
 							// Same as OnLostFocus but waits for Enter (engine
 							// `onsubmit` fires only on the Enter key).
-							_sb.Append( " Value=\"@" ).Append( teTarget ).Append( "\"" );
-							if ( !isExposed )
-								_sb.Append( " @ref=\"" ).Append( refName ).Append( "\"" );
-							_sb.Append( " onsubmit=@(e => " ).Append( teTarget ).Append( " = " ).Append( refName ).Append( "?.Text ?? \"\")" );
+							_sb.Append( " Value=\"@" ).Append( teTarget ).Append( "\"" )
+								.Append( " @ref=\"" ).Append( refName ).Append( "\"" )
+								.Append( " onsubmit=@(e => " ).Append( teTarget ).Append( " = " ).Append( refName ).Append( "?.Text ?? \"\")" );
 							break;
 
 						case SuiBindingUpdateTrigger.Manual:
 							// Pre-fill only. The wrapper exposes Commit<Name>()
 							// that reads the panel ref's .Text and writes the bound field.
-							_sb.Append( " Value=\"@" ).Append( teTarget ).Append( "\"" );
-							if ( !isExposed )
-								_sb.Append( " @ref=\"" ).Append( refName ).Append( "\"" );
+							_sb.Append( " Value=\"@" ).Append( teTarget ).Append( "\"" )
+								.Append( " @ref=\"" ).Append( refName ).Append( "\"" );
 							break;
 					}
 				}
