@@ -1514,12 +1514,25 @@ public class SuiDetailsWidget : Widget
 			AddNote( $"⚠ Width ({el.Layout.Width}) ≠ Height ({el.Layout.Height}) — {el.Props.ButtonShape} shapes look correct only when W = H." );
 		}
 
-		// Five state dropdowns — Normal first, then the four override states.
+		// Six state dropdowns — Normal first, then the five override states.
+		// Highlighted sits after Focused to mirror the SCSS emission order
+		// (Hover < Focus < Active < Highlighted < Disabled) so the Designer's
+		// visual layout matches the runtime priority chain authors reason about.
 		AddNormalStateDropdown( el );
 		AddOverrideStateDropdown( el, "Hover" );
 		AddOverrideStateDropdown( el, "Pressed" );
 		AddOverrideStateDropdown( el, "Disabled" );
 		AddOverrideStateDropdown( el, "Focused" );
+		AddOverrideStateDropdown( el, "Highlighted" );
+
+		// Design-time preview toggle for IsHighlighted — lets the author flip
+		// the flag from the Designer so it serializes into the .sui. Canvas
+		// preview rendering of the highlighted visuals is V1.6 polish; the
+		// field still needs to be settable now so it survives serialization
+		// for binding-default purposes (matrix allows OneWay bind on this).
+		AddBoolRow( "Is Highlighted (preview)", el.Props.IsHighlighted,
+			v => SetProp( el, e => e.Props.IsHighlighted, ( e, v2 ) => e.Props.IsHighlighted = v2, v, "Set is-highlighted" ),
+			bindingProperty: "IsHighlighted" );
 
 		// Transition lives inside Appearance because it controls how states
 		// animate between each other.
@@ -1732,6 +1745,7 @@ public class SuiDetailsWidget : Widget
 		"Pressed" => el.Props.PressedStyle,
 		"Disabled" => el.Props.DisabledStyle,
 		"Focused" => el.Props.FocusedStyle,
+		"Highlighted" => el.Props.HighlightedStyle,
 		_ => null,
 	};
 
@@ -1760,6 +1774,9 @@ public class SuiDetailsWidget : Widget
 			case "Focused":
 				SetProp( el, e => e.Props.FocusedStyle, ( e, v ) => e.Props.FocusedStyle = v, draft, label );
 				break;
+			case "Highlighted":
+				SetProp( el, e => e.Props.HighlightedStyle, ( e, v ) => e.Props.HighlightedStyle = v, draft, label );
+				break;
 		}
 		Refresh();
 	}
@@ -1784,6 +1801,9 @@ public class SuiDetailsWidget : Widget
 				break;
 			case "Focused":
 				SetProp<SuiInteractiveStateStyle>( el, e => e.Props.FocusedStyle, ( e, v ) => e.Props.FocusedStyle = v, null, "Clear focused state" );
+				break;
+			case "Highlighted":
+				SetProp<SuiInteractiveStateStyle>( el, e => e.Props.HighlightedStyle, ( e, v ) => e.Props.HighlightedStyle = v, null, "Clear highlighted state" );
 				break;
 		}
 	}

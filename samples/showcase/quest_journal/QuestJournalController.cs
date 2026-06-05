@@ -1,6 +1,5 @@
 using System.Collections.Generic;
 using Sandbox;
-using Sandbox.UI;
 using SboxUiDesigner.Runtime;
 
 namespace Sandbox.Samples;
@@ -20,18 +19,20 @@ namespace Sandbox.Samples;
 /// reset all objectives back to their authored defaults.</para>
 ///
 /// <para>The UI lives entirely in <c>quest_journal.sui</c>. This Component owns:
-/// the in-memory <see cref="Quest"/> list per tab, the selection state, the six
-/// Code-mode click handlers (3 tabs + 3 quest cards), and the runtime restyle of
-/// the active tab / selected card via the <c>Hud.View?.*</c> Panel refs that the
-/// "Expose as Variable" flag gives us in the Designer.</para>
+/// the in-memory <see cref="Quest"/> list per tab, the selection state, and the
+/// six Code-mode click handlers (3 tabs + 3 quest cards). The visual swap for
+/// "selected tab" / "selected card" is fully Designer-authored via
+/// <c>HighlightedStyle</c> + the <c>IsHighlighted</c> bindable — the controller
+/// just toggles six bound <c>bool</c> Variables and the runtime restyle follows.
+/// No <c>Hud.View?.*</c> Panel mutation, no <c>Style.Dirty()</c>.</para>
 /// </summary>
 public sealed class QuestJournalController : Component
 {
 	// ─────────────────────────────────────────────────────────────────────────
 	// Data model — kept in C# because List<custom-POCO> isn't a valid SUI
-	// Variable type. The .sui only knows about the SIX Variables that drive
-	// the bound Text and ProgressBar elements; the data list pushes into
-	// those Variables every time the user clicks a quest card or a tab.
+	// Variable type. The .sui only knows about the Variables that drive the
+	// bound Text / ProgressBar / IsHighlighted elements; the data list pushes
+	// into those Variables every time the user clicks a quest card or a tab.
 	// ─────────────────────────────────────────────────────────────────────────
 
 	/// <summary>One objective on a quest — label + 0..1 progress.</summary>
@@ -64,11 +65,12 @@ public sealed class QuestJournalController : Component
 	// Wrapper + public state.
 	// ─────────────────────────────────────────────────────────────────────────
 
-	/// <summary>Generated wrapper instance. Exposes the 10 Variables plus the
-	/// 6 <c>OnXxxClick</c> Action properties, and — via <c>Hud.View</c> — the
-	/// 6 Panel refs we marked "Expose as Variable" in the designer
-	/// (<c>TabActive</c>, <c>TabCompleted</c>, <c>TabFailed</c>,
-	/// <c>QuestCard1</c>, <c>QuestCard2</c>, <c>QuestCard3</c>).</summary>
+	/// <summary>Generated wrapper instance. Exposes the 19 Variables plus the
+	/// 6 <c>OnXxxClick</c> Action properties. The 6 <c>IsXxxHighlighted</c>
+	/// bools are bound OneWay to the matching Button's <c>IsHighlighted</c> in
+	/// the .sui — set them from here and the runtime SUI host adds/removes the
+	/// <c>.highlighted</c> CSS class, which triggers each Button's authored
+	/// <c>HighlightedStyle</c> visuals.</summary>
 	[Property] public QuestJournal Hud { get; set; } = new();
 
 	/// <summary>Seed Active quests. Edit from the Inspector to reshape the demo
@@ -169,18 +171,6 @@ public sealed class QuestJournalController : Component
 		_                  => ActiveQuests,
 	};
 
-	// Colour palette — matches the .sui authored values so runtime restyle
-	// stays visually consistent with the canvas preview. Edit both at once if
-	// you re-theme the card.
-	private static readonly Color TabActiveBg     = Color.Parse( "#4ade80" ).Value;
-	private static readonly Color TabInactiveBg   = Color.Parse( "#1f2937" ).Value;
-	private static readonly Color TabActiveText   = Color.Parse( "#0d0d0f" ).Value;
-	private static readonly Color TabInactiveText = Color.Parse( "#9ca3af" ).Value;
-	private static readonly Color CardSelectedBg  = Color.Parse( "#374151" ).Value;
-	private static readonly Color CardInactiveBg  = Color.Parse( "#1f2937" ).Value;
-	private static readonly Color CardSelectedText = Color.Parse( "#ffffff" ).Value;
-	private static readonly Color CardInactiveText = Color.Parse( "#e5e7eb" ).Value;
-
 	// ─────────────────────────────────────────────────────────────────────────
 	// Lifecycle.
 	// ─────────────────────────────────────────────────────────────────────────
@@ -200,19 +190,19 @@ public sealed class QuestJournalController : Component
 		Hud.OnQuest3Click       = OnQuest3Click;
 
 		// 2) Mount the card. MouseOnly so the player can click tabs / cards
-		//    without the journal grabbing keyboard focus from gameplay.
-		//    Show() must happen BEFORE the Restyle* calls — restyle reaches into
-		//    Hud.View?.* Panel refs which are only populated after the
-		//    SuiPanel mounts.
+		//    without the journal grabbing keyboard focus from gameplay. The
+		//    six IsXxxHighlighted Variables default to (true, false, false)
+		//    for tabs and (true, false, false) for cards in the .sui, so frame
+		//    zero already matches _currentTab = Active + _selectedIndex = 0
+		//    without any push from here.
 		Hud.Show( GameObject, SuiInputMode.MouseOnly );
 
-		// 3) Push the initial selection + list labels + tab/card visuals so
-		//    frame zero matches the runtime state instead of leaning on the
-		//    authored canvas preview values (which would silently drift the
-		//    second somebody re-orders the seed quests).
+		// 3) Push the initial list labels + detail-pane fields so frame zero
+		//    matches the runtime state instead of leaning on the authored
+		//    canvas preview values (which would silently drift the second
+		//    somebody re-orders the seed quests). No visual-restyle calls
+		//    needed — that's all in the .sui now.
 		RefreshCardLabels();
-		RefreshTabVisuals();
-		RefreshCardVisuals();
 		PushSelectedQuest();
 	}
 
@@ -262,24 +252,38 @@ public sealed class QuestJournalController : Component
 
 	// ─────────────────────────────────────────────────────────────────────────
 	// State mutation.
+	//
+	// The tab + card "selected" visual swap is driven entirely by toggling the
+	// IsXxxHighlighted bools on the wrapper. The OneWay binding pipeline pushes
+	// the change into each Button's IsHighlighted property next frame, which
+	// adds/removes the .highlighted CSS class and lets the authored
+	// HighlightedStyle take over. Zero direct Panel mutation from here.
 	// ─────────────────────────────────────────────────────────────────────────
 
 	private void SwitchTab( QuestTab tab )
 	{
 		// Always run the refresh chain — even on a same-tab reclick we want the
-		// selection to reset to 0 and the card visuals to settle. Without this
+		// selection to reset to 0 and the card highlight to settle. Without this
 		// re-entry the user gets a "dead click" feel if they re-click the tab
 		// they already had open.
 		_currentTab = tab;
 		_selectedIndex = 0;
 		Hud.CurrentTabText = tab.ToString();
 
+		// Flip the three tab highlight bools so exactly one tab shows the
+		// green HighlightedStyle. Same shape for the three card bools below —
+		// _selectedIndex was just reset to 0, so card #1 lights up.
+		Hud.IsTabActiveHighlighted    = tab == QuestTab.Active;
+		Hud.IsTabCompletedHighlighted = tab == QuestTab.Completed;
+		Hud.IsTabFailedHighlighted    = tab == QuestTab.Failed;
+
+		Hud.IsQuestCard1Highlighted = true;
+		Hud.IsQuestCard2Highlighted = false;
+		Hud.IsQuestCard3Highlighted = false;
+
 		// Refresh the list column with the first 3 entries of the new tab,
-		// re-skin the tabs (active vs inactive), re-skin the cards (selected
-		// vs not), and push the first quest into the detail pane.
+		// then push the first quest into the detail pane.
 		RefreshCardLabels();
-		RefreshTabVisuals();
-		RefreshCardVisuals();
 		PushSelectedQuest();
 
 		Log.Info( $"[QuestJournal] Switched to tab '{tab}'." );
@@ -292,7 +296,13 @@ public sealed class QuestJournalController : Component
 		if ( _selectedIndex == index ) return;
 
 		_selectedIndex = index;
-		RefreshCardVisuals();
+
+		// One of three quest cards is highlighted at any time — flip the bools
+		// so the bound IsHighlighted on each Button reflects the selection.
+		Hud.IsQuestCard1Highlighted = index == 0;
+		Hud.IsQuestCard2Highlighted = index == 1;
+		Hud.IsQuestCard3Highlighted = index == 2;
+
 		PushSelectedQuest();
 
 		Log.Info( $"[QuestJournal] Selected quest #{index}: '{list[index].Title}'." );
@@ -337,19 +347,6 @@ public sealed class QuestJournalController : Component
 		Hud.QuestCard1Text = list.Count > 0 ? list[0].Title : "—";
 		Hud.QuestCard2Text = list.Count > 1 ? list[1].Title : "—";
 		Hud.QuestCard3Text = list.Count > 2 ? list[2].Title : "—";
-
-		// Dim the trailing card slots that don't have a quest behind them so
-		// the player can tell at a glance the category only has 1 or 2 entries.
-		ApplyCardOpacity( Hud.View?.QuestCard1, list.Count > 0 );
-		ApplyCardOpacity( Hud.View?.QuestCard2, list.Count > 1 );
-		ApplyCardOpacity( Hud.View?.QuestCard3, list.Count > 2 );
-	}
-
-	private static void ApplyCardOpacity( Panel cardPanel, bool hasQuest )
-	{
-		if ( cardPanel == null ) return;
-		cardPanel.Style.Opacity = hasQuest ? 1f : 0.35f;
-		cardPanel.Style.Dirty();
 	}
 
 	/// <summary>Push the currently-selected quest's title/description/objectives/
@@ -383,48 +380,5 @@ public sealed class QuestJournalController : Component
 		Hud.Objective2Progress = q.Objectives.Count > 1 ? q.Objectives[1].Progress : 0f;
 		Hud.Objective3Text     = q.Objectives.Count > 2 ? q.Objectives[2].Text     : "";
 		Hud.Objective3Progress = q.Objectives.Count > 2 ? q.Objectives[2].Progress : 0f;
-	}
-
-	// ─────────────────────────────────────────────────────────────────────────
-	// Runtime restyle — visualises selection on the tab buttons + quest cards.
-	//
-	// The .sui authors the "default selected" look (Active tab green, first
-	// card grey). When the user clicks, we restyle inline so the selection
-	// follows. The Panel refs come from "Expose as Variable" being ticked on
-	// each of the 6 buttons — without that, Hud.View.* would be null.
-	// ─────────────────────────────────────────────────────────────────────────
-
-	private void RefreshTabVisuals()
-	{
-		ApplyTabStyle( Hud.View?.TabActive,    _currentTab == QuestTab.Active );
-		ApplyTabStyle( Hud.View?.TabCompleted, _currentTab == QuestTab.Completed );
-		ApplyTabStyle( Hud.View?.TabFailed,    _currentTab == QuestTab.Failed );
-	}
-
-	private static void ApplyTabStyle( Panel tabPanel, bool isActive )
-	{
-		if ( tabPanel == null ) return;
-
-		tabPanel.Style.BackgroundColor = isActive ? TabActiveBg : TabInactiveBg;
-		tabPanel.Style.FontColor       = isActive ? TabActiveText : TabInactiveText;
-		tabPanel.Style.FontWeight      = isActive ? 700 : 400;
-		tabPanel.Style.Dirty();
-	}
-
-	private void RefreshCardVisuals()
-	{
-		ApplyCardStyle( Hud.View?.QuestCard1, _selectedIndex == 0 );
-		ApplyCardStyle( Hud.View?.QuestCard2, _selectedIndex == 1 );
-		ApplyCardStyle( Hud.View?.QuestCard3, _selectedIndex == 2 );
-	}
-
-	private static void ApplyCardStyle( Panel cardPanel, bool isSelected )
-	{
-		if ( cardPanel == null ) return;
-
-		cardPanel.Style.BackgroundColor = isSelected ? CardSelectedBg : CardInactiveBg;
-		cardPanel.Style.FontColor       = isSelected ? CardSelectedText : CardInactiveText;
-		cardPanel.Style.FontWeight      = isSelected ? 700 : 400;
-		cardPanel.Style.Dirty();
 	}
 }

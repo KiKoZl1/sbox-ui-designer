@@ -109,6 +109,8 @@ public sealed class SuiRazorGenerator
 		// to add the `.disabled` CSS class, and SCSS `.disabled` carries
 		// `pointer-events: none` so onclick is suppressed automatically.
 		// Authoring-time default comes from SuiElementProps.IsDisabled.
+		// Same emission also threads `<elName>Highlighted` → `.highlighted`
+		// via the same `<Name>Class()` helper (single class-string source).
 		var disabledHashExprs = EmitInteractiveDisabledFields( body );
 
 		// V1.5 M4 (PRD 21) — DropDown widgets ship a static List<Option>
@@ -243,10 +245,12 @@ public sealed class SuiRazorGenerator
 	/// </summary>
 	/// <summary>
 	/// V1.5 M3.5 (PRD 25) — emit one <c>public bool &lt;Name&gt;Disabled</c>
-	/// field per Button / InventorySlot / ItemIcon in the document. The
-	/// authoring-time default lives in SuiElementProps.IsDisabled. Returns
-	/// the list of hash expressions to push into BuildHash so a runtime
-	/// flip re-renders the class string with/without the `.disabled` class.
+	/// and one <c>public bool &lt;Name&gt;Highlighted</c> field per Button /
+	/// InventorySlot / ItemIcon in the document. Authoring-time defaults
+	/// live in <c>SuiElementProps.IsDisabled</c> / <c>SuiElementProps.IsHighlighted</c>.
+	/// Returns the list of hash expressions to push into BuildHash so a runtime
+	/// flip re-renders the class string with/without the `.disabled` and
+	/// `.highlighted` classes.
 	/// </summary>
 	private System.Collections.Generic.List<string> EmitInteractiveDisabledFields( System.Text.StringBuilder body )
 	{
@@ -268,16 +272,29 @@ public sealed class SuiRazorGenerator
 				.Append( " { get; set; } = " ).Append( defaultLit ).AppendLine( ";" );
 			hashes.Add( fieldName );
 
+			// V1.5 M3.5 — Highlighted twin field. Same authoring-time default
+			// source (SuiElementProps.IsHighlighted) and same BuildHash entry
+			// so a runtime toggle re-renders the class string with/without
+			// the `.highlighted` CSS class (paired with HighlightedStyle SCSS).
+			var highlightedField = SuiNameSanitizer.ToCSharpIdentifier( ( el.Name ?? el.Id ) + "Highlighted" );
+			var highlightedDefault = (el.Props?.IsHighlighted ?? false) ? "true" : "false";
+			body.Append( "\tpublic bool " ).Append( highlightedField )
+				.Append( " { get; set; } = " ).Append( highlightedDefault ).AppendLine( ";" );
+			hashes.Add( highlightedField );
+
 			// V1.5 M3.5 — emit a pure C# helper that returns the class string
 			// for this element. The Razor markup invokes it via the simple
 			// expression `class="@<Name>Class()"` — no mixed content, no
 			// nested quote-escape gymnastics that would confuse the Razor
 			// parser (which is what broke commit `1d2ef34`).
+			// Concatenates BOTH `.disabled` and `.highlighted` from the same
+			// helper so the markup stays a single attribute expression.
 			var methodName = SuiNameSanitizer.ToCSharpIdentifier( ( el.Name ?? el.Id ) + "Class" );
 			var staticClasses = BuildElementClassLiteral( el );
 			body.Append( "\tprivate string " ).Append( methodName )
 				.Append( "() => \"" ).Append( staticClasses )
-				.Append( "\" + (" ).Append( fieldName ).AppendLine( " ? \" disabled\" : \"\");" );
+				.Append( "\" + (" ).Append( fieldName ).Append( " ? \" disabled\" : \"\")" )
+				.Append( " + (" ).Append( highlightedField ).AppendLine( " ? \" highlighted\" : \"\");" );
 		}
 		return hashes;
 	}
@@ -621,10 +638,11 @@ public sealed class SuiRazorGenerator
 		var dataAttrs = SuiBindingEmitter.EmitElementDataAttrs( el, _doc );
 		var styleBody = SuiBindingEmitter.EmitElementStyleBody( el, _doc );
 
-		// V1.5 M3.5 (PRD 25) — interactive types ship a runtime-toggleable
-		// IsDisabled bool. Class string gains "disabled" when the field is
-		// true; tabindex="0" makes <div> tab-focusable so :focus actually
-		// fires for keyboard / controller nav.
+		// V1.5 M3.5 (PRD 25) — interactive types ship runtime-toggleable
+		// IsDisabled + IsHighlighted bools. Class string gains "disabled" /
+		// "highlighted" via the same `<Name>Class()` helper; tabindex="0"
+		// makes <div> tab-focusable so :focus actually fires for keyboard /
+		// controller nav.
 		var isInteractive = el.Type == SuiElementType.Button
 			|| el.Type == SuiElementType.InventorySlot
 			|| el.Type == SuiElementType.ItemIcon;

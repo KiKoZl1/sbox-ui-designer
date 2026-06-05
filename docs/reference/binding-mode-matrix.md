@@ -57,6 +57,7 @@ Each (element type, property) pair declares:
 | Property | OneTime | OneWay | TwoWay | Default | TargetType |
 |---|---|---|---|---|---|
 | `ButtonText` | ✓ | ✓ | — | OneWay | string |
+| `IsHighlighted` | ✓ | ✓ | — | OneWay | bool |
 
 ### ProgressBar
 
@@ -93,8 +94,12 @@ Hotbar is always single-row, so only `Columns` is bindable — `Rows`, `CellWidt
 | `InventorySlot.SlotIndex` | ✓ | ✓ | — | OneWay | int |
 | `InventorySlot.IconPath` | ✓ | ✓ | — | OneWay | string |
 | `InventorySlot.Count` | ✓ | ✓ | — | OneWay | int |
+| `InventorySlot.IsHighlighted` | ✓ | ✓ | — | OneWay | bool |
 | `ItemIcon.ImagePath` | ✓ | ✓ | — | OneWay | string |
 | `ItemIcon.Tint` | ✓ | ✓ | — | OneWay | Color |
+| `ItemIcon.IsHighlighted` | ✓ | ✓ | — | OneWay | bool |
+
+`IsHighlighted` is defined **per-type** (Button / InventorySlot / ItemIcon) — it is **not** a universal entry. Other element types (Text, Image, ProgressBar, Grid, Hotbar, input widgets) have no Highlighted state and reject `IsHighlighted` bindings at validation time. Drive Highlighted from any `bool` Variable; pair with the **Highlighted Style** picker in the Designer's Appearance section to author the lit look. See the [tab strip example]({% link concepts/interactive-states.md %}#worked-example--tab-strip-with-highlighted).
 
 ### Input widgets (V1.5 M4)
 

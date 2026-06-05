@@ -8,7 +8,7 @@ nav_order: 5
 # Button
 {: .no_toc }
 
-A clickable region with a centered text label and full interactive-state support — hover, pressed, disabled, focused, transitions, sounds, cursor presets, shape presets.
+A clickable region with a centered text label and full interactive-state support — hover, pressed, highlighted, disabled, focused, transitions, sounds, cursor presets, shape presets.
 {: .fs-6 .fw-300 }
 
 ## Table of contents
@@ -21,7 +21,7 @@ A clickable region with a centered text label and full interactive-state support
 
 ## What it is
 
-A `Button` is an interactive `<div>` with `Pointer Events: All` by default so it catches mouse input. Codegen emits an inner `<label>` with the button text and applies the **Interactive State** SCSS pseudo-classes (`:hover`, `:active`, `:focus`, `.disabled`) when overrides are authored.
+A `Button` is an interactive `<div>` with `Pointer Events: All` by default so it catches mouse input. Codegen emits an inner `<label>` with the button text and applies the **Interactive State** SCSS pseudo-classes (`:hover`, `:active`, `:focus`, `.highlighted`, `.disabled`) when overrides are authored.
 
 In V1.5 (M3.5 — PRD 25) the Button gained five named states, transitions, per-state sounds, a cursor enum, a shape preset, and per-state background-image sizing. The bare-bones V1.0 button (a flat `<div>` with manual `.User.scss` hover rules) is still there if you ignore the new fields — every M3.5 addition is opt-in.
 
@@ -40,18 +40,19 @@ Font Size / Weight / Color / Text Align / Vertical Align apply to the inner `<la
 
 ### Appearance — Interactive States (V1.5 M3.5)
 
-Below the standard Background / Border / Border Radius / Opacity controls, the Appearance section grows **four collapsible per-state dropdowns**:
+Below the standard Background / Border / Border Radius / Opacity controls, the Appearance section grows **five collapsible per-state dropdowns**:
 
 | State | CSS selector | When |
 |---|---|---|
 | **Hover** | `:hover:not(:active)` | Pointer is over the element + not currently pressed |
 | **Pressed** | `:active` | Mouse button down on this element |
+| **Highlighted** | `.highlighted` | `IsHighlighted = true` from the binding / wrapper — sticky toggle, not pointer-driven |
 | **Disabled** | `.disabled` | `IsDisabled = true` from the binding / wrapper |
 | **Focused** | `:focus` | Keyboard / controller focused this element |
 
-Each dropdown has a **Clear State** button + a `(set)` tag on its header when any field is authored. The fields available inside each state mirror the Normal Appearance set: background color, border color, border width, text color, scale, opacity, plus a per-state **Background Image** (with [Background Size](#background-size)) — useful for image-based buttons that swap a different texture on hover.
+Each dropdown has a **Clear State** button + a `(set)` tag on its header when any field is authored. The **Highlighted Style** picker exposes the same field set as the others (background color, border color, border width, text color, scale, opacity, background image). The fields available inside each state mirror the Normal Appearance set: background color, border color, border width, text color, scale, opacity, plus a per-state **Background Image** (with [Background Size](#background-size)) — useful for image-based buttons that swap a different texture on hover.
 
-The pseudo-class emit order is **`:hover:not(:active)` → `:focus` → `:active` → `.disabled`** so Pressed always wins over Hover (without `:not(:active)` the engine CSS sticks on `:hover` and click visuals never show — validated against the M3.5 smoke test).
+The pseudo-class emit order is **`:hover:not(:active)` → `:focus` → `:active` → `.highlighted` → `.disabled`** so Pressed always wins over Hover (without `:not(:active)` the engine CSS sticks on `:hover` and click visuals never show — validated against the M3.5 smoke test). Highlighted overrides micro-interaction feedback so the sticky look reads cleanly; Disabled overrides everything.
 
 `.disabled` always carries `pointer-events: none` so authors don't have to write it themselves.
 
@@ -102,9 +103,10 @@ The Details panel also offers a **Snap to image aspect** button that resizes the
 | Property | Mode | Target type |
 |---|---|---|
 | `ButtonText` | OneTime / OneWay | string |
+| `IsHighlighted` | OneTime / OneWay | bool |
 | Style + Universal | OneWay | per [matrix]({% link reference/binding-mode-matrix.md %}) |
 
-Note: `IsDisabled` is **not** in the binding matrix as of V1.5 — bind the universal `Enabled` property (bool, inverted semantics) instead. Tracked for V1.6.
+Note: `IsDisabled` is **not** in the binding matrix as of V1.5 — bind the universal `Enabled` property (bool, inverted semantics) instead. Tracked for V1.6. `IsHighlighted`, in contrast, **is** a first-class per-type binding — pair it with the Designer's **Highlighted Style** picker (Appearance section) to drive sticky toggle / tab-active visuals from gameplay code.
 
 ## Wiring an OnClick
 
@@ -141,7 +143,7 @@ Pick **Doo** in the Add Event dialog → click **Open Full Editor** to author th
 For a Button named `FireButton` with a Hover state authored:
 
 ```razor
-<div class="primary-btn sui-fire-button @(IsDisabled ? "disabled" : "")"
+<div class="primary-btn sui-fire-button @(IsHighlighted ? "highlighted" : "") @(IsDisabled ? "disabled" : "")"
      tabindex="0"
      @onclick=@OnFireClick>
     <label class="label">@ButtonText</label>
@@ -193,6 +195,7 @@ Razor emits `tabindex="0"` so `:focus` fires for controller / keyboard nav. The 
 - Keep `Transition Enabled` on — it costs nothing visually until you author an override.
 - Use `Button Shape: Pill` for "long horizontal" CTAs that should always have rounded ends regardless of width.
 - Bind `IsDisabled` to a Variable to toggle the button from gameplay code (form validation, cooldowns, etc.).
+- Bind `IsHighlighted` for sticky toggle / tab-active visuals — pair it with the **Highlighted Style** picker in Appearance. See the [tab strip worked example]({% link concepts/interactive-states.md %}#worked-example--tab-strip-with-highlighted) for the controller pattern.
 - For hover/active feedback you can't express via the per-state dropdowns (custom keyframes, complex effects), fall back to the `.User.scss` sidecar:
 
 ```scss

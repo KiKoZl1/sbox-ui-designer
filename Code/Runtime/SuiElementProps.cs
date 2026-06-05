@@ -76,6 +76,7 @@ public sealed class SuiElementProps
 	public SuiInteractiveStateStyle PressedStyle { get; set; }
 	public SuiInteractiveStateStyle DisabledStyle { get; set; }
 	public SuiInteractiveStateStyle FocusedStyle { get; set; }
+	public SuiInteractiveStateStyle HighlightedStyle { get; set; }
 
 	/// <summary>
 	/// Runtime-bindable flag — when true the generated wrapper adds the
@@ -83,6 +84,15 @@ public sealed class SuiElementProps
 	/// Bind a Variable to this in the SUI Designer to toggle from gameplay.
 	/// </summary>
 	public bool IsDisabled { get; set; } = false;
+
+	/// <summary>
+	/// V1.5 — runtime-bindable flag. When true the generated wrapper adds the
+	/// <c>.highlighted</c> class to the root element so the optional
+	/// <see cref="HighlightedStyle"/> visuals take over. Bind a Variable to this
+	/// in the SUI Designer to drive selection/active emphasis from gameplay.
+	/// Defaults to false so existing V3 .sui files load unchanged (no migration).
+	/// </summary>
+	public bool IsHighlighted { get; set; } = false;
 
 	/// <summary>Emit <c>transition: all Ns ease</c> on the root selector. Default ON.</summary>
 	public bool TransitionEnabled { get; set; } = true;
@@ -191,7 +201,9 @@ public sealed class SuiElementProps
 		PressedStyle = PressedStyle?.Clone(),
 		DisabledStyle = DisabledStyle?.Clone(),
 		FocusedStyle = FocusedStyle?.Clone(),
+		HighlightedStyle = HighlightedStyle?.Clone(),
 		IsDisabled = IsDisabled,
+		IsHighlighted = IsHighlighted,
 		TransitionEnabled = TransitionEnabled,
 		TransitionDuration = TransitionDuration,
 		HoverSound = HoverSound,

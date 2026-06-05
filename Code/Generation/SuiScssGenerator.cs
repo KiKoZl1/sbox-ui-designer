@@ -1050,6 +1050,14 @@ public sealed class SuiScssGenerator
 		EmitStateBlock( depth, "&:hover:not(:active)", p.HoverStyle, p.HoverSound );
 		EmitStateBlock( depth, "&:focus", p.FocusedStyle, null );
 		EmitStateBlock( depth, "&:active", p.PressedStyle, p.PressSound );
+		// `.highlighted` sits between `:active` and `.disabled` in source
+		// order so the priority chain is Normal < Hover < Focus < Active <
+		// Highlighted < Disabled. Same-specificity collisions resolve to
+		// the later rule, so a highlighted element stays visually highlighted
+		// even while hovered; disabled still wins over highlighted (sticky /
+		// unrecoverable). Gated on HighlightedStyle being authored so V3
+		// documents without the override emit no rule.
+		EmitStateBlock( depth, "&.highlighted", p.HighlightedStyle, null );
 		// `.disabled` always emits at least `pointer-events: none` so the
 		// class actually suppresses input — the user's DisabledStyle override
 		// stacks on top via EmitStateBlock when authored.

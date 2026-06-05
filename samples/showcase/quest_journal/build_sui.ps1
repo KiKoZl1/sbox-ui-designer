@@ -97,7 +97,9 @@ function MakeProps {
         PressedStyle = $null
         DisabledStyle = $null
         FocusedStyle = $null
+        HighlightedStyle = $null
         IsDisabled = $false
+        IsHighlighted = $false
         TransitionEnabled = $true
         TransitionDuration = 0.15
         HoverSound = ''
@@ -166,6 +168,29 @@ function MakeBinding {
         Source = [PSCustomObject]@{ VariableId = $VariableId }
         Converters = @()
         FallbackValue = $null
+    }
+}
+
+# Per-state override matching SuiInteractiveStateStyle shape (used for
+# HoverStyle / PressedStyle / HighlightedStyle). Empty strings / -1 sentinels
+# mean "don't override". Scale defaults to 1 (no transform). Used here to
+# author the hover/press lift + the selected look on the 6 tab/card Buttons so
+# the controller no longer has to mutate Style.* by hand.
+function MakeInteractiveStyle {
+    param(
+        [string]$BackgroundColor = '',
+        [string]$TextColor = '',
+        [double]$Scale = 1.0
+    )
+    [PSCustomObject]@{
+        BackgroundImage = ''
+        BackgroundColor = $BackgroundColor
+        BorderColor = ''
+        BorderWidth = -1
+        BorderRadius = -1
+        TextColor = $TextColor
+        Scale = $Scale
+        Opacity = -1
     }
 }
 
@@ -292,21 +317,30 @@ $elements.Add( (MakeElement `
 ))
 
 # ─── EL #5 el_tab_active ───
+# Note: the tab/card Buttons start with their INACTIVE visuals on Style/Props.
+# The "currently selected" green/grey-darker look is authored via HighlightedStyle
+# and toggled at runtime by the controller flipping the IsTab*Highlighted bools.
+# Frame zero shows TabActive + QuestCard1 highlighted because their bound
+# Variables default to true.
 $elements.Add( (MakeElement `
     -Id 'el_tab_active' -Name 'TabActive' -Type 'Button' -ParentId 'el_card' `
     -Layout (MakeLayout -X 32 -Y 80 -W 156 -H 36 -JustifyContent 'Center' -AlignItems 'Center') `
-    -Style (MakeStyle -ClassName 'tab tab-active' -BackgroundColor '#4ade80' -BorderColor '#3a3a3e' -BorderWidth 1 -BorderRadius 6 -PointerEvents 'All') `
+    -Style (MakeStyle -ClassName 'tab' -BackgroundColor '#1f2937' -BorderColor '#2a2a2e' -BorderWidth 1 -BorderRadius 6 -PointerEvents 'All') `
     -Props (MakeProps @{
         FontSize = 14
-        FontWeight = 'Bold'
-        Color = '#0d0d0f'
+        FontWeight = 'Normal'
+        Color = '#9ca3af'
         TextAlign = 'Center'
         TextSizeMode = 'Fixed'
         VerticalAlign = 'Center'
         ButtonText = 'Active'
         ButtonShape = 'Rectangle'
+        HoverStyle = (MakeInteractiveStyle -BackgroundColor '#374151' -Scale 1.03)
+        PressedStyle = (MakeInteractiveStyle -BackgroundColor '#111827' -Scale 0.97)
+        HighlightedStyle = (MakeInteractiveStyle -BackgroundColor '#4ade80' -TextColor '#0d0d0f')
         Cursor = 'Pointer'
     }) `
+    -Bindings @( (MakeBinding -Id 'bind_tab_active_highlighted' -Property 'IsHighlighted' -VariableId 'var_is_tab_active_highlighted') ) `
     -Events (MakeEvents @{ OnClick = 'OnTabActiveClick' }) `
     -Flags (MakeFlags -ExposeAsVariable $true)
 ))
@@ -325,8 +359,12 @@ $elements.Add( (MakeElement `
         VerticalAlign = 'Center'
         ButtonText = 'Completed'
         ButtonShape = 'Rectangle'
+        HoverStyle = (MakeInteractiveStyle -BackgroundColor '#374151' -Scale 1.03)
+        PressedStyle = (MakeInteractiveStyle -BackgroundColor '#111827' -Scale 0.97)
+        HighlightedStyle = (MakeInteractiveStyle -BackgroundColor '#4ade80' -TextColor '#0d0d0f')
         Cursor = 'Pointer'
     }) `
+    -Bindings @( (MakeBinding -Id 'bind_tab_completed_highlighted' -Property 'IsHighlighted' -VariableId 'var_is_tab_completed_highlighted') ) `
     -Events (MakeEvents @{ OnClick = 'OnTabCompletedClick' }) `
     -Flags (MakeFlags -ExposeAsVariable $true)
 ))
@@ -345,8 +383,12 @@ $elements.Add( (MakeElement `
         VerticalAlign = 'Center'
         ButtonText = 'Failed'
         ButtonShape = 'Rectangle'
+        HoverStyle = (MakeInteractiveStyle -BackgroundColor '#374151' -Scale 1.03)
+        PressedStyle = (MakeInteractiveStyle -BackgroundColor '#111827' -Scale 0.97)
+        HighlightedStyle = (MakeInteractiveStyle -BackgroundColor '#4ade80' -TextColor '#0d0d0f')
         Cursor = 'Pointer'
     }) `
+    -Bindings @( (MakeBinding -Id 'bind_tab_failed_highlighted' -Property 'IsHighlighted' -VariableId 'var_is_tab_failed_highlighted') ) `
     -Events (MakeEvents @{ OnClick = 'OnTabFailedClick' }) `
     -Flags (MakeFlags -ExposeAsVariable $true)
 ))
@@ -361,21 +403,31 @@ $elements.Add( (MakeElement `
 ))
 
 # ─── EL #9 el_quest_card_1 ───
+# Quest cards: inactive look on Style/Props, selected look on HighlightedStyle.
+# Frame zero: QuestCard1 is highlighted because var_is_quest_card_1_highlighted
+# defaults to true.
 $elements.Add( (MakeElement `
     -Id 'el_quest_card_1' -Name 'QuestCard1' -Type 'Button' -ParentId 'el_list' `
     -Layout (MakeLayout -X 8 -Y 8 -W 344 -H 64 -JustifyContent 'Center' -AlignItems 'Center') `
-    -Style (MakeStyle -ClassName 'quest-card quest-card-selected' -BackgroundColor '#374151' -BorderColor '#3a3a3e' -BorderWidth 1 -BorderRadius 6 -PointerEvents 'All') `
+    -Style (MakeStyle -ClassName 'quest-card' -BackgroundColor '#1f2937' -BorderColor '#2a2a2e' -BorderWidth 1 -BorderRadius 6 -PointerEvents 'All') `
     -Props (MakeProps @{
         FontSize = 14
-        FontWeight = 'Bold'
-        Color = '#ffffff'
+        FontWeight = 'Normal'
+        Color = '#e5e7eb'
         TextAlign = 'Center'
         TextSizeMode = 'Fixed'
         VerticalAlign = 'Center'
         ButtonText = 'Slay 10 Zombies'
         ButtonShape = 'Rectangle'
+        HoverStyle = (MakeInteractiveStyle -BackgroundColor '#4b5563' -Scale 1.03)
+        PressedStyle = (MakeInteractiveStyle -BackgroundColor '#111827' -Scale 0.97)
+        HighlightedStyle = (MakeInteractiveStyle -BackgroundColor '#374151' -TextColor '#ffffff')
         Cursor = 'Pointer'
     }) `
+    -Bindings @(
+        (MakeBinding -Id 'bind_quest_card_1_text' -Property 'ButtonText' -VariableId 'var_quest_card_1_text')
+        (MakeBinding -Id 'bind_quest_card_1_highlighted' -Property 'IsHighlighted' -VariableId 'var_is_quest_card_1_highlighted')
+    ) `
     -Events (MakeEvents @{ OnClick = 'OnQuest1Click' }) `
     -Flags (MakeFlags -ExposeAsVariable $true)
 ))
@@ -394,8 +446,15 @@ $elements.Add( (MakeElement `
         VerticalAlign = 'Center'
         ButtonText = 'Collect 5 Herbs'
         ButtonShape = 'Rectangle'
+        HoverStyle = (MakeInteractiveStyle -BackgroundColor '#374151' -Scale 1.03)
+        PressedStyle = (MakeInteractiveStyle -BackgroundColor '#111827' -Scale 0.97)
+        HighlightedStyle = (MakeInteractiveStyle -BackgroundColor '#374151' -TextColor '#ffffff')
         Cursor = 'Pointer'
     }) `
+    -Bindings @(
+        (MakeBinding -Id 'bind_quest_card_2_text' -Property 'ButtonText' -VariableId 'var_quest_card_2_text')
+        (MakeBinding -Id 'bind_quest_card_2_highlighted' -Property 'IsHighlighted' -VariableId 'var_is_quest_card_2_highlighted')
+    ) `
     -Events (MakeEvents @{ OnClick = 'OnQuest2Click' }) `
     -Flags (MakeFlags -ExposeAsVariable $true)
 ))
@@ -414,8 +473,15 @@ $elements.Add( (MakeElement `
         VerticalAlign = 'Center'
         ButtonText = 'Talk to Mayor'
         ButtonShape = 'Rectangle'
+        HoverStyle = (MakeInteractiveStyle -BackgroundColor '#374151' -Scale 1.03)
+        PressedStyle = (MakeInteractiveStyle -BackgroundColor '#111827' -Scale 0.97)
+        HighlightedStyle = (MakeInteractiveStyle -BackgroundColor '#374151' -TextColor '#ffffff')
         Cursor = 'Pointer'
     }) `
+    -Bindings @(
+        (MakeBinding -Id 'bind_quest_card_3_text' -Property 'ButtonText' -VariableId 'var_quest_card_3_text')
+        (MakeBinding -Id 'bind_quest_card_3_highlighted' -Property 'IsHighlighted' -VariableId 'var_is_quest_card_3_highlighted')
+    ) `
     -Events (MakeEvents @{ OnClick = 'OnQuest3Click' }) `
     -Flags (MakeFlags -ExposeAsVariable $true)
 ))
@@ -613,6 +679,12 @@ $elements.Add( (MakeElement `
 ))
 
 # ─── Variables ───
+# Variable order matches the original .sui (Tabs / Detail / Objectives /
+# Rewards / List / Highlighted). The 6 IsHighlighted bools at the end are
+# what flipped the runtime restyle from "C# mutates Style.* via @ref" to
+# "controller toggles a bound bool and HighlightedStyle takes over".
+# Defaults: TabActive + QuestCard1 start true so frame zero matches the
+# initial selection without the controller having to push anything.
 $variables = @(
     (MakeVariable -Id 'var_current_tab_text' -Name 'CurrentTabText' -Type 'string' -Default 'Active' -Group 'Tabs' -Description 'Which tab is currently shown — "Active", "Completed", or "Failed". Controller updates on tab-button click; helper for any UI that displays the active tab label.')
     (MakeVariable -Id 'var_selected_quest_title' -Name 'SelectedQuestTitle' -Type 'string' -Default 'Slay 10 Zombies' -Group 'Detail' -Description 'Title of the currently selected quest. OneWay-bound to el_quest_title. Controller writes via PushSelectedQuest() when the user clicks a quest card.')
@@ -624,6 +696,15 @@ $variables = @(
     (MakeVariable -Id 'var_objective_3_text' -Name 'Objective3Text' -Type 'string' -Default '' -Group 'Objectives' -Description 'Label of objective #3 on the active quest. Empty when the quest has fewer than 3 objectives.')
     (MakeVariable -Id 'var_objective_3_progress' -Name 'Objective3Progress' -Type 'float' -Default 0.0 -Group 'Objectives' -Description 'Progress 0..1 for objective #3.')
     (MakeVariable -Id 'var_selected_quest_reward_text' -Name 'SelectedQuestRewardText' -Type 'string' -Default '300 gold + Iron Sword' -Group 'Rewards' -Description 'Gold + items the player earns on completion. OneWay-bound to el_reward_text.')
+    (MakeVariable -Id 'var_quest_card_1_text' -Name 'QuestCard1Text' -Type 'string' -Default 'Slay 10 Zombies' -Group 'List' -Description 'Label text rendered on the first quest-list card on the LEFT. Controller writes via RefreshCardLabels() each time the user switches tab so the list column reflects the new category.')
+    (MakeVariable -Id 'var_quest_card_2_text' -Name 'QuestCard2Text' -Type 'string' -Default 'Collect 5 Herbs' -Group 'List' -Description 'Label text rendered on the second quest-list card on the LEFT. Controller writes via RefreshCardLabels().')
+    (MakeVariable -Id 'var_quest_card_3_text' -Name 'QuestCard3Text' -Type 'string' -Default 'Talk to Mayor' -Group 'List' -Description 'Label text rendered on the third quest-list card on the LEFT. Controller writes via RefreshCardLabels().')
+    (MakeVariable -Id 'var_is_tab_active_highlighted' -Name 'IsTabActiveHighlighted' -Type 'bool' -Default $true -Group 'Highlighted' -Description 'OneWay-bound to TabActive.IsHighlighted. True flips the tab to its HighlightedStyle (green bg, dark text). Controller sets true on the clicked tab and false on the other two.')
+    (MakeVariable -Id 'var_is_tab_completed_highlighted' -Name 'IsTabCompletedHighlighted' -Type 'bool' -Default $false -Group 'Highlighted' -Description 'OneWay-bound to TabCompleted.IsHighlighted. See IsTabActiveHighlighted.')
+    (MakeVariable -Id 'var_is_tab_failed_highlighted' -Name 'IsTabFailedHighlighted' -Type 'bool' -Default $false -Group 'Highlighted' -Description 'OneWay-bound to TabFailed.IsHighlighted. See IsTabActiveHighlighted.')
+    (MakeVariable -Id 'var_is_quest_card_1_highlighted' -Name 'IsQuestCard1Highlighted' -Type 'bool' -Default $true -Group 'Highlighted' -Description 'OneWay-bound to QuestCard1.IsHighlighted. True flips the card to its HighlightedStyle (lighter slate + white text). Controller sets true on the selected card and false on the other two.')
+    (MakeVariable -Id 'var_is_quest_card_2_highlighted' -Name 'IsQuestCard2Highlighted' -Type 'bool' -Default $false -Group 'Highlighted' -Description 'OneWay-bound to QuestCard2.IsHighlighted. See IsQuestCard1Highlighted.')
+    (MakeVariable -Id 'var_is_quest_card_3_highlighted' -Name 'IsQuestCard3Highlighted' -Type 'bool' -Default $false -Group 'Highlighted' -Description 'OneWay-bound to QuestCard3.IsHighlighted. See IsQuestCard1Highlighted.')
 )
 
 # ─── Document root ───

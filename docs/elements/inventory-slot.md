@@ -7,7 +7,7 @@ nav_order: 13
 
 # InventorySlot
 
-A single inventory slot. Renders a frame with optional preview icon + stack count. Like Button, InventorySlot is an interactive type — V1.5 M3.5 adds the same hover / pressed / disabled / focused state overrides, transitions, sounds, and cursor enum (see [Interactive states]({% link concepts/interactive-states.md %}) and [Button]({% link elements/button.md %}#appearance--interactive-states-v15-m35)).
+A single inventory slot. Renders a frame with optional preview icon + stack count. Like Button, InventorySlot is an interactive type — V1.5 M3.5 adds the same hover / pressed / highlighted / disabled / focused state overrides, transitions, sounds, and cursor enum (see [Interactive states]({% link concepts/interactive-states.md %}) and [Button]({% link elements/button.md %}#appearance--interactive-states-v15-m35)). The **Highlighted Style** picker in the Designer pairs with the bindable `IsHighlighted` bool for sticky "this slot is selected" visuals.
 
 ## Properties (Inventory section)
 
@@ -70,6 +70,7 @@ And in `.User.scss`:
 | `SlotIndex` | OneTime / OneWay | int |
 | `IconPath` | OneTime / OneWay | string |
 | `Count` | OneTime / OneWay | int |
+| `IsHighlighted` | OneTime / OneWay | bool |
 | Style + Universal | OneWay | per matrix |
 
 ## Events surfaced

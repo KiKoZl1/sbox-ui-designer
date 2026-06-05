@@ -1,4 +1,4 @@
-﻿{
+{
     "Document":  {
                      "SchemaVersion":  3,
                      "DocumentId":  "sui_showcase_quest_journal_a4f1c2",
@@ -139,7 +139,9 @@
                                                         "PressedStyle":  null,
                                                         "DisabledStyle":  null,
                                                         "FocusedStyle":  null,
+                                                        "HighlightedStyle":  null,
                                                         "IsDisabled":  false,
+                                                        "IsHighlighted":  false,
                                                         "TransitionEnabled":  true,
                                                         "TransitionDuration":  0.15,
                                                         "HoverSound":  "",
@@ -286,7 +288,9 @@
                                                         "PressedStyle":  null,
                                                         "DisabledStyle":  null,
                                                         "FocusedStyle":  null,
+                                                        "HighlightedStyle":  null,
                                                         "IsDisabled":  false,
+                                                        "IsHighlighted":  false,
                                                         "TransitionEnabled":  true,
                                                         "TransitionDuration":  0.15,
                                                         "HoverSound":  "",
@@ -438,7 +442,9 @@
                                                         "PressedStyle":  null,
                                                         "DisabledStyle":  null,
                                                         "FocusedStyle":  null,
+                                                        "HighlightedStyle":  null,
                                                         "IsDisabled":  false,
+                                                        "IsHighlighted":  false,
                                                         "TransitionEnabled":  true,
                                                         "TransitionDuration":  0.15,
                                                         "HoverSound":  "",
@@ -585,7 +591,9 @@
                                                         "PressedStyle":  null,
                                                         "DisabledStyle":  null,
                                                         "FocusedStyle":  null,
+                                                        "HighlightedStyle":  null,
                                                         "IsDisabled":  false,
+                                                        "IsHighlighted":  false,
                                                         "TransitionEnabled":  true,
                                                         "TransitionDuration":  0.15,
                                                         "HoverSound":  "",
@@ -686,12 +694,12 @@
                                                                      }
                                                      },
                                           "Style":  {
-                                                        "ClassName":  "tab tab-active",
+                                                        "ClassName":  "tab",
                                                         "CustomClasses":  [
 
                                                                           ],
-                                                        "BackgroundColor":  "#4ade80",
-                                                        "BorderColor":  "#3a3a3e",
+                                                        "BackgroundColor":  "#1f2937",
+                                                        "BorderColor":  "#2a2a2e",
                                                         "BorderWidth":  1,
                                                         "BorderRadius":  6,
                                                         "BackgroundImage":  "",
@@ -707,8 +715,8 @@
                                                         "Text":  "",
                                                         "FontSize":  14,
                                                         "FontFamily":  null,
-                                                        "FontWeight":  "Bold",
-                                                        "Color":  "#0d0d0f",
+                                                        "FontWeight":  "Normal",
+                                                        "Color":  "#9ca3af",
                                                         "TextAlign":  "Center",
                                                         "LineHeight":  null,
                                                         "LetterSpacing":  0,
@@ -730,7 +738,7 @@
                                                         "ButtonShape":  "Rectangle",
                                                         "HoverStyle":  {
                                                                            "BackgroundImage":  "",
-                                                                           "BackgroundColor":  "#6ee7a3",
+                                                                           "BackgroundColor":  "#374151",
                                                                            "BorderColor":  "",
                                                                            "BorderWidth":  -1,
                                                                            "BorderRadius":  -1,
@@ -740,7 +748,7 @@
                                                                        },
                                                         "PressedStyle":  {
                                                                              "BackgroundImage":  "",
-                                                                             "BackgroundColor":  "#22c55e",
+                                                                             "BackgroundColor":  "#111827",
                                                                              "BorderColor":  "",
                                                                              "BorderWidth":  -1,
                                                                              "BorderRadius":  -1,
@@ -750,7 +758,18 @@
                                                                          },
                                                         "DisabledStyle":  null,
                                                         "FocusedStyle":  null,
+                                                        "HighlightedStyle":  {
+                                                                                 "BackgroundImage":  "",
+                                                                                 "BackgroundColor":  "#4ade80",
+                                                                                 "BorderColor":  "",
+                                                                                 "BorderWidth":  -1,
+                                                                                 "BorderRadius":  -1,
+                                                                                 "TextColor":  "#0d0d0f",
+                                                                                 "Scale":  1,
+                                                                                 "Opacity":  -1
+                                                                             },
                                                         "IsDisabled":  false,
+                                                        "IsHighlighted":  false,
                                                         "TransitionEnabled":  true,
                                                         "TransitionDuration":  0.15,
                                                         "HoverSound":  "",
@@ -789,7 +808,19 @@
                                                         "DropDownSelectedIndex":  0
                                                     },
                                           "Bindings":  [
+                                                           {
+                                                               "Id":  "bind_tab_active_highlighted",
+                                                               "Property":  "IsHighlighted",
+                                                               "Mode":  "OneWay",
+                                                               "UpdateTrigger":  "OnChange",
+                                                               "Source":  {
+                                                                              "VariableId":  "var_is_tab_active_highlighted"
+                                                                          },
+                                                               "Converters":  [
 
+                                                                              ],
+                                                               "FallbackValue":  null
+                                                           }
                                                        ],
                                           "SuiReference":  null,
                                           "Events":  {
@@ -920,7 +951,18 @@
                                                                          },
                                                         "DisabledStyle":  null,
                                                         "FocusedStyle":  null,
+                                                        "HighlightedStyle":  {
+                                                                                 "BackgroundImage":  "",
+                                                                                 "BackgroundColor":  "#4ade80",
+                                                                                 "BorderColor":  "",
+                                                                                 "BorderWidth":  -1,
+                                                                                 "BorderRadius":  -1,
+                                                                                 "TextColor":  "#0d0d0f",
+                                                                                 "Scale":  1,
+                                                                                 "Opacity":  -1
+                                                                             },
                                                         "IsDisabled":  false,
+                                                        "IsHighlighted":  false,
                                                         "TransitionEnabled":  true,
                                                         "TransitionDuration":  0.15,
                                                         "HoverSound":  "",
@@ -959,7 +1001,19 @@
                                                         "DropDownSelectedIndex":  0
                                                     },
                                           "Bindings":  [
+                                                           {
+                                                               "Id":  "bind_tab_completed_highlighted",
+                                                               "Property":  "IsHighlighted",
+                                                               "Mode":  "OneWay",
+                                                               "UpdateTrigger":  "OnChange",
+                                                               "Source":  {
+                                                                              "VariableId":  "var_is_tab_completed_highlighted"
+                                                                          },
+                                                               "Converters":  [
 
+                                                                              ],
+                                                               "FallbackValue":  null
+                                                           }
                                                        ],
                                           "SuiReference":  null,
                                           "Events":  {
@@ -1090,7 +1144,18 @@
                                                                          },
                                                         "DisabledStyle":  null,
                                                         "FocusedStyle":  null,
+                                                        "HighlightedStyle":  {
+                                                                                 "BackgroundImage":  "",
+                                                                                 "BackgroundColor":  "#4ade80",
+                                                                                 "BorderColor":  "",
+                                                                                 "BorderWidth":  -1,
+                                                                                 "BorderRadius":  -1,
+                                                                                 "TextColor":  "#0d0d0f",
+                                                                                 "Scale":  1,
+                                                                                 "Opacity":  -1
+                                                                             },
                                                         "IsDisabled":  false,
+                                                        "IsHighlighted":  false,
                                                         "TransitionEnabled":  true,
                                                         "TransitionDuration":  0.15,
                                                         "HoverSound":  "",
@@ -1129,7 +1194,19 @@
                                                         "DropDownSelectedIndex":  0
                                                     },
                                           "Bindings":  [
+                                                           {
+                                                               "Id":  "bind_tab_failed_highlighted",
+                                                               "Property":  "IsHighlighted",
+                                                               "Mode":  "OneWay",
+                                                               "UpdateTrigger":  "OnChange",
+                                                               "Source":  {
+                                                                              "VariableId":  "var_is_tab_failed_highlighted"
+                                                                          },
+                                                               "Converters":  [
 
+                                                                              ],
+                                                               "FallbackValue":  null
+                                                           }
                                                        ],
                                           "SuiReference":  null,
                                           "Events":  {
@@ -1244,7 +1321,9 @@
                                                         "PressedStyle":  null,
                                                         "DisabledStyle":  null,
                                                         "FocusedStyle":  null,
+                                                        "HighlightedStyle":  null,
                                                         "IsDisabled":  false,
+                                                        "IsHighlighted":  false,
                                                         "TransitionEnabled":  true,
                                                         "TransitionDuration":  0.15,
                                                         "HoverSound":  "",
@@ -1345,12 +1424,12 @@
                                                                      }
                                                      },
                                           "Style":  {
-                                                        "ClassName":  "quest-card quest-card-selected",
+                                                        "ClassName":  "quest-card",
                                                         "CustomClasses":  [
 
                                                                           ],
-                                                        "BackgroundColor":  "#374151",
-                                                        "BorderColor":  "#3a3a3e",
+                                                        "BackgroundColor":  "#1f2937",
+                                                        "BorderColor":  "#2a2a2e",
                                                         "BorderWidth":  1,
                                                         "BorderRadius":  6,
                                                         "BackgroundImage":  "",
@@ -1366,8 +1445,8 @@
                                                         "Text":  "",
                                                         "FontSize":  14,
                                                         "FontFamily":  null,
-                                                        "FontWeight":  "Bold",
-                                                        "Color":  "#ffffff",
+                                                        "FontWeight":  "Normal",
+                                                        "Color":  "#e5e7eb",
                                                         "TextAlign":  "Center",
                                                         "LineHeight":  null,
                                                         "LetterSpacing":  0,
@@ -1409,7 +1488,18 @@
                                                                          },
                                                         "DisabledStyle":  null,
                                                         "FocusedStyle":  null,
+                                                        "HighlightedStyle":  {
+                                                                                 "BackgroundImage":  "",
+                                                                                 "BackgroundColor":  "#374151",
+                                                                                 "BorderColor":  "",
+                                                                                 "BorderWidth":  -1,
+                                                                                 "BorderRadius":  -1,
+                                                                                 "TextColor":  "#ffffff",
+                                                                                 "Scale":  1,
+                                                                                 "Opacity":  -1
+                                                                             },
                                                         "IsDisabled":  false,
+                                                        "IsHighlighted":  false,
                                                         "TransitionEnabled":  true,
                                                         "TransitionDuration":  0.15,
                                                         "HoverSound":  "",
@@ -1455,6 +1545,19 @@
                                                                "UpdateTrigger":  "OnChange",
                                                                "Source":  {
                                                                               "VariableId":  "var_quest_card_1_text"
+                                                                          },
+                                                               "Converters":  [
+
+                                                                              ],
+                                                               "FallbackValue":  null
+                                                           },
+                                                           {
+                                                               "Id":  "bind_quest_card_1_highlighted",
+                                                               "Property":  "IsHighlighted",
+                                                               "Mode":  "OneWay",
+                                                               "UpdateTrigger":  "OnChange",
+                                                               "Source":  {
+                                                                              "VariableId":  "var_is_quest_card_1_highlighted"
                                                                           },
                                                                "Converters":  [
 
@@ -1591,7 +1694,18 @@
                                                                          },
                                                         "DisabledStyle":  null,
                                                         "FocusedStyle":  null,
+                                                        "HighlightedStyle":  {
+                                                                                 "BackgroundImage":  "",
+                                                                                 "BackgroundColor":  "#374151",
+                                                                                 "BorderColor":  "",
+                                                                                 "BorderWidth":  -1,
+                                                                                 "BorderRadius":  -1,
+                                                                                 "TextColor":  "#ffffff",
+                                                                                 "Scale":  1,
+                                                                                 "Opacity":  -1
+                                                                             },
                                                         "IsDisabled":  false,
+                                                        "IsHighlighted":  false,
                                                         "TransitionEnabled":  true,
                                                         "TransitionDuration":  0.15,
                                                         "HoverSound":  "",
@@ -1637,6 +1751,19 @@
                                                                "UpdateTrigger":  "OnChange",
                                                                "Source":  {
                                                                               "VariableId":  "var_quest_card_2_text"
+                                                                          },
+                                                               "Converters":  [
+
+                                                                              ],
+                                                               "FallbackValue":  null
+                                                           },
+                                                           {
+                                                               "Id":  "bind_quest_card_2_highlighted",
+                                                               "Property":  "IsHighlighted",
+                                                               "Mode":  "OneWay",
+                                                               "UpdateTrigger":  "OnChange",
+                                                               "Source":  {
+                                                                              "VariableId":  "var_is_quest_card_2_highlighted"
                                                                           },
                                                                "Converters":  [
 
@@ -1773,7 +1900,18 @@
                                                                          },
                                                         "DisabledStyle":  null,
                                                         "FocusedStyle":  null,
+                                                        "HighlightedStyle":  {
+                                                                                 "BackgroundImage":  "",
+                                                                                 "BackgroundColor":  "#374151",
+                                                                                 "BorderColor":  "",
+                                                                                 "BorderWidth":  -1,
+                                                                                 "BorderRadius":  -1,
+                                                                                 "TextColor":  "#ffffff",
+                                                                                 "Scale":  1,
+                                                                                 "Opacity":  -1
+                                                                             },
                                                         "IsDisabled":  false,
+                                                        "IsHighlighted":  false,
                                                         "TransitionEnabled":  true,
                                                         "TransitionDuration":  0.15,
                                                         "HoverSound":  "",
@@ -1819,6 +1957,19 @@
                                                                "UpdateTrigger":  "OnChange",
                                                                "Source":  {
                                                                               "VariableId":  "var_quest_card_3_text"
+                                                                          },
+                                                               "Converters":  [
+
+                                                                              ],
+                                                               "FallbackValue":  null
+                                                           },
+                                                           {
+                                                               "Id":  "bind_quest_card_3_highlighted",
+                                                               "Property":  "IsHighlighted",
+                                                               "Mode":  "OneWay",
+                                                               "UpdateTrigger":  "OnChange",
+                                                               "Source":  {
+                                                                              "VariableId":  "var_is_quest_card_3_highlighted"
                                                                           },
                                                                "Converters":  [
 
@@ -1947,7 +2098,9 @@
                                                         "PressedStyle":  null,
                                                         "DisabledStyle":  null,
                                                         "FocusedStyle":  null,
+                                                        "HighlightedStyle":  null,
                                                         "IsDisabled":  false,
+                                                        "IsHighlighted":  false,
                                                         "TransitionEnabled":  true,
                                                         "TransitionDuration":  0.15,
                                                         "HoverSound":  "",
@@ -2094,7 +2247,9 @@
                                                         "PressedStyle":  null,
                                                         "DisabledStyle":  null,
                                                         "FocusedStyle":  null,
+                                                        "HighlightedStyle":  null,
                                                         "IsDisabled":  false,
+                                                        "IsHighlighted":  false,
                                                         "TransitionEnabled":  true,
                                                         "TransitionDuration":  0.15,
                                                         "HoverSound":  "",
@@ -2253,7 +2408,9 @@
                                                         "PressedStyle":  null,
                                                         "DisabledStyle":  null,
                                                         "FocusedStyle":  null,
+                                                        "HighlightedStyle":  null,
                                                         "IsDisabled":  false,
+                                                        "IsHighlighted":  false,
                                                         "TransitionEnabled":  true,
                                                         "TransitionDuration":  0.15,
                                                         "HoverSound":  "",
@@ -2412,7 +2569,9 @@
                                                         "PressedStyle":  null,
                                                         "DisabledStyle":  null,
                                                         "FocusedStyle":  null,
+                                                        "HighlightedStyle":  null,
                                                         "IsDisabled":  false,
+                                                        "IsHighlighted":  false,
                                                         "TransitionEnabled":  true,
                                                         "TransitionDuration":  0.15,
                                                         "HoverSound":  "",
@@ -2559,7 +2718,9 @@
                                                         "PressedStyle":  null,
                                                         "DisabledStyle":  null,
                                                         "FocusedStyle":  null,
+                                                        "HighlightedStyle":  null,
                                                         "IsDisabled":  false,
+                                                        "IsHighlighted":  false,
                                                         "TransitionEnabled":  true,
                                                         "TransitionDuration":  0.15,
                                                         "HoverSound":  "",
@@ -2718,7 +2879,9 @@
                                                         "PressedStyle":  null,
                                                         "DisabledStyle":  null,
                                                         "FocusedStyle":  null,
+                                                        "HighlightedStyle":  null,
                                                         "IsDisabled":  false,
+                                                        "IsHighlighted":  false,
                                                         "TransitionEnabled":  true,
                                                         "TransitionDuration":  0.15,
                                                         "HoverSound":  "",
@@ -2877,7 +3040,9 @@
                                                         "PressedStyle":  null,
                                                         "DisabledStyle":  null,
                                                         "FocusedStyle":  null,
+                                                        "HighlightedStyle":  null,
                                                         "IsDisabled":  false,
+                                                        "IsHighlighted":  false,
                                                         "TransitionEnabled":  true,
                                                         "TransitionDuration":  0.15,
                                                         "HoverSound":  "",
@@ -3036,7 +3201,9 @@
                                                         "PressedStyle":  null,
                                                         "DisabledStyle":  null,
                                                         "FocusedStyle":  null,
+                                                        "HighlightedStyle":  null,
                                                         "IsDisabled":  false,
+                                                        "IsHighlighted":  false,
                                                         "TransitionEnabled":  true,
                                                         "TransitionDuration":  0.15,
                                                         "HoverSound":  "",
@@ -3195,7 +3362,9 @@
                                                         "PressedStyle":  null,
                                                         "DisabledStyle":  null,
                                                         "FocusedStyle":  null,
+                                                        "HighlightedStyle":  null,
                                                         "IsDisabled":  false,
+                                                        "IsHighlighted":  false,
                                                         "TransitionEnabled":  true,
                                                         "TransitionDuration":  0.15,
                                                         "HoverSound":  "",
@@ -3354,7 +3523,9 @@
                                                         "PressedStyle":  null,
                                                         "DisabledStyle":  null,
                                                         "FocusedStyle":  null,
+                                                        "HighlightedStyle":  null,
                                                         "IsDisabled":  false,
+                                                        "IsHighlighted":  false,
                                                         "TransitionEnabled":  true,
                                                         "TransitionDuration":  0.15,
                                                         "HoverSound":  "",
@@ -3513,7 +3684,9 @@
                                                         "PressedStyle":  null,
                                                         "DisabledStyle":  null,
                                                         "FocusedStyle":  null,
+                                                        "HighlightedStyle":  null,
                                                         "IsDisabled":  false,
+                                                        "IsHighlighted":  false,
                                                         "TransitionEnabled":  true,
                                                         "TransitionDuration":  0.15,
                                                         "HoverSound":  "",
@@ -3660,7 +3833,9 @@
                                                         "PressedStyle":  null,
                                                         "DisabledStyle":  null,
                                                         "FocusedStyle":  null,
+                                                        "HighlightedStyle":  null,
                                                         "IsDisabled":  false,
+                                                        "IsHighlighted":  false,
                                                         "TransitionEnabled":  true,
                                                         "TransitionDuration":  0.15,
                                                         "HoverSound":  "",
@@ -3733,7 +3908,7 @@
                                            "Source":  {
                                                           "Kind":  "Manual"
                                                       },
-                                           "Description":  "Which tab is currently shown Ã¢â‚¬â€ \"Active\", \"Completed\", or \"Failed\". Controller updates on tab-button click; helper for any UI that displays the active tab label.",
+                                           "Description":  "Which tab is currently shown â€” \"Active\", \"Completed\", or \"Failed\". Controller updates on tab-button click; helper for any UI that displays the active tab label.",
                                            "IsAdvanced":  false,
                                            "IsPublic":  true,
                                            "Group":  "Tabs",
@@ -3905,6 +4080,90 @@
                                            "IsAdvanced":  false,
                                            "IsPublic":  true,
                                            "Group":  "List",
+                                           "ResourceType":  null
+                                       },
+                                       {
+                                           "Id":  "var_is_tab_active_highlighted",
+                                           "Name":  "IsTabActiveHighlighted",
+                                           "Type":  "bool",
+                                           "Default":  true,
+                                           "Source":  {
+                                                          "Kind":  "Manual"
+                                                      },
+                                           "Description":  "OneWay-bound to TabActive.IsHighlighted. True flips the tab to its HighlightedStyle (green bg, dark text). Controller sets true on the clicked tab and false on the other two.",
+                                           "IsAdvanced":  false,
+                                           "IsPublic":  true,
+                                           "Group":  "Highlighted",
+                                           "ResourceType":  null
+                                       },
+                                       {
+                                           "Id":  "var_is_tab_completed_highlighted",
+                                           "Name":  "IsTabCompletedHighlighted",
+                                           "Type":  "bool",
+                                           "Default":  false,
+                                           "Source":  {
+                                                          "Kind":  "Manual"
+                                                      },
+                                           "Description":  "OneWay-bound to TabCompleted.IsHighlighted. See IsTabActiveHighlighted.",
+                                           "IsAdvanced":  false,
+                                           "IsPublic":  true,
+                                           "Group":  "Highlighted",
+                                           "ResourceType":  null
+                                       },
+                                       {
+                                           "Id":  "var_is_tab_failed_highlighted",
+                                           "Name":  "IsTabFailedHighlighted",
+                                           "Type":  "bool",
+                                           "Default":  false,
+                                           "Source":  {
+                                                          "Kind":  "Manual"
+                                                      },
+                                           "Description":  "OneWay-bound to TabFailed.IsHighlighted. See IsTabActiveHighlighted.",
+                                           "IsAdvanced":  false,
+                                           "IsPublic":  true,
+                                           "Group":  "Highlighted",
+                                           "ResourceType":  null
+                                       },
+                                       {
+                                           "Id":  "var_is_quest_card_1_highlighted",
+                                           "Name":  "IsQuestCard1Highlighted",
+                                           "Type":  "bool",
+                                           "Default":  true,
+                                           "Source":  {
+                                                          "Kind":  "Manual"
+                                                      },
+                                           "Description":  "OneWay-bound to QuestCard1.IsHighlighted. True flips the card to its HighlightedStyle (lighter slate + white text). Controller sets true on the selected card and false on the other two.",
+                                           "IsAdvanced":  false,
+                                           "IsPublic":  true,
+                                           "Group":  "Highlighted",
+                                           "ResourceType":  null
+                                       },
+                                       {
+                                           "Id":  "var_is_quest_card_2_highlighted",
+                                           "Name":  "IsQuestCard2Highlighted",
+                                           "Type":  "bool",
+                                           "Default":  false,
+                                           "Source":  {
+                                                          "Kind":  "Manual"
+                                                      },
+                                           "Description":  "OneWay-bound to QuestCard2.IsHighlighted. See IsQuestCard1Highlighted.",
+                                           "IsAdvanced":  false,
+                                           "IsPublic":  true,
+                                           "Group":  "Highlighted",
+                                           "ResourceType":  null
+                                       },
+                                       {
+                                           "Id":  "var_is_quest_card_3_highlighted",
+                                           "Name":  "IsQuestCard3Highlighted",
+                                           "Type":  "bool",
+                                           "Default":  false,
+                                           "Source":  {
+                                                          "Kind":  "Manual"
+                                                      },
+                                           "Description":  "OneWay-bound to QuestCard3.IsHighlighted. See IsQuestCard1Highlighted.",
+                                           "IsAdvanced":  false,
+                                           "IsPublic":  true,
+                                           "Group":  "Highlighted",
                                            "ResourceType":  null
                                        }
                                    ],

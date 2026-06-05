@@ -86,6 +86,14 @@ public static class SuiBindingModeMatrix
 		["ItemIcon.ImagePath"]      = new( true, true, false, SuiBindingMode.OneWay, "string" ),
 		["ItemIcon.Tint"]           = new( true, true, false, SuiBindingMode.OneWay, "Color" ),
 
+		// ── Interactive states (V1.5) — Highlighted ──
+		// Only the three interactive types get IsHighlighted. Other element
+		// types would carry a CSS class toggle with no matching style block,
+		// so deliberately NOT placed in _universal (would be dead surface).
+		["Button.IsHighlighted"]        = new( true, true, false, SuiBindingMode.OneWay, "bool" ),
+		["InventorySlot.IsHighlighted"] = new( true, true, false, SuiBindingMode.OneWay, "bool" ),
+		["ItemIcon.IsHighlighted"]      = new( true, true, false, SuiBindingMode.OneWay, "bool" ),
+
 		// ── Input widgets (PRD 21) — TwoWay-capable; TwoWay is the default ──
 		// M4 fix: DropDown bind property is `Value` (Sandbox.UI engine), not
 		// `SelectedIndex`. Slider supports both float and int target Variables —

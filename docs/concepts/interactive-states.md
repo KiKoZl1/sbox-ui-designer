@@ -8,7 +8,7 @@ nav_order: 11
 # Interactive states
 {: .no_toc }
 
-Hover / Pressed / Disabled / Focused state overrides for `Button`, `InventorySlot`, and `ItemIcon` — with transitions, sounds, cursor presets, and shape presets. V1.5 M3.5 (PRD 25).
+Hover / Pressed / Highlighted / Disabled / Focused state overrides for `Button`, `InventorySlot`, and `ItemIcon` — with transitions, sounds, cursor presets, and shape presets. V1.5 M3.5 (PRD 25).
 {: .fs-6 .fw-300 }
 
 ## Table of contents
@@ -19,14 +19,15 @@ Hover / Pressed / Disabled / Focused state overrides for `Button`, `InventorySlo
 
 ---
 
-## The four states
+## The five states
 
-Each interactive element has a **Normal** look (the Appearance section's standard fields) plus up to four optional overrides:
+Each interactive element has a **Normal** look (the Appearance section's standard fields) plus up to five optional overrides:
 
 | State | CSS selector emit |
 |---|---|
 | **Hover** | `:hover:not(:active)` |
 | **Pressed** | `:active` |
+| **Highlighted** | `.highlighted` |
 | **Disabled** | `.disabled` |
 | **Focused** | `:focus` |
 
@@ -34,9 +35,22 @@ The `:not(:active)` selector on Hover is load-bearing — without it the engine 
 
 `.disabled` always carries `pointer-events: none` so authors don't have to write it themselves.
 
+### Highlighted — sticky toggle state
+
+Highlighted is a **runtime-toggleable** override, not driven by pointer input. The wrapper exposes a `[Property] public bool IsHighlighted { get; set; }` on every Button / InventorySlot / ItemIcon, and the codegen wires it through as `class="@(IsHighlighted ? "highlighted" : "")"`. Bind it from any `bool` Variable to flip the element's look on/off from gameplay code.
+
+Use cases:
+
+- **Tab active visual** — the current tab in a tab strip stays lit; clicking a sibling moves the highlight.
+- **Selected item in a list** — the picked row keeps its accent colour after the mouse leaves.
+- **Sticky toggle button** — a "mute audio" button that remains pressed-looking while the toggle is on.
+- **Filter chip** — selected filter chips in a search panel.
+
+Highlighted sits between Active and Disabled in the emit order so it overrides micro-interaction feedback (Hover, Focus, Active) but Disabled still overrides Highlighted — a disabled tab is disabled, even if its `IsHighlighted` is true.
+
 ## Authoring
 
-The Appearance section grows four collapsible dropdowns — one per non-Normal state. Each has:
+The Appearance section grows five collapsible dropdowns — one per non-Normal state. Each has:
 
 - The same fields the Normal Appearance set has (background color, border, text color, scale, opacity).
 - A **Background Image** field (with [Background Size](#background-size)) — swap per-state textures for image-based buttons.
@@ -69,6 +83,11 @@ For a `FireButton` with a Hover state authored:
     transform: scale( 0.98 );
   }
 
+  &.highlighted {
+    background-color: #fbbf24;
+    color: #1f2937;
+  }
+
   &.disabled {
     pointer-events: none;
     opacity: 0.4;
@@ -76,17 +95,19 @@ For a `FireButton` with a Hover state authored:
 }
 ```
 
+Source-order in the emitted SCSS is **Normal < Hover < Focus < Active < Highlighted < Disabled** — Highlighted overrides micro-interaction feedback (Hover/Focus/Active) so the sticky look reads cleanly; Disabled overrides everything so disabled wins regardless of `IsHighlighted`.
+
 The Razor:
 
 ```razor
-<div class="primary-btn sui-fire-button @(IsDisabled ? "disabled" : "")"
+<div class="primary-btn sui-fire-button @(IsHighlighted ? "highlighted" : "") @(IsDisabled ? "disabled" : "")"
      tabindex="0"
      @onclick=@OnFireClick>
     <label class="label">@ButtonText</label>
 </div>
 ```
 
-`tabindex="0"` makes `:focus` fire for keyboard / controller navigation. `IsDisabled` is a runtime-bindable bool — toggle it from gameplay code (form validation, cooldowns).
+`tabindex="0"` makes `:focus` fire for keyboard / controller navigation. `IsDisabled` and `IsHighlighted` are runtime-bindable bools — toggle them from gameplay code (form validation, cooldowns, tab selection, sticky toggles).
 
 ## Transition + Sound
 
@@ -142,6 +163,47 @@ When the element has a background image (Normal or per-state):
 
 The Details panel also offers a **Snap to image aspect** helper that resizes the element to match the image's aspect ratio.
 
+## Worked example — tab strip with Highlighted
+
+Before `IsHighlighted` landed, the canonical "which tab is active?" pattern was to mutate `Style.BackgroundColor` from the controller on every click — manual, untyped, and easy to desync from the SCSS palette. With Highlighted the controller only flips bools; the designer-authored Highlighted style does the rest.
+
+**Designer setup:**
+
+1. Drop three `Button`s in a row — `TabInventory`, `TabSkills`, `TabMap`.
+2. On each, open Appearance → **Highlighted Style** dropdown and set Background Color to your accent (e.g. `#fbbf24`) + Text Color to `#1f2937`. Same style on all three so the lit look is consistent.
+3. Add three `bool` Variables to the doc: `IsInventoryTabActive`, `IsSkillsTabActive`, `IsMapTabActive`.
+4. Bind each tab's `IsHighlighted` to its matching Variable (OneWay).
+5. Wire each tab's `OnClick` (Code mode) to `OnTabInventoryClick` / `OnTabSkillsClick` / `OnTabMapClick`.
+
+**Controller code** — flip the bools, never touch styles:
+
+```csharp
+public sealed class TabsController : Component
+{
+    [Property] public Game.UI.MyHud Hud { get; set; } = new();
+
+    protected override void OnStart()
+    {
+        Hud.OnTabInventoryClick = () => Select( Tab.Inventory );
+        Hud.OnTabSkillsClick    = () => Select( Tab.Skills );
+        Hud.OnTabMapClick       = () => Select( Tab.Map );
+
+        Select( Tab.Inventory ); // initial
+    }
+
+    enum Tab { Inventory, Skills, Map }
+
+    void Select( Tab tab )
+    {
+        Hud.IsInventoryTabActive = tab == Tab.Inventory;
+        Hud.IsSkillsTabActive    = tab == Tab.Skills;
+        Hud.IsMapTabActive       = tab == Tab.Map;
+    }
+}
+```
+
+No SCSS edits, no `Style.BackgroundColor` mutation, no per-tab colour constants leaking into C#. Designers reskin the Highlighted look by changing one field per tab in the Appearance dropdown.
+
 ## What the canvas shows
 
 The canvas **always renders Normal**. Hover / Pressed / Disabled / Focused overrides are **not** painted on the canvas — designers see them via **Test in Play**. This is intentional (the canvas has no input state) — DEVIATIONS D-021 P5 cancelled the preview-state dropdown after user feedback that it was a duplicate of Test in Play.
@@ -153,11 +215,13 @@ The M3.5 fields land on `SuiElementProps`:
 ```jsonc
 {
   "ButtonShape": "Rectangle",
-  "HoverStyle":    { /* SuiInteractiveStateStyle */ },
-  "PressedStyle":  null,
-  "DisabledStyle": null,
-  "FocusedStyle":  null,
-  "IsDisabled": false,
+  "HoverStyle":       { /* SuiInteractiveStateStyle */ },
+  "PressedStyle":     null,
+  "HighlightedStyle": null,
+  "DisabledStyle":    null,
+  "FocusedStyle":     null,
+  "IsHighlighted": false,
+  "IsDisabled":    false,
   "TransitionEnabled": true,
   "TransitionDuration": 0.15,
   "HoverSound": "ui/hover.sound",
@@ -187,7 +251,7 @@ Null fields inherit Normal. See [SUI JSON schema]({% link reference/sui-json-sch
 ## Known gaps
 
 - **Per-state preview on the canvas** — cancelled (M3.5 P5). Test in Play covers it.
-- **`IsDisabled` Variable binding** — the renderer field exists, but the wrapper does not auto-expose `[Property] IsDisabled` per element yet. Workaround: bind it through the Universal `Enabled` matrix entry. Deferred to V1.6.
+- **`IsDisabled` Variable binding** — the renderer field exists, but the wrapper does not auto-expose `[Property] IsDisabled` per element yet. Workaround: bind it through the Universal `Enabled` matrix entry. Deferred to V1.6. (`IsHighlighted`, in contrast, **is** auto-exposed per element and bindable via the per-type matrix.)
 - **Alpha-aware hit testing** — engine CSS subset doesn't support complex `clip-path` shapes. Image transparency at the edges of a Button is decorative, not interactive — clicks land anywhere in the bounding rectangle.
 
 ## See also
