@@ -35,7 +35,17 @@ public sealed class InventoryGridFullController : Component
 	public sealed class ItemEntry
 	{
 		[Property] public string Name { get; set; } = "";
-		[Property] public string IconPath { get; set; } = "";
+		/// <summary>Single-character glyph rendered in the centre of the slot
+		/// (e.g. "⚔" / "✚" / "$"). The companion <see cref="Color"/> hex
+		/// paints the slot background so each item reads at a glance without
+		/// shipping PNG assets. Swap this for <c>IconPath</c> if you wire a
+		/// real <c>background-image</c> on the slot — see the README.</summary>
+		[Property] public string Glyph { get; set; } = "";
+		/// <summary>Hex string (e.g. <c>"#7c3aed"</c>) applied to the slot's
+		/// <c>BackgroundColor</c> at wire-up time. Parsed via
+		/// <c>Sandbox.Color.Parse</c>; falls back to no override if parsing
+		/// fails so a bad string can't crash the wire-up loop.</summary>
+		[Property] public string Color { get; set; } = "";
 		[Property] public int Count { get; set; } = 1;
 	}
 
@@ -56,10 +66,10 @@ public sealed class InventoryGridFullController : Component
 	[Property]
 	public List<ItemEntry> StartingItems { get; set; } = new()
 	{
-		new ItemEntry { Name = "Iron Sword",    IconPath = "ui/icons/sword.png",         Count = 1  },
-		new ItemEntry { Name = "Health Potion", IconPath = "ui/icons/health_potion.png", Count = 5  },
-		new ItemEntry { Name = "Bread",         IconPath = "ui/icons/bread.png",         Count = 12 },
-		new ItemEntry { Name = "Gold Coin",     IconPath = "ui/icons/gold_coin.png",     Count = 99 },
+		new ItemEntry { Name = "Iron Sword",    Glyph = "⚔", Color = "#7c3aed", Count = 1  },
+		new ItemEntry { Name = "Health Potion", Glyph = "✚", Color = "#ef4444", Count = 5  },
+		new ItemEntry { Name = "Bread",         Glyph = "◉", Color = "#d97706", Count = 12 },
+		new ItemEntry { Name = "Gold Coin",     Glyph = "$", Color = "#facc15", Count = 99 },
 	};
 
 	// ── Runtime state ────────────────────────────────────────────────────
@@ -139,6 +149,14 @@ public sealed class InventoryGridFullController : Component
 				slotPanel.AddEventListener( "onrightclick", () => OnSlotRightClick( capturedIndex ) );
 				// Double-click → log "use" (e.g. consume a potion).
 				slotPanel.AddEventListener( "ondoubleclick", () => OnSlotDoubleClick( capturedIndex ) );
+
+				// Paint the seeded item visuals at runtime. No PNGs needed —
+				// we tint the slot background with the entry's Color hex and
+				// stamp a single-character Glyph in the centre via a Label.
+				// Re-running this is gated by _slotsWired, but ApplySlotVisual
+				// is also idempotent (it removes any prior .slot-glyph child
+				// before adding a new one) so manual re-wiring is safe.
+				ApplySlotVisual( slotPanel, SafeGet( capturedIndex ) );
 			}
 
 			_slotsWired = true;
@@ -186,16 +204,15 @@ public sealed class InventoryGridFullController : Component
 		Log.Info( $"[InventoryGridFull] Drop slot #{slotIndex}: {item.Name} (x{item.Count})." );
 		_items[slotIndex] = null;
 
-		// Strip the slot's icon at runtime. The .sui authored a
-		// background-image via PreviewIconPath which the generator baked
-		// into SCSS; we override it inline so the empty slot looks empty
-		// without needing a class-swap. (Re-seeding would be the inverse:
-		// also set background-image to the new icon's URL.)
+		// Strip the slot's runtime visuals. We applied a BackgroundColor +
+		// glyph Label in the wire-up loop instead of authoring a PNG icon
+		// path; clearing the entry means clearing both. Style.BackgroundColor
+		// is reset to null so the slot falls back to its authored .sui colour,
+		// and any .slot-glyph child Label is removed via the helper below.
 		var slotPanel = GetSlotPanel( slotIndex );
 		if ( slotPanel != null )
 		{
-			slotPanel.Style.BackgroundImage = null;
-			slotPanel.Style.Dirty();
+			ApplySlotVisual( slotPanel, null );
 		}
 
 		Hud.TooltipVisible = false;
@@ -225,6 +242,72 @@ public sealed class InventoryGridFullController : Component
 		if ( _items == null ) return null;
 		if ( slotIndex < 0 || slotIndex >= _items.Count ) return null;
 		return _items[slotIndex];
+	}
+
+	/// <summary>Idempotent painter that syncs a slot Panel to an
+	/// <see cref="ItemEntry"/> (or <c>null</c> for empty). Strips any
+	/// previously-attached <c>.slot-glyph</c> Label child first, then —
+	/// if <paramref name="item"/> is non-null — parses
+	/// <see cref="ItemEntry.Color"/> via <c>Sandbox.Color.Parse</c> and
+	/// applies it to <c>slotPanel.Style.BackgroundColor</c>, then adds
+	/// a fresh <c>Sandbox.UI.Label</c> with the glyph centred via the
+	/// <c>slot-glyph</c> class (styling lives in the generated .scss /
+	/// user .scss; absent class still renders, just unstyled). Safe to
+	/// call repeatedly — the strip-then-paint pattern keeps the slot
+	/// in sync with the data without leaking ghost Labels.</summary>
+	private void ApplySlotVisual( Panel slotPanel, ItemEntry item )
+	{
+		if ( slotPanel == null ) return;
+
+		// 1) Strip any prior glyph Label so we don't stack them on re-paint.
+		//    ToList() materialises so Delete() doesn't mutate during iter.
+		var existingGlyphs = slotPanel.Children
+			.Where( c => c != null && c.HasClass( "slot-glyph" ) )
+			.ToList();
+		foreach ( var g in existingGlyphs )
+		{
+			g.Delete();
+		}
+
+		// 2) Empty slot → clear inline background-color override so the slot
+		//    falls back to its .sui-authored .inv-slot colour.
+		if ( item == null )
+		{
+			slotPanel.Style.BackgroundColor = null;
+			slotPanel.Style.Dirty();
+			return;
+		}
+
+		// 3) Filled slot → tint background + stamp glyph Label.
+		if ( !string.IsNullOrWhiteSpace( item.Color ) )
+		{
+			// Color.Parse returns Color? — null on a malformed hex string.
+			// Both the null and the (extremely unlikely) throw paths are
+			// swallowed so a bad seed entry can't blow up the wire-up loop.
+			try
+			{
+				var parsed = Color.Parse( item.Color );
+				if ( parsed.HasValue )
+				{
+					slotPanel.Style.BackgroundColor = parsed.Value;
+					slotPanel.Style.Dirty();
+				}
+			}
+			catch
+			{
+				// Bad hex → leave the authored background colour alone.
+			}
+		}
+
+		if ( !string.IsNullOrEmpty( item.Glyph ) )
+		{
+			var label = slotPanel.AddChild<Label>();
+			if ( label != null )
+			{
+				label.AddClass( "slot-glyph" );
+				label.Text = item.Glyph;
+			}
+		}
 	}
 
 	private Panel GetSlotPanel( int slotIndex )

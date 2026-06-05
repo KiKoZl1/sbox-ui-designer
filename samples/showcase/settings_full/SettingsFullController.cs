@@ -18,6 +18,13 @@ namespace Sandbox.Samples;
 /// the three click handlers (Reset / Cancel / Apply), the "dirty" detection that
 /// drives <c>StatusText</c>, and the per-frame string conversion that produces
 /// the live <c>VolumeLabel</c> ("73%") next to the slider.</para>
+///
+/// <para><b>Toast feedback.</b> The three buttons (Apply / Cancel / Reset) each
+/// briefly overwrite <c>StatusText</c> with a confirmation ("✓ Settings saved",
+/// "⤺ Reverted to last saved", "↺ Reset to factory defaults") and the per-frame
+/// dirty detection is suppressed for <see cref="ToastDuration"/> seconds so the
+/// message stays visible. Without this the buttons would have no visible effect
+/// when the card was already clean — a frequent UX complaint.</para>
 /// </summary>
 public sealed class SettingsFullController : Component
 {
@@ -40,6 +47,11 @@ public sealed class SettingsFullController : Component
 	private const float DefaultVolume = 50f;
 	private const bool DefaultMusic = true;
 	private const int DefaultQuality = 2;
+
+	// ---- Toast state — when Time.Now < _toastUntilTime the dirty detector in
+	//      OnUpdate skips its StatusText write, leaving the confirmation visible.
+	private const float ToastDuration = 1.5f;
+	private float _toastUntilTime;
 
 	protected override void OnStart()
 	{
@@ -80,6 +92,12 @@ public sealed class SettingsFullController : Component
 		//      OnApplyClick, so Cancel restores the pre-edit state correctly.
 		Hud.Apply.All();
 
+		// ---- Toast suppression: while a confirmation toast is on-screen the
+		//      dirty detector must NOT overwrite StatusText, otherwise the
+		//      "✓ Settings saved" message vanishes one frame after Apply.
+		if ( Time.Now < _toastUntilTime )
+			return;
+
 		bool dirty =
 			Hud.PlayerName != _savedName ||
 			Math.Abs( Hud.Volume - _savedVolume ) > 0.5f ||
@@ -101,7 +119,7 @@ public sealed class SettingsFullController : Component
 	/// <summary>
 	/// Apply button: commit every Manual binding (TextEntry → PlayerName),
 	/// then snapshot the current values as "saved" so the dirty check
-	/// settles back to clean.
+	/// settles back to clean. Surfaces a ✓ toast for <see cref="ToastDuration"/>s.
 	/// </summary>
 	private void OnApplyClick()
 	{
@@ -114,12 +132,17 @@ public sealed class SettingsFullController : Component
 		_savedVolume = Hud.Volume;
 		_savedMusic = Hud.MusicEnabled;
 		_savedQuality = Hud.GraphicsPreset;
+
+		SetToast( "✓ Settings saved" );
+		Log.Info(
+			$"[SettingsFull] Applied: Name='{_savedName}' Volume={(int)_savedVolume} " +
+			$"Music={_savedMusic} Quality={_savedQuality}" );
 	}
 
 	/// <summary>
 	/// Cancel button: revert the in-flight edits back to the last saved
 	/// snapshot. Writing the wrapper field updates the rendered widget
-	/// because the bindings are TwoWay.
+	/// because the bindings are TwoWay. Surfaces a ⤺ toast.
 	/// </summary>
 	private void OnCancelClick()
 	{
@@ -127,11 +150,17 @@ public sealed class SettingsFullController : Component
 		Hud.Volume = _savedVolume;
 		Hud.MusicEnabled = _savedMusic;
 		Hud.GraphicsPreset = _savedQuality;
+
+		SetToast( "⤺ Reverted to last saved" );
+		Log.Info(
+			$"[SettingsFull] Reverted to: Name='{_savedName}' Volume={(int)_savedVolume} " +
+			$"Music={_savedMusic} Quality={_savedQuality}" );
 	}
 
 	/// <summary>
 	/// Reset button: wipe everything (current AND saved) back to the hard-coded
 	/// defaults. The card visually returns to "Player / 50% / Music on / High".
+	/// Surfaces a ↺ toast.
 	/// </summary>
 	private void OnResetClick()
 	{
@@ -144,5 +173,23 @@ public sealed class SettingsFullController : Component
 		Hud.Volume = DefaultVolume;
 		Hud.MusicEnabled = DefaultMusic;
 		Hud.GraphicsPreset = DefaultQuality;
+
+		SetToast( "↺ Reset to factory defaults" );
+		Log.Info(
+			$"[SettingsFull] Reset to factory defaults: Name='{DefaultName}' " +
+			$"Volume={(int)DefaultVolume} Music={DefaultMusic} Quality={DefaultQuality}" );
+	}
+
+	/// <summary>
+	/// Latches a confirmation message into <see cref="SettingsFull.StatusText"/>
+	/// for <see cref="ToastDuration"/> seconds. OnUpdate's dirty detector
+	/// honours the latch and skips its own StatusText write until the timer
+	/// expires, so the toast stays on-screen instead of being overwritten by
+	/// the next frame.
+	/// </summary>
+	private void SetToast( string message )
+	{
+		_toastUntilTime = Time.Now + ToastDuration;
+		Hud.StatusText = message;
 	}
 }

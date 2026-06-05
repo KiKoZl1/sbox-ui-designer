@@ -35,15 +35,23 @@ sample wires **all of them together** on a realistic surface:
 A dark card (640×540) appears centred on the screen behind a translucent
 black scrim. The card header reads **Inventory** and a green subtitle
 **`4 / 24 slots`** sits just below it. A 6×4 grid of 84-pixel slots fills
-the middle of the card; the first four slots show a sword, a health potion,
-a loaf of bread, and a gold coin (the rest are empty cells with a thin
-border). At the bottom of the card a thin tooltip strip is hidden until you
-hover an item.
+the middle of the card; the first four slots are tinted in distinct
+colours and stamped with a single-character glyph (a purple sword glyph,
+a red cross for the health potion, an amber circle for the bread, and a
+yellow `$` for the gold coin). The remaining 20 slots are empty cells
+with a thin border. At the bottom of the card a thin tooltip strip is
+hidden until you hover an item.
+
+The default seeding uses **glyph + tint** rather than PNG icons so the
+sample runs out-of-the-box with zero asset shipping. See
+*Extending it → Using real PNG icons* below for how to swap in actual
+images.
 
 Hover the sword → the tooltip strip slides into view and reads
 `Iron Sword  x1`. Hover the potion → `Health Potion  x5`. Click the
 potion → console logs `Select slot #1: Health Potion (x5)`. Right-click it →
-the slot's icon disappears, the subtitle ticks down to `3 / 24 slots`, and
+the slot's tint + glyph disappear (the slot reverts to its empty
+`.inv-slot` background), the subtitle ticks down to `3 / 24 slots`, and
 the console logs `Drop slot #1: Health Potion (x5)`. Double-click the bread →
 console logs `Use slot #2: Bread`.
 
@@ -56,15 +64,18 @@ console logs `Use slot #2: Bread`.
    `Code/Samples/InventoryGridFull/` of your project.
 2. Drop `InventoryGridFullController.cs` into the same folder (or anywhere
    under `Code/`).
-3. Drop four placeholder icons into `Assets/ui/icons/`:
-   `sword.png`, `health_potion.png`, `bread.png`, `gold_coin.png`. Any
-   64×64 PNG works — substitute paths in the `.sui` Props (or in the
-   Component's `StartingItems` list) if you already have icons.
-4. In any scene, add a new GameObject and attach the
+3. In any scene, add a new GameObject and attach the
    **InventoryGridFullController** Component to it.
-5. Press **Play**. The inventory card appears centred. Hover, left-click,
-   right-click, and double-click slots and watch the console + tooltip
-   react.
+4. Press **Play**. The inventory card appears centred with four
+   colour-tinted, glyph-stamped slots (no PNGs required). Hover,
+   left-click, right-click, and double-click slots and watch the console
+   + tooltip react.
+
+> **No icon PNGs ship with this sample.** The four seed items render as
+> tinted slot backgrounds with a centred single-character glyph,
+> applied at runtime by the controller's `ApplySlotVisual` helper. To
+> use real bitmap icons instead, see *Extending it → Using real PNG
+> icons* below.
 
 The Component's `SlotCapacity` and `StartingItems` properties are exposed
 in the Inspector if you want to reshape the demo from the editor without
@@ -85,6 +96,27 @@ touching code (e.g. seed 10 items, drop capacity to 12, swap icons).
 > when SUI can't model your data: SUI owns the *view state* (counts, flags,
 > visible strings); the controller owns the *domain state* and pushes the
 > view-facing derivatives into Variables.
+
+## Seed items
+
+The four entries baked into `StartingItems` on the controller. Each item
+is just a name, a single-character `Glyph`, a hex `Color` for the slot
+background, and a stack `Count`. No PNG assets ship with the sample —
+the controller applies the tint + glyph at runtime in `ApplySlotVisual`,
+called from the slot wire-up loop.
+
+| Slot | Name           | Glyph | Color (hex) | Count |
+|------|----------------|-------|-------------|-------|
+| 0    | Iron Sword     | `⚔`   | `#7c3aed` (purple) | 1   |
+| 1    | Health Potion  | `✚`   | `#ef4444` (red)    | 5   |
+| 2    | Bread          | `◉`   | `#d97706` (amber)  | 12  |
+| 3    | Gold Coin      | `$`   | `#facc15` (yellow) | 99  |
+
+> The `Glyph` / `Color` fields are plain string properties on `ItemEntry`
+> so they appear in the Inspector — edit them on the Component to reshape
+> the demo without touching code. Bad hex strings are swallowed silently
+> by `Color.Parse`; the slot keeps its authored `.inv-slot` colour in
+> that case.
 
 ## Bindings
 
@@ -161,6 +193,38 @@ grid padding / gaps.
 > recipe.
 
 ## Extending it
+
+### Using real PNG icons
+
+The default sample uses glyph + tint instead of bitmap icons so it
+runs out-of-the-box. To swap in real PNGs:
+
+1. Drop your icon PNGs into `Assets/ui/icons/` of the project consuming
+   the sample (e.g. `Assets/ui/icons/sword.png`,
+   `health_potion.png`, `bread.png`, `gold_coin.png`). Any 64×64 PNG
+   works; keep them in a known folder so the path strings below resolve.
+2. Open `inventory_grid_full.sui` in the **SUI Designer**, select each
+   of the first four `InventorySlot` elements (`Slot_06`..`Slot_09` in
+   the canvas), and set their **`PreviewIconPath`** prop to the matching
+   asset path (e.g. `ui/icons/sword.png`). The designer canvas will
+   show the icon immediately; the generator bakes a
+   `background-image: url("ui/icons/sword.png")` into the slot's
+   selector in `.User.scss` on the next Compile.
+3. *(Optional — if you also want runtime icon swaps when items move
+   between slots)*: add an `IconPath` property back to `ItemEntry` and,
+   in `ApplySlotVisual`, set `slotPanel.Style.BackgroundImage =
+   $"url(\"{item.IconPath}\")";` (instead of, or alongside, the glyph
+   Label). Don't forget `slotPanel.Style.Dirty()`.
+4. Strip the `Glyph` / `Color` defaults from `StartingItems` (or leave
+   them as fallbacks — the glyph Label sits on top of the background
+   image, so both can co-exist).
+
+> Path strings in `PreviewIconPath` are relative to the project's
+> `Assets/` root, exactly how `<img src>` and CSS `url()` resolve in
+> Razor UI. Designer canvas + runtime resolve them the same way, so
+> what you see in the canvas is what you get at runtime.
+
+### Other ideas
 
 - **Use real items from your game** — wire `StartingItems` to a
   `ScriptableObject`-style asset list or pull from a save file in

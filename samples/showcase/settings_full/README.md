@@ -13,9 +13,24 @@ If the `counter_button` sample is "the smallest thing that proves the binding lo
 - **Hover / Pressed interactive styles** on every button (the Apply button scales 1.03× on hover, 0.97× when pressed)
 - **A full dark UI card layout** in pure Absolute mode — nothing depends on Flex, so every element stays draggable in the Designer canvas
 
+## Behavior
+
+End-to-end walkthrough of every interaction this sample wires up. Each row is one thing the player can do and exactly what changes on-screen.
+
+1. **Open the panel.** The 720×680 dark card mounts centred over a dimming scrim. The **Audio** tab is active (highlighted), and **Graphics (V1.6)** / **Controls (V1.6)** are visibly greyed out — the suffix telegraphs that those panels are tracked on the V1.6 backlog and intentionally inert today (no click handler, `IsDisabled=true`). `StatusText` starts empty.
+2. **Type a new player name.** As you type, the TextEntry is in `Manual` mode so the wrapper field doesn't move yet — but the controller runs `Hud.Apply.All()` once per frame, which flushes the draft into `Hud.PlayerName`, so the dirty detector sees the change immediately and `StatusText` flips to amber `● Unsaved changes`.
+3. **Drag the Volume slider.** The slider is `TwoWay` + `OnChange`, so `Hud.Volume` updates on every frame the slider moves. `VolumeLabel` (`"73%"`) is recomputed in `OnUpdate` from `(int)Hud.Volume` and the bound Text to the right of the slider tracks live. The dirty marker stays up until you Apply or Cancel.
+4. **Toggle Music on/off.** `OnChange` atomic commit — `Hud.MusicEnabled` flips the same frame as the click. `StatusText` updates immediately.
+5. **Pick a Quality preset.** `DropDown.Value` is bound `TwoWay` + `OnChange` to `Hud.GraphicsPreset` (`int`). Picking a row writes the index without a button.
+6. **Click Apply.** Flushes the Manual TextEntry via `Hud.Apply.All()`, snapshots all four current values as the new "saved" baseline, then latches the `StatusText` toast `✓ Settings saved` for **1.5 seconds**. During those 1.5s the dirty detector in `OnUpdate` honours `_toastUntilTime` and skips its own write, so the confirmation actually stays visible. After the timer expires, the dirty detector resumes and (because saved==current) writes the empty string. A summary is also written to the engine console: `[SettingsFull] Applied: Name='…' Volume=… Music=… Quality=…`.
+7. **Click Cancel.** Re-writes the four wrapper fields from the saved snapshot. Because every binding is `TwoWay`, the rendered widgets visually revert. Latches the toast `⤺ Reverted to last saved` for 1.5s.
+8. **Click Reset.** Overwrites BOTH saved and current values with the factory defaults (`Player / 50 / Music ON / High`). Latches the toast `↺ Reset to factory defaults` for 1.5s.
+
+The toast pattern matters: without `_toastUntilTime` the dirty detector would overwrite `StatusText` on the very next frame after Apply, and the player would see nothing change. The latch is the entire feedback loop.
+
 ## What you'll see
 
-A centred 720×680 dark card called "Settings" appears over a dimming scrim that covers the whole screen. Three tabs run across the top — **Audio** is active, **Graphics** and **Controls** are visually present but disabled (the V1 sample renders only the Audio panel; extending it with real tab switching is one of the suggestions below).
+A centred 720×680 dark card called "Settings" appears over a dimming scrim that covers the whole screen. Three tabs run across the top — **Audio** is active, **Graphics (V1.6)** and **Controls (V1.6)** are visibly disabled. The `(V1.6)` suffix on those two tabs communicates intent: those panels are on the V1.6 backlog and intentionally do nothing right now. The V1 sample renders only the Audio panel; extending it with real tab switching is one of the suggestions below.
 
 The Audio panel contains, top-to-bottom:
 - **Player Name** — a text field, prefilled with `Player`, max 24 chars.

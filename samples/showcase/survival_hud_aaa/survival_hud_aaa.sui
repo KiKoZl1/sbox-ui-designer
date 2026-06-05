@@ -169,7 +169,7 @@
           "FlexWrap": "NoWrap",
           "Gap": 0,
           "Margin": { "Left": 0, "Top": 0, "Right": 0, "Bottom": 0, "IsZero": true, "IsUniform": true },
-          "Padding": { "Left": 14, "Top": 14, "Right": 14, "Bottom": 14, "IsZero": false, "IsUniform": true }
+          "Padding": { "Left": 0, "Top": 0, "Right": 0, "Bottom": 0, "IsZero": true, "IsUniform": true }
         },
         "Style": {
           "ClassName": "stats-card",
@@ -223,7 +223,7 @@
         "Children": [],
         "Flags": { "Locked": false, "HiddenInDesigner": false, "ExposeAsVariable": false },
         "Layout": {
-          "Mode": "Absolute", "X": 0, "Y": 0, "Width": 90, "Height": 14,
+          "Mode": "Absolute", "X": 14, "Y": 14, "Width": 90, "Height": 14,
           "MinWidth": null, "MinHeight": null, "MaxWidth": null, "MaxHeight": null,
           "Anchor": "TopLeft", "PivotX": 0, "PivotY": 0, "ZIndex": 0,
           "FlexDirection": "Row", "JustifyContent": "FlexStart", "AlignItems": "Stretch",
@@ -268,7 +268,7 @@
         "Children": [],
         "Flags": { "Locked": false, "HiddenInDesigner": false, "ExposeAsVariable": false },
         "Layout": {
-          "Mode": "Absolute", "X": 100, "Y": 0, "Width": 192, "Height": 12,
+          "Mode": "Absolute", "X": 114, "Y": 14, "Width": 178, "Height": 12,
           "MinWidth": null, "MinHeight": null, "MaxWidth": null, "MaxHeight": null,
           "Anchor": "TopLeft", "PivotX": 0, "PivotY": 0, "ZIndex": 0,
           "FlexDirection": "Row", "JustifyContent": "FlexStart", "AlignItems": "Stretch",
@@ -323,7 +323,7 @@
         "Children": [],
         "Flags": { "Locked": false, "HiddenInDesigner": false, "ExposeAsVariable": false },
         "Layout": {
-          "Mode": "Absolute", "X": 0, "Y": 16, "Width": 90, "Height": 12,
+          "Mode": "Absolute", "X": 14, "Y": 30, "Width": 90, "Height": 12,
           "MinWidth": null, "MinHeight": null, "MaxWidth": null, "MaxHeight": null,
           "Anchor": "TopLeft", "PivotX": 0, "PivotY": 0, "ZIndex": 0,
           "FlexDirection": "Row", "JustifyContent": "FlexStart", "AlignItems": "Stretch",
@@ -378,7 +378,7 @@
         "Children": [],
         "Flags": { "Locked": false, "HiddenInDesigner": false, "ExposeAsVariable": false },
         "Layout": {
-          "Mode": "Absolute", "X": 0, "Y": 50, "Width": 90, "Height": 14,
+          "Mode": "Absolute", "X": 14, "Y": 64, "Width": 90, "Height": 14,
           "MinWidth": null, "MinHeight": null, "MaxWidth": null, "MaxHeight": null,
           "Anchor": "TopLeft", "PivotX": 0, "PivotY": 0, "ZIndex": 0,
           "FlexDirection": "Row", "JustifyContent": "FlexStart", "AlignItems": "Stretch",
@@ -423,7 +423,7 @@
         "Children": [],
         "Flags": { "Locked": false, "HiddenInDesigner": false, "ExposeAsVariable": false },
         "Layout": {
-          "Mode": "Absolute", "X": 100, "Y": 50, "Width": 192, "Height": 12,
+          "Mode": "Absolute", "X": 114, "Y": 64, "Width": 178, "Height": 12,
           "MinWidth": null, "MinHeight": null, "MaxWidth": null, "MaxHeight": null,
           "Anchor": "TopLeft", "PivotX": 0, "PivotY": 0, "ZIndex": 0,
           "FlexDirection": "Row", "JustifyContent": "FlexStart", "AlignItems": "Stretch",
@@ -478,7 +478,7 @@
         "Children": [],
         "Flags": { "Locked": false, "HiddenInDesigner": false, "ExposeAsVariable": false },
         "Layout": {
-          "Mode": "Absolute", "X": 0, "Y": 66, "Width": 90, "Height": 12,
+          "Mode": "Absolute", "X": 14, "Y": 80, "Width": 90, "Height": 12,
           "MinWidth": null, "MinHeight": null, "MaxWidth": null, "MaxHeight": null,
           "Anchor": "TopLeft", "PivotX": 0, "PivotY": 0, "ZIndex": 0,
           "FlexDirection": "Row", "JustifyContent": "FlexStart", "AlignItems": "Stretch",
@@ -533,7 +533,7 @@
         "Children": [],
         "Flags": { "Locked": false, "HiddenInDesigner": false, "ExposeAsVariable": false },
         "Layout": {
-          "Mode": "Absolute", "X": 0, "Y": 100, "Width": 90, "Height": 14,
+          "Mode": "Absolute", "X": 14, "Y": 114, "Width": 90, "Height": 14,
           "MinWidth": null, "MinHeight": null, "MaxWidth": null, "MaxHeight": null,
           "Anchor": "TopLeft", "PivotX": 0, "PivotY": 0, "ZIndex": 0,
           "FlexDirection": "Row", "JustifyContent": "FlexStart", "AlignItems": "Stretch",
@@ -578,7 +578,7 @@
         "Children": [],
         "Flags": { "Locked": false, "HiddenInDesigner": false, "ExposeAsVariable": false },
         "Layout": {
-          "Mode": "Absolute", "X": 100, "Y": 100, "Width": 192, "Height": 12,
+          "Mode": "Absolute", "X": 114, "Y": 114, "Width": 178, "Height": 12,
           "MinWidth": null, "MinHeight": null, "MaxWidth": null, "MaxHeight": null,
           "Anchor": "TopLeft", "PivotX": 0, "PivotY": 0, "ZIndex": 0,
           "FlexDirection": "Row", "JustifyContent": "FlexStart", "AlignItems": "Stretch",
@@ -633,7 +633,7 @@
         "Children": [],
         "Flags": { "Locked": false, "HiddenInDesigner": false, "ExposeAsVariable": false },
         "Layout": {
-          "Mode": "Absolute", "X": 0, "Y": 116, "Width": 90, "Height": 12,
+          "Mode": "Absolute", "X": 14, "Y": 130, "Width": 90, "Height": 12,
           "MinWidth": null, "MinHeight": null, "MaxWidth": null, "MaxHeight": null,
           "Anchor": "TopLeft", "PivotX": 0, "PivotY": 0, "ZIndex": 0,
           "FlexDirection": "Row", "JustifyContent": "FlexStart", "AlignItems": "Stretch",
@@ -688,7 +688,7 @@
         "Children": [],
         "Flags": { "Locked": false, "HiddenInDesigner": false, "ExposeAsVariable": false },
         "Layout": {
-          "Mode": "Absolute", "X": 0, "Y": 150, "Width": 90, "Height": 14,
+          "Mode": "Absolute", "X": 14, "Y": 164, "Width": 90, "Height": 14,
           "MinWidth": null, "MinHeight": null, "MaxWidth": null, "MaxHeight": null,
           "Anchor": "TopLeft", "PivotX": 0, "PivotY": 0, "ZIndex": 0,
           "FlexDirection": "Row", "JustifyContent": "FlexStart", "AlignItems": "Stretch",
@@ -733,7 +733,7 @@
         "Children": [],
         "Flags": { "Locked": false, "HiddenInDesigner": false, "ExposeAsVariable": false },
         "Layout": {
-          "Mode": "Absolute", "X": 100, "Y": 150, "Width": 192, "Height": 12,
+          "Mode": "Absolute", "X": 114, "Y": 164, "Width": 178, "Height": 12,
           "MinWidth": null, "MinHeight": null, "MaxWidth": null, "MaxHeight": null,
           "Anchor": "TopLeft", "PivotX": 0, "PivotY": 0, "ZIndex": 0,
           "FlexDirection": "Row", "JustifyContent": "FlexStart", "AlignItems": "Stretch",
@@ -788,7 +788,7 @@
         "Children": [],
         "Flags": { "Locked": false, "HiddenInDesigner": false, "ExposeAsVariable": false },
         "Layout": {
-          "Mode": "Absolute", "X": 0, "Y": 166, "Width": 90, "Height": 12,
+          "Mode": "Absolute", "X": 14, "Y": 180, "Width": 90, "Height": 12,
           "MinWidth": null, "MinHeight": null, "MaxWidth": null, "MaxHeight": null,
           "Anchor": "TopLeft", "PivotX": 0, "PivotY": 0, "ZIndex": 0,
           "FlexDirection": "Row", "JustifyContent": "FlexStart", "AlignItems": "Stretch",
@@ -843,7 +843,7 @@
         "Children": [],
         "Flags": { "Locked": false, "HiddenInDesigner": false, "ExposeAsVariable": false },
         "Layout": {
-          "Mode": "Absolute", "X": 0, "Y": 200, "Width": 90, "Height": 14,
+          "Mode": "Absolute", "X": 14, "Y": 214, "Width": 90, "Height": 14,
           "MinWidth": null, "MinHeight": null, "MaxWidth": null, "MaxHeight": null,
           "Anchor": "TopLeft", "PivotX": 0, "PivotY": 0, "ZIndex": 0,
           "FlexDirection": "Row", "JustifyContent": "FlexStart", "AlignItems": "Stretch",
@@ -888,7 +888,7 @@
         "Children": [],
         "Flags": { "Locked": false, "HiddenInDesigner": false, "ExposeAsVariable": false },
         "Layout": {
-          "Mode": "Absolute", "X": 100, "Y": 200, "Width": 192, "Height": 12,
+          "Mode": "Absolute", "X": 114, "Y": 214, "Width": 178, "Height": 12,
           "MinWidth": null, "MinHeight": null, "MaxWidth": null, "MaxHeight": null,
           "Anchor": "TopLeft", "PivotX": 0, "PivotY": 0, "ZIndex": 0,
           "FlexDirection": "Row", "JustifyContent": "FlexStart", "AlignItems": "Stretch",
@@ -943,7 +943,7 @@
         "Children": [],
         "Flags": { "Locked": false, "HiddenInDesigner": false, "ExposeAsVariable": false },
         "Layout": {
-          "Mode": "Absolute", "X": 0, "Y": 216, "Width": 90, "Height": 12,
+          "Mode": "Absolute", "X": 14, "Y": 230, "Width": 90, "Height": 12,
           "MinWidth": null, "MinHeight": null, "MaxWidth": null, "MaxHeight": null,
           "Anchor": "TopLeft", "PivotX": 0, "PivotY": 0, "ZIndex": 0,
           "FlexDirection": "Row", "JustifyContent": "FlexStart", "AlignItems": "Stretch",
