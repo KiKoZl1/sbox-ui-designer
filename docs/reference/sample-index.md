@@ -49,19 +49,30 @@ Each row links to the sample's README on GitHub — start there for the full set
 
 ---
 
+## Intermediate / Wow showcase samples (V1.5)
+
+Three "integration test" samples that wire multiple features together on realistic surfaces. Tackle them after the five beginner samples — each one demonstrates a pattern you'd actually ship in a real game.
+
+| Sample | Demonstrates | Difficulty |
+|---|---|---|
+| [`settings_full`](https://github.com/KiKoZl1/sbox-ui-designer/tree/main/samples/showcase/settings_full) | Full settings dialog: Apply API, all 4 input widgets, dirty-state | Intermediate |
+| [`inventory_grid_full`](https://github.com/KiKoZl1/sbox-ui-designer/tree/main/samples/showcase/inventory_grid_full) | InventoryGrid + slot click events + tooltip via Visibility binding | Intermediate |
+| [`survival_hud_aaa`](https://github.com/KiKoZl1/sbox-ui-designer/tree/main/samples/showcase/survival_hud_aaa) | 5 ProgressBars + damage flash + biome tint + Compose chains | Intermediate |
+
+Each row links to the sample's README on GitHub — start there for the full setup walkthrough.
+
+---
+
 ## Coming in V1.5.1
 
 A second wave of samples is planned to cover intermediate and advanced patterns. None of these ship in V1.5 — they're tracked here so you know what to expect (and can stop waiting and build them yourself if you can't wait).
 
 **Intermediate** — multi-binding flows, composition, scrollable layouts:
 
-- `settings_screen` — every V1.5 M4 input widget (`TextEntry`, `Slider`, `Toggle`, `DropDown`) on one panel + the **Apply API**.
 - `chat_panel` — scrollable message log + `TextEntry` submit + RPC fan-out.
-- `inventory_grid` — `ForEach` over a `List<Item>` Variable + slot composition via `SuiReference`.
 
 **Advanced** — full game flows, modal sequencing, multi-screen state:
 
-- `survival_hud_full` — health / hunger / stamina / thirst bars + ammo counter + pickup toast, all driven from a single `PlayerStats` component.
 - `death_respawn_modal` — full-screen overlay, respawn countdown, two action buttons, modal focus capture.
 - `quest_journal` — tabbed quest log with active / completed / failed lists, expandable entries, scroll-to-active.
 

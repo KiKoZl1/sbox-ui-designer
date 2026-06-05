@@ -145,19 +145,143 @@ Minimum viable SUI document — proves the wrapper-mounting plumbing works end-t
 
 ---
 
+## settings_full
+
+Full settings dialog with the Apply API, all four V1.5 M4 input widgets, and a live dirty-state indicator. If `counter_button` is the smallest thing that proves the binding loop, this is the smallest thing that proves a real settings screen is shippable without dropping out to Razor.
+
+**What you'll see** — a centred 720×680 dark card titled **Settings** sits over a dimming scrim. The Audio tab is active and shows, top-to-bottom: a `Player Name` TextEntry (prefilled `Player`, max 24 chars), a `Master Volume` Slider 0–100 with a live `50%` readout, a `Music Enabled` Toggle, a `Quality` DropDown (`Low / Medium / High / Ultra`), an empty status line, and a `Reset / Cancel / Apply` button row. Type into the name field — the status line flips to yellow `● Unsaved changes` the moment any value diverges from the last saved snapshot. Apply commits; Cancel reverts to the snapshot; Reset wipes everything back to defaults. Buttons scale 1.03× on hover and 0.97× when pressed.
+
+### Variables
+
+| Name | Type | Default | Role |
+|------|------|---------|------|
+| `PlayerName` | `string` | `"Player"` | Display name. **TwoWay** + `Manual` — only commits to the wrapper when the controller calls `Apply.All()`. |
+| `Volume` | `float` | `50` | Master volume 0–100. **TwoWay** + `OnChange` so `VolumeLabel` updates as you drag. |
+| `VolumeLabel` | `string` | `"50%"` | Formatted preview bound **OneWay** to the value text. Controller writes `(int)Hud.Volume + "%"` every frame. |
+| `MusicEnabled` | `bool` | `true` | Music on/off. **TwoWay** + `OnChange` — flips immediately when the toggle is clicked. |
+| `GraphicsPreset` | `int` | `2` | Quality preset 0–3. **TwoWay** + `OnChange` on `DropDown.Value`. |
+| `StatusText` | `string` | `""` | "● Unsaved changes" when dirty, empty when clean. **OneWay** — driven entirely by the controller. |
+
+### Bindings
+
+| Element | Property | Variable | Mode | Update Trigger |
+|---------|----------|----------|------|----------------|
+| `NameEntry` (TextEntry) | `Value` | `PlayerName` | TwoWay | **Manual** |
+| `VolumeSlider` (Slider) | `Value` | `Volume` | TwoWay | OnChange |
+| `VolumeValue` (Text) | `Text` | `VolumeLabel` | OneWay | OnChange |
+| `MusicToggle` (Toggle) | `Checked` | `MusicEnabled` | TwoWay | OnChange |
+| `QualityDropdown` (DropDown) | `Value` | `GraphicsPreset` | TwoWay | OnChange |
+| `StatusText` (Text) | `Text` | `StatusText` | OneWay | OnChange |
+
+### Events
+
+| Element | Event | Mode | Handler |
+|---------|-------|------|---------|
+| `ResetButton` (Button) | `OnClick` | Code | `OnResetClick` |
+| `CancelButton` (Button) | `OnClick` | Code | `OnCancelClick` |
+| `ApplyButton` (Button) | `OnClick` | Code | `OnApplyClick` |
+
+[Read the full `settings_full` README on GitHub](https://github.com/KiKoZl1/sbox-ui-designer/tree/main/samples/showcase/settings_full).
+
+---
+
+## inventory_grid_full
+
+Flagship showcase of the **InventoryGrid + InventorySlot** pair plus the **Expose-as-Variable + per-child wire-up** pattern. A 6×4 backpack lands in the middle of the screen with four seeded items; hover surfaces a tooltip, left-click logs a select, right-click drops the item, double-click triggers a use — all driven from a single companion Component.
+
+**What you'll see** — a 640×540 dark card centred on screen behind a translucent black scrim. The header reads **Inventory** with a green subtitle **`4 / 24 slots`** below it. A 6×4 grid of 84px slots fills the middle; the first four slots show a sword, a health potion, a loaf of bread, and a gold coin (rest are empty cells). A thin tooltip strip at the bottom of the card stays hidden until you hover an item. Hover the sword → the tooltip slides in reading `Iron Sword  x1`. Click the potion → console logs `Select slot #1: Health Potion (x5)`. Right-click it → the icon disappears, subtitle ticks down to `3 / 24 slots`. Double-click bread → console logs `Use slot #2: Bread`.
+
+### Variables
+
+| Name | Type | Default | Role |
+|------|------|---------|------|
+| `SlotCountText` | `string` | `"0 / 24 slots"` | Header subtitle. Controller writes `"<filled> / <capacity> slots"` after every mutation. |
+| `ItemTooltip` | `string` | `""` | Tooltip text body. Controller writes `"<name>  x<count>"` on slot hover, clears on unhover. |
+| `TooltipVisible` | `bool` | `false` | Flips the tooltip card's `Visibility` (the universal `bool` property). |
+
+> The inventory's `List<ItemEntry>` lives entirely in C# on the controller — V1.5 only supports primitive Variable types (`string` / `int` / `bool` / `float` / `Color`). SUI owns the *view state* (counts, flags, visible strings); the controller owns the *domain state* and pushes view-facing derivatives into Variables.
+
+### Bindings
+
+| Element | Property | Variable | Mode | Notes |
+|---------|----------|----------|------|-------|
+| `Subtitle` (Text) | `Text` | `SlotCountText` | OneWay | Header subtitle reads `"X / 24 slots"`. |
+| `Tooltip` (Panel) | `Visibility` | `TooltipVisible` | OneWay | Universal property; flips between `Visible` and `Hidden`. |
+| `TooltipText` (Text) | `Text` | `ItemTooltip` | OneWay | Body of the tooltip card. |
+
+### Events
+
+| Element | Event | Mode | Handler |
+|---------|-------|------|---------|
+| `BackpackGrid` (InventoryGrid) | `OnClick` | Code | `OnGridClick` (assigned before `Show()`) |
+| `BackpackGrid` (InventoryGrid) | `OnRightClick` | Code | `OnGridRightClick` (assigned before `Show()`) |
+
+> Per-slot routing (hover / click / double-click on each of the 24 cells) is wired in C# via the **Expose as Variable** pattern — the controller reaches `Hud.View?.BackpackGrid` after first render, walks `grid.Children`, and assigns listeners per slot with the index captured by closure. The grid-level events declared in the `.sui` are fallbacks for clicks in padding / gaps. See the README's *Why the per-slot wire-up lives in C#* section for the full rationale.
+
+[Read the full `inventory_grid_full` README on GitHub](https://github.com/KiKoZl1/sbox-ui-designer/tree/main/samples/showcase/inventory_grid_full).
+
+---
+
+## survival_hud_aaa
+
+A complete five-stat survival HUD — Health, Hunger, Thirst, Body Temperature, Stamina — plus a biome-driven full-screen tint and a red damage-flash overlay. Built entirely as one `.sui` document with twelve Variables, twelve OneWay bindings, and a single companion `Component` that pushes gameplay state into the wrapper each frame. If the five beginner samples are the unit tests of the runtime, this one is the smoke test for an entire HUD.
+
+**What you'll see** — top-right corner: a dark card with five labelled rows. Each row has a small `[label]` on the left, a coloured `[bar]` on the right, and a `cur/max` readout under the label. Rows are colour-coded (red Health, amber Hunger, blue Thirst, violet Temperature, green Stamina) so you can read player state at a glance. Beyond the card: the whole screen tints subtly based on `ActiveBiome` — cool blue in `Snow`, warm amber in `Desert`, sickly green in `Swamp`, no tint in `Default`. When `TakeDamage` is called, the entire screen briefly washes red for `DamageFlashDuration` seconds, then fades back. Fully passive — cursor is never captured and gameplay input is untouched.
+
+### Variables
+
+| Name | Type | Default | Role |
+|------|------|---------|------|
+| `HealthFraction` | `float` | `1.0` | Normalized 0..1 drive for the red Health bar. |
+| `HealthLabel` | `string` | `"100/100"` | `cur/max` text under the Health bar. |
+| `HungerFraction` | `float` | `1.0` | Normalized 0..1 drive for the amber Hunger bar. |
+| `HungerLabel` | `string` | `"100/100"` | `cur/max` text under the Hunger bar. |
+| `ThirstFraction` | `float` | `1.0` | Normalized 0..1 drive for the blue Thirst bar. |
+| `ThirstLabel` | `string` | `"100/100"` | `cur/max` text under the Thirst bar. |
+| `TempFraction` | `float` | `0.5` | Normalized 0..1 body temperature (0 = freezing, 1 = burning). |
+| `TempLabel` | `string` | `"Comfortable"` | Descriptive temp string (Freezing / Cold / Comfortable / Hot / Burning). |
+| `StaminaFraction` | `float` | `1.0` | Normalized 0..1 drive for the green Stamina bar. |
+| `StaminaLabel` | `string` | `"100/100"` | `cur/max` text under the Stamina bar. |
+| `BiomeTint` | `Color` | `#0d0d0f00` | Full-screen tint applied to the root Canvas's `BackgroundColor`. |
+| `DamageFlashVisible` | `bool` | `false` | When true, the full-screen red overlay is `Visible`; otherwise `Hidden`. |
+
+### Bindings
+
+| Element | Property | Variable | Mode |
+|---------|----------|----------|------|
+| `Root` (Canvas) | `BackgroundColor` | `BiomeTint` | OneWay |
+| `HealthBar` | `Value` | `HealthFraction` | OneWay |
+| `HealthValueText` | `Text` | `HealthLabel` | OneWay |
+| `HungerBar` | `Value` | `HungerFraction` | OneWay |
+| `HungerValueText` | `Text` | `HungerLabel` | OneWay |
+| `ThirstBar` | `Value` | `ThirstFraction` | OneWay |
+| `ThirstValueText` | `Text` | `ThirstLabel` | OneWay |
+| `TempBar` | `Value` | `TempFraction` | OneWay |
+| `TempValueText` | `Text` | `TempLabel` | OneWay |
+| `StaminaBar` | `Value` | `StaminaFraction` | OneWay |
+| `StaminaValueText` | `Text` | `StaminaLabel` | OneWay |
+| `DamageFlash` | `Visibility` | `DamageFlashVisible` | OneWay |
+
+All bindings use the default `OnChange` trigger and have no converters — Variable types match the property targets exactly. The README walks through extending this with Compose chains (e.g. `Health:float` + `MaxHealth:float` + a `Divide` step) once the converter catalog grows numeric ops.
+
+### Events
+
+**None.** This HUD is read-only — it never reacts to clicks or hover. All updates flow one-way from the controller's `[Property]` fields into the SUI Variables via `PushAll()` on `OnUpdate`. See `counter_button` if you need the "Code-mode event handler must be assigned before `Show()`" pattern.
+
+[Read the full `survival_hud_aaa` README on GitHub](https://github.com/KiKoZl1/sbox-ui-designer/tree/main/samples/showcase/survival_hud_aaa).
+
+---
+
 ## Coming soon
 
 A second wave of samples is planned to cover intermediate and advanced patterns. None of these ship in V1.5.
 
 **Intermediate** (V1.5.1)
 
-- `settings_screen` — every V1.5 M4 input widget (`TextEntry`, `Slider`, `Toggle`, `DropDown`) on one panel + the **Apply API**.
 - `chat_panel` — scrollable message log + `TextEntry` submit + RPC fan-out.
-- `inventory_grid` — `ForEach` over a `List<Item>` Variable + slot composition via `SuiReference`.
 
 **Advanced** (V1.5.1)
 
-- `survival_hud_full` — health / hunger / stamina / thirst bars + ammo counter + pickup toast, all driven from a single `PlayerStats` component.
 - `death_respawn_modal` — full-screen overlay, respawn countdown, two action buttons, modal focus capture.
 - `quest_journal` — tabbed quest log with active / completed / failed lists, expandable entries, scroll-to-active.
 
