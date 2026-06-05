@@ -14,7 +14,7 @@ These are written for someone who has read [Getting Started]({% link getting-sta
 
 ## Want a quick demo?
 
-Each concept covered in the tutorials below pairs with a working showcase sample. V1.5 ships **8 showcase samples** — 5 beginner ones that isolate a single concept each (`empty_canvas`, `label_clock`, `health_bar`, `counter_button`, `toggle_pause`) and 3 intermediate "wow" samples that wire multiple features together on realistic surfaces (`settings_full`, `inventory_grid_full`, `survival_hud_aaa`). Browse them via [Showcase samples]({% link reference/sample-index.md %}) — drop the companion Component on a GameObject and you have a working UI in seconds.
+Each concept covered in the tutorials below pairs with a working showcase sample. V1.5 ships **13 showcase samples** — 5 beginner ones that isolate a single concept each (`empty_canvas`, `label_clock`, `health_bar`, `counter_button`, `toggle_pause`), 3 intermediate "wow" samples that wire multiple features together on realistic surfaces (`settings_full`, `inventory_grid_full`, `survival_hud_aaa`), and 5 advanced samples that combine the full runtime into game-flow surfaces (`death_respawn_modal`, `quest_journal`, `boss_hp_bar`, `chat_panel`, `loadout_selector`). Browse them via [Showcase samples]({% link reference/sample-index.md %}) — drop the companion Component on a GameObject and you have a working UI in seconds.
 
 <div class="section-grid" markdown="0">
   <a class="section-card" href="{% link tutorials/survival-hud.md %}">

@@ -63,18 +63,19 @@ Each row links to the sample's README on GitHub — start there for the full set
 
 ---
 
-## Coming in V1.5.1
+## Advanced showcase samples (V1.5)
 
-A second wave of samples is planned to cover intermediate and advanced patterns. None of these ship in V1.5 — they're tracked here so you know what to expect (and can stop waiting and build them yourself if you can't wait).
+Five advanced samples that combine multiple V1.5 features into full game-flow surfaces — modal sequencing, multi-tab navigation, runtime-driven lists, dramatic single-element drives, and class-pick → confirm flows. Tackle them after the intermediate trio when you want to see how every piece of the runtime composes into something a real shipping game would put on screen.
 
-**Intermediate** — multi-binding flows, composition, scrollable layouts:
+| Sample | Demonstrates | Difficulty |
+|---|---|---|
+| [`death_respawn_modal`](https://github.com/KiKoZl1/sbox-ui-designer/tree/main/samples/showcase/death_respawn_modal) | Apply API + multi-var coordination + countdown timer + Code-mode events + test hotkey | Advanced |
+| [`quest_journal`](https://github.com/KiKoZl1/sbox-ui-designer/tree/main/samples/showcase/quest_journal) | Multi-tab nav via Variable+Visibility + nested detail + ProgressBars per objective | Advanced |
+| [`boss_hp_bar`](https://github.com/KiKoZl1/sbox-ui-designer/tree/main/samples/showcase/boss_hp_bar) | Single dramatic ProgressBar + phase markers + Tab/R test hotkeys + scaled HP math | Advanced |
+| [`chat_panel`](https://github.com/KiKoZl1/sbox-ui-designer/tree/main/samples/showcase/chat_panel) | TextEntry Manual commit + Apply.All + dynamic Hud.View.MessageList.AddChild | Advanced |
+| [`loadout_selector`](https://github.com/KiKoZl1/sbox-ui-designer/tree/main/samples/showcase/loadout_selector) | Class card grid + selected-detail with 4 stat bars + Confirm event pattern | Advanced |
 
-- `chat_panel` — scrollable message log + `TextEntry` submit + RPC fan-out.
-
-**Advanced** — full game flows, modal sequencing, multi-screen state:
-
-- `death_respawn_modal` — full-screen overlay, respawn countdown, two action buttons, modal focus capture.
-- `quest_journal` — tabbed quest log with active / completed / failed lists, expandable entries, scroll-to-active.
+Each row links to the sample's README on GitHub — start there for the full setup walkthrough.
 
 ---
 
