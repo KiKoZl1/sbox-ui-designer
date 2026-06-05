@@ -123,5 +123,5 @@ Root (Canvas, 1920x1080, PointerEvents=None)
 - [Showcase samples]({% link reference/showcase-samples.md %}) — the full catalog of V1.5 showcase samples with inlined Variables and Bindings tables.
 - [Sample index]({% link reference/sample-index.md %}) — quick reference index of every sample shipped with V1.5.
 - [`counter_button`]({% link samples/counter_button.md %}) — companion sample for `OneWay` int binding driven from the controller.
-- [`text_entry_commit`]({% link samples/text_entry_commit.md %}) — TwoWay binding on a `TextEntry` with explicit commit semantics.
+- [`chat_panel`]({% link samples/chat_panel.md %}) — TwoWay binding on a `TextEntry` with explicit commit-on-Enter semantics.
 - [`settings_full`]({% link samples/settings_full.md %}) — full settings panel that combines `Toggle`, `Slider`, and dropdown bindings into one screen.

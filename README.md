@@ -9,7 +9,7 @@ Visual UI Designer for [s&box](https://sbox.game). Author UI layouts in a UMG-li
 - **Docs:** [kikozl1.github.io/sbox-ui-designer](https://kikozl1.github.io/sbox-ui-designer/) — install, tutorials, architecture, reference.
 - **Samples gallery:** [`samples/showcase/`](samples/showcase/README.md) — 16 polished demos covering every V1.5 feature.
 
-**Status:** V1.0 release. See [`ISSUES.md`](ISSUES.md) for known issues and [CHANGELOG.md](CHANGELOG.md) for release history.
+**Status:** V1.5 release. See [`ISSUES.md`](ISSUES.md) for known issues and [CHANGELOG.md](CHANGELOG.md) for release history.
 
 ---
 

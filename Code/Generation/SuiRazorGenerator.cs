@@ -644,6 +644,39 @@ public sealed class SuiRazorGenerator
 		var body = bodyExpr ?? SuiNameSanitizer.EscapeRazorText( el.Props?.Text ?? "" );
 
 		var bindAttrs = SuiBindingEmitter.EmitElementAttributes( el, _doc );
+
+		// ISSUE-004 — Sandbox.UI's <label> primitive paints text but drops the
+		// background-color alpha channel (the label glyph layer composites over
+		// a fully-opaque box, so rgba() with α<1 looks correct in Preview/canvas
+		// but renders as solid in the live panel). Workaround: when the element
+		// has a BackgroundColor set, wrap the <label> in a <div> that carries
+		// the per-element class (so the SCSS background-color rule + layout-bearing
+		// rules apply to the div, which respects alpha) and put the data-sui-*
+		// binding attrs on the wrapper. The inner <label> keeps the same class
+		// (so font / color / text-align rules still apply) but neutralises its
+		// own background inline so we don't double-paint.
+		//
+		// IMPORTANT: @ref stays on the inner <label>, NOT the wrapper div —
+		// SuiElementRefEmitter.MapElementTypeToRefType emits Text refs as
+		// global::Sandbox.UI.Label, so pointing @ref at the div would assign a
+		// Panel into a Label-typed field and break every controller that mutates
+		// .Text (typewriter, runtime scoreboard, etc.).
+		var hasBg = !string.IsNullOrEmpty( el.Style?.BackgroundColor );
+		if ( hasBg )
+		{
+			_sb.Append( indent ).Append( "<div class=\"" ).Append( className ).Append( "\"" )
+				.Append( bindAttrs )
+				.AppendLine( ">" );
+			_sb.Append( indent ).Append( '\t' )
+				.Append( "<label class=\"" ).Append( className ).Append( "\" style=\"background-color:transparent;\"" );
+			SuiElementRefEmitter.EmitRazorRef( el, _sb );
+			_sb.Append( ">" )
+				.Append( body )
+				.AppendLine( "</label>" );
+			_sb.Append( indent ).AppendLine( "</div>" );
+			return;
+		}
+
 		_sb.Append( indent ).Append( "<label class=\"" ).Append( className ).Append( "\"" )
 			.Append( bindAttrs );
 		// V1.5 — Text elements with ExposeAsVariable=true need the @ref so

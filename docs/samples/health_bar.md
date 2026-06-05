@@ -124,8 +124,8 @@ Root (Canvas, 1920x1080, PointerEvents None)
 ## Related
 
 - [`counter_button`]({% link samples/counter_button.md %}) — the simplest TwoWay pattern (button click → Variable increment), the natural next step after Health Bar.
-- [`stat_block`]({% link samples/stat_block.md %}) — multi-variable read-only display with grouped Variables, builds directly on this sample.
-- [`damage_indicator`]({% link samples/damage_indicator.md %}) — short-lived overlay that pairs well with `TakeDamage` calls from this controller.
+- [`survival_hud_aaa`]({% link samples/survival_hud_aaa.md %}) — multi-variable read-only HUD with grouped stat Variables, builds directly on this sample.
+- [`boss_hp_bar`]({% link samples/boss_hp_bar.md %}) — larger HP readout that pairs naturally with `TakeDamage` flows driven from a controller.
 
 ## See also
 

@@ -156,4 +156,4 @@ Drag-and-drop in Sandbox.UI has several non-obvious gotchas — these are the on
 - [Sample index]({% link reference/sample-index.md %}) — flat catalog of every sample shipped with the Designer.
 - [`inventory_grid_full`]({% link samples/inventory_grid_full.md %}) — the larger sibling sample, full inventory with tooltips and category filters.
 - [`loadout_selector`]({% link samples/loadout_selector.md %}) — companion grid-based selection UI without the drag mechanic.
-- [`hotbar_quickslots`]({% link samples/hotbar_quickslots.md %}) — minimal slot-based UI that complements the inventory grid.
+- [`survival_hud_aaa`]({% link samples/survival_hud_aaa.md %}) — full HUD that includes a hotbar-style quickslot strip alongside other stat readouts.

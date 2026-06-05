@@ -113,15 +113,15 @@ Root (Canvas, 1920x1080, PointerEvents=None)
 
 ## Related
 
-- [`label_simple`]({% link samples/label_simple.md %}) — even smaller: a static label with no binding at all. Good first read if `OnChange` propagation is new.
+- [`empty_canvas`]({% link samples/empty_canvas.md %}) — even smaller: a starter canvas with no binding at all. Good first read if `OnChange` propagation is new.
 - [`counter_button`]({% link samples/counter_button.md %}) — adds an event handler and a TwoWay-style write-back to the same OneWay foundation shown here.
-- [`progress_bar`]({% link samples/progress_bar.md %}) — same OneWay/OnChange shape, but driving a numeric `Width` property instead of a text label.
+- [`health_bar`]({% link samples/health_bar.md %}) — same OneWay/OnChange shape, but driving a numeric `Width` property instead of a text label.
 
 ## See also
 
 - [Read the full `label_clock` README on GitHub](https://github.com/KiKoZl1/sbox-ui-designer/tree/main/samples/showcase/label_clock).
 - [Showcase samples]({% link reference/showcase-samples.md %}) — the doc-site-native catalog with every sample inlined.
 - [Sample index]({% link reference/sample-index.md %}) — quick reference table of all V1.5 showcase samples.
-- [`label_simple`]({% link samples/label_simple.md %}) — the static-label predecessor to this binding-driven readout.
+- [`empty_canvas`]({% link samples/empty_canvas.md %}) — the no-binding starter canvas, the predecessor to this binding-driven readout.
 - [`counter_button`]({% link samples/counter_button.md %}) — extends the OneWay foundation with an event and a writeback.
-- [`progress_bar`]({% link samples/progress_bar.md %}) — same binding shape applied to a numeric `Width`.
+- [`health_bar`]({% link samples/health_bar.md %}) — same binding shape applied to a numeric `Width`.

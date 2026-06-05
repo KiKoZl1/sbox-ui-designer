@@ -1,25 +1,98 @@
-Rewrote `showcase-samples.md` as a gallery landing page.
+---
+layout: default
+title: Showcase samples
+parent: Reference
+nav_order: 11
+---
 
-**Preserved verbatim:**
-- Frontmatter (layout/title/parent/nav_order: 11)
-- Intro paragraph (line 11 of the original — "The 16 showcase samples shipped with V1.5 — 5 beginner ones that isolate a single SUI Designer concept each, 3 intermediate samples that wire multiple features onto realistic surfaces, and 8 advanced samples that combine the full runtime into game-flow surfaces (modals, multi-tab navigation, dramatic single-element drives, chat history, class pickers, dialog trees, drag-and-drop, and stacking toast queues). Open the `.sui`, drop the companion `Component` on a `GameObject`, and you have a working UI in seconds.")
-- `{: .fs-6 .fw-300 }` styling on the intro
+# Showcase samples
+{: .no_toc }
 
-**Replaced (removed per-sample H2 walkthroughs):**
-- Old per-sample H2 sections (empty_canvas, label_clock, health_bar, counter_button, toggle_pause, settings_full, inventory_grid_full, survival_hud_aaa, death_respawn_modal, quest_journal, boss_hp_bar, chat_panel, loadout_selector) — all replaced by links out to `{% link samples/<name>.md %}` per-sample pages being built in parallel.
-- Old "Table of contents" TOC block (no longer needed for a card-style landing).
-- Old "See also" tail (replaced with the new shorter one).
+Sixteen samples ship in V1.5 to cover every shipped feature — from the smallest mount lifecycle up to a flagship survival HUD that touches every Variable type and every binding target in a single document. They are grouped into five categories (Starter, Input widgets, Interactive states, Runtime-rendered, Full-feature) so you can either follow the difficulty ramp or jump straight to the recipe you need. Each sample has its own dedicated page under `/samples/<name>/`, reachable from the docs sidebar, with full Variables / Bindings / Events tables.
+{: .fs-6 .fw-300 }
 
-**New structure (in order):**
-1. Intro paragraph (preserved) + a short "this page is the gallery landing" sentence pointing to Sample index and Sample tour.
-2. `## Browse by category` with 5 sub-sections — Starter (3), Input widgets (2), Interactive states (3), Runtime-rendered (7), Full-feature (1) — each a markdown table with `Sample | What it teaches | Difficulty` columns. Sample names link via `{% link samples/<name>.md %}`. All 16 samples from the prompt metadata are covered, including the three that weren't yet in the old file (dialog_system, drag_drop_inventory, notification_toast_queue).
-3. `## Browse by concept` — short pointer to `{% link reference/concept-map.md %}`.
-4. `## Pattern recipes` — 16 "I want to..." → "Look at..." rows (one per sample) mirroring the GitHub showcase README convention. Sample names link via `{% link samples/<name>.md %}`.
-5. `## Source repository` — links the GitHub source folder `https://github.com/KiKoZl1/sbox-ui-designer/tree/main/samples/showcase` and lists the three artefacts each folder ships (`.sui`, controller, README).
-6. `## See also` — three bullet links: Sample index, Sample tour, Concept map.
+## Table of contents
+{: .no_toc .text-delta }
 
-**Categorisation source:** the metadata block in the prompt (Starter / Input widgets / Interactive states / Runtime-rendered / Full-feature, with per-sample difficulty + one-line teaches).
+- TOC
+{:toc}
 
-**Word count:** ~870 words (within the 700–1000 target).
+---
 
-Output file: C:/DEV/Surprise/sbox-ui-designer/docs/reference/showcase-samples.md
+## Browse by category
+
+### Starter (3)
+
+| Sample | What it teaches | Difficulty |
+|---|---|---|
+| [empty_canvas]({% link samples/empty_canvas.md %}) | Minimum mount lifecycle | Beginner |
+| [label_clock]({% link samples/label_clock.md %}) | First OneWay binding | Beginner |
+| [counter_button]({% link samples/counter_button.md %}) | First Code-mode OnClick + Variable | Beginner |
+
+### Input widgets (2)
+
+| Sample | What it teaches | Difficulty |
+|---|---|---|
+| [toggle_pause]({% link samples/toggle_pause.md %}) | Smallest TwoWay binding (Toggle round-trip) | Intermediate |
+| [settings_full]({% link samples/settings_full.md %}) | Every input widget + Apply.All() | Intermediate |
+
+### Interactive states (3)
+
+| Sample | What it teaches | Difficulty |
+|---|---|---|
+| [health_bar]({% link samples/health_bar.md %}) | OneWay ProgressBar + Variable | Intermediate |
+| [boss_hp_bar]({% link samples/boss_hp_bar.md %}) | Phase markers + ZIndex overlay + ExposeAsVariable writes | Intermediate |
+| [death_respawn_modal]({% link samples/death_respawn_modal.md %}) | Countdown-gated click + 6 OneWay text bindings | Intermediate |
+
+### Runtime-rendered (7)
+
+| Sample | What it teaches | Difficulty |
+|---|---|---|
+| [chat_panel]({% link samples/chat_panel.md %}) | Manual TextEntry + Apply.All + dynamic AddChild | Advanced |
+| [dialog_system]({% link samples/dialog_system.md %}) | Branching NPC tree with typewriter + deferred mutation | Advanced |
+| [drag_drop_inventory]({% link samples/drag_drop_inventory.md %}) | Two 4x4 grids with cursor-ghost + hit-test | Advanced |
+| [inventory_grid_full]({% link samples/inventory_grid_full.md %}) | Runtime grid wired via ExposeAsVariable | Flagship |
+| [loadout_selector]({% link samples/loadout_selector.md %}) | Card grid + detail panel + 5 buttons + 6 Variables | Advanced |
+| [notification_toast_queue]({% link samples/notification_toast_queue.md %}) | Stacking auto-dismiss toasts + CSS transitions | Advanced |
+| [quest_journal]({% link samples/quest_journal.md %}) | Multi-tab nav via IsHighlighted + HighlightedStyle | Advanced |
+
+### Full-feature (1)
+
+| Sample | What it teaches | Difficulty |
+|---|---|---|
+| [survival_hud_aaa]({% link samples/survival_hud_aaa.md %}) | Every Variable type + every binding target in one HUD | Flagship |
+
+## Browse by concept
+
+Looking for a sample that demonstrates a specific concept (OneWay binding, Apply.All, IsHighlighted, CSS transitions, etc.)? Check the [Concept map]({% link reference/concept-map.md %}) for a lookup table grouped by concept family.
+
+## Pattern recipes
+
+| I want to... | Look at... |
+|---|---|
+| Drive a piece of text from gameplay every frame | [label_clock]({% link samples/label_clock.md %}) |
+| Build a full settings screen with Apply / Cancel / Reset | [settings_full]({% link samples/settings_full.md %}) |
+| Spawn UI elements dynamically at runtime | [chat_panel]({% link samples/chat_panel.md %}) or [notification_toast_queue]({% link samples/notification_toast_queue.md %}) |
+| Build a drag-and-drop with cursor-following ghost | [drag_drop_inventory]({% link samples/drag_drop_inventory.md %}) |
+| Show a stacking notification queue | [notification_toast_queue]({% link samples/notification_toast_queue.md %}) |
+| Build a multi-tab UI with selected-state highlight | [quest_journal]({% link samples/quest_journal.md %}) |
+| Show a full-screen modal with countdown | [death_respawn_modal]({% link samples/death_respawn_modal.md %}) |
+| Drive a dramatic single bar with phase markers | [boss_hp_bar]({% link samples/boss_hp_bar.md %}) |
+| Build a class/loadout picker with detail pane | [loadout_selector]({% link samples/loadout_selector.md %}) |
+| Wire a 6x4 inventory grid | [inventory_grid_full]({% link samples/inventory_grid_full.md %}) |
+| Implement branching NPC dialog with typewriter | [dialog_system]({% link samples/dialog_system.md %}) |
+| Ship a survival HUD touching every Variable type | [survival_hud_aaa]({% link samples/survival_hud_aaa.md %}) |
+| Make a checkbox flip a bool | [toggle_pause]({% link samples/toggle_pause.md %}) |
+| Bind a ProgressBar to a normalized health value | [health_bar]({% link samples/health_bar.md %}) |
+| Increment a number on click | [counter_button]({% link samples/counter_button.md %}) |
+| Prove the wrapper-mount plumbing works | [empty_canvas]({% link samples/empty_canvas.md %}) |
+
+## Source on GitHub
+
+Every sample folder ships a `.sui` document, a `<Name>Controller.cs`, and a per-folder `README.md` with Variables / Bindings / Events tables. Source lives at [samples/showcase/](https://github.com/KiKoZl1/sbox-ui-designer/tree/main/samples/showcase) in the repo.
+
+## See also
+
+- [Sample index]({% link reference/sample-index.md %}) — short catalog
+- [Sample tour]({% link getting-started/sample-tour.md %}) — guided learning path
+- [Concept map]({% link reference/concept-map.md %}) — concept → sample lookup

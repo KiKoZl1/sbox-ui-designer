@@ -126,6 +126,6 @@ No `User.scss` — every visual rule lives in the generated SCSS and is regenera
 - [Read the full `counter_button` README on GitHub](https://github.com/KiKoZl1/sbox-ui-designer/tree/main/samples/showcase/counter_button).
 - [Showcase samples]({% link reference/showcase-samples.md %}) — the doc-site-native catalog of every shipped sample with Variables / Bindings tables inlined.
 - [Sample index]({% link reference/sample-index.md %}) — the flat list of every sample slug and one-line pitch.
-- [`variable_binding_oneway`]({% link samples/variable_binding_oneway.md %}) — same `OneWay / OnChange` Text binding pattern with no Events, isolating just the data-flow half.
-- [`button_doo_event`]({% link samples/button_doo_event.md %}) — same Button + Variable shape but the `OnClick` runs in **Doo mode** (inline body) instead of Code mode, no controller required.
-- [`hud_health_bar`]({% link samples/hud_health_bar.md %}) — next step up: multiple bound Variables, a controller `OnUpdate` driving a bound numeric value, still no networking.
+- [`label_clock`]({% link samples/label_clock.md %}) — same `OneWay / OnChange` Text binding pattern with no Events, isolating just the data-flow half.
+- [`toggle_pause`]({% link samples/toggle_pause.md %}) — same Button + Variable shape driving a bound state flip, a natural companion to this click-to-increment flow.
+- [`health_bar`]({% link samples/health_bar.md %}) — next step up: multiple bound Variables, a controller `OnUpdate` driving a bound numeric value, still no networking.
