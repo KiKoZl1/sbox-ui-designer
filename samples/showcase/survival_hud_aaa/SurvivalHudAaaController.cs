@@ -125,6 +125,15 @@ public sealed class SurvivalHudAaaController : Component
 			Hud.DamageFlashVisible = false;
 		}
 
+		// Built-in test hotkeys — Tab (Score action) takes 10 damage and
+		// pulses the red overlay; R (Reload action) heals 25. Both actions
+		// are mapped in the default s&box input layout so the sample works
+		// drop-in without project-side configuration. Remove or remap when
+		// you wire the HUD to real gameplay (call TakeDamage / Heal from
+		// your own damage source).
+		if ( Input.Pressed( "Score" ) ) TakeDamage( 10f );
+		if ( Input.Pressed( "Reload" ) ) Heal( 25f );
+
 		PushAll();
 	}
 
