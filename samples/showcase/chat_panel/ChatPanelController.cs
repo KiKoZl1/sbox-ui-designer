@@ -214,8 +214,17 @@ public sealed class ChatPanelController : Component
 
 		RenderMessages();
 
-		// Clear the input and refocus so the player can type the next line.
-		Hud.ChatInputText = "";
+		// Clear the input by writing to the live TextEntry's .Text directly.
+		// Hud.ChatInputText = "" would NOT clear the widget — the codegen for
+		// Manual UpdateTrigger does not emit a Value= pre-fill on the TextEntry
+		// tag (intentional — see 2026-06-05 fix), so the wrapper's Variable is
+		// pull-only via Apply.X. To push state back into the widget, reach the
+		// typed exposed @ref directly.
+		if ( Hud.View?.ChatInput != null )
+		{
+			Hud.View.ChatInput.Text = "";
+			Hud.ChatInputText = ""; // keep the wrapper variable in sync for binds elsewhere
+		}
 		Hud.View?.ChatInput?.Focus();
 	}
 

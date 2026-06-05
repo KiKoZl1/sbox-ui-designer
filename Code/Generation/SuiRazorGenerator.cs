@@ -1265,9 +1265,21 @@ public sealed class SuiRazorGenerator
 							break;
 
 						case SuiBindingUpdateTrigger.Manual:
-							// Pre-fill only. The wrapper exposes Commit<Name>()
-							// that reads the panel ref's .Text and writes the bound field.
-							_sb.Append( " Value=\"@" ).Append( teTarget ).Append( "\"" );
+							// Manual = widget owns its own state. The wrapper exposes
+							// Apply.<Name>Value() to PULL from the live widget into
+							// the bound Variable on demand; nothing pushes the
+							// Variable BACK into the widget on each render.
+							//
+							// DO NOT emit `Value="@target"` here. That syntax is a
+							// one-way push (C# → widget) re-evaluated every render
+							// pass — it overwrites user typing on the very next
+							// frame, the widget appears to "reject" input and the
+							// placeholder stays visible (chat_panel bug 2026-06-05).
+							//
+							// For programmatic seeds / reset-after-send, callers
+							// use the typed @ref directly: `Hud.View?.ChatInput.Text
+							// = ""` after Apply.All(). This is what the IsExposed
+							// path enables — typed Sandbox.UI.TextEntry field.
 							if ( !isExposed )
 								_sb.Append( " @ref=\"" ).Append( refName ).Append( "\"" );
 							break;
