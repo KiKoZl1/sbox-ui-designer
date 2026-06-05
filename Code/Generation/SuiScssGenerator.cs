@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Text;
@@ -497,7 +498,14 @@ public sealed class SuiScssGenerator
 			Emit( depth, "border-radius", radius );
 
 		// Opacity: only emit if hidden (visibility=Hidden) OR explicitly < 1.
-		if ( s.Visibility == SuiVisibility.Hidden )
+		// BUT skip the visibility-driven opacity:0 when the element ALSO
+		// declares a runtime Visibility binding — otherwise the static
+		// opacity:0 wins forever (CSS opacity:0 hides regardless of the
+		// binding's display:flex|none toggle). The binding takes priority
+		// for runtime show/hide; Style.Visibility acts only as the design-
+		// time canvas preview baseline in that case.
+		var hasVisibilityBinding = HasBindingOnProperty( el, "Visibility" );
+		if ( s.Visibility == SuiVisibility.Hidden && !hasVisibilityBinding )
 		{
 			Emit( depth, "opacity", "0" );
 		}
@@ -506,7 +514,7 @@ public sealed class SuiScssGenerator
 			Emit( depth, "opacity", Float( s.Opacity ) );
 		}
 
-		if ( s.Visibility == SuiVisibility.Collapsed )
+		if ( s.Visibility == SuiVisibility.Collapsed && !hasVisibilityBinding )
 		{
 			Emit( depth, "display", "none" );
 		}
@@ -876,6 +884,23 @@ public sealed class SuiScssGenerator
 		type == SuiElementType.Button
 		|| type == SuiElementType.InventorySlot
 		|| type == SuiElementType.ItemIcon;
+
+	/// <summary>
+	/// True if <paramref name="el"/> declares at least one binding targeting
+	/// the named property. Used to suppress static SCSS emissions that would
+	/// otherwise override the runtime binding (e.g. opacity:0 from a
+	/// Style.Visibility=Hidden cancels out a Visibility binding's display
+	/// toggle; the binding must win for runtime show/hide to work).
+	/// </summary>
+	private static bool HasBindingOnProperty( SuiElement el, string property )
+	{
+		if ( el?.Bindings == null || el.Bindings.Count == 0 ) return false;
+		foreach ( var b in el.Bindings )
+		{
+			if ( b != null && string.Equals( b.Property, property, StringComparison.Ordinal ) ) return true;
+		}
+		return false;
+	}
 
 	/// <summary>
 	/// Walk the element tree rooted at <paramref name="root"/> and return true
