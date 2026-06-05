@@ -214,7 +214,16 @@ public sealed class ChatPanelController : Component
 		// the field is visually empty.
 		Hud.ChatInputText = "";
 		if ( Hud.View?.ChatInputRef != null )
+		{
 			Hud.View.ChatInputRef.Text = "";
+
+			// Restore keyboard focus to the TextEntry. Clicking the Send button
+			// shifts focus to it, and `onsubmit` (Enter) leaves focus on the
+			// TextEntry but the .Text = "" assignment can drop the caret too.
+			// Calling Focus() unconditionally after every send keeps the typing
+			// flow uninterrupted.
+			Hud.View.ChatInputRef.Focus();
+		}
 	}
 
 	// ────────────────────────────────────────────────────────────────────────
