@@ -92,6 +92,18 @@ DragDropInventoryPanel {
 - **`OnSlotMouseDown`** captures the source `(side, index, item)` and shows the ghost. The source slot is intentionally NOT mutated during the drag (any visual change to the source mid-gesture breaks the engine's mouseup routing — confirmed empirically).
 - **`OnRootMouseUp`** is the single drop point. It hit-tests every slot via `Panel.IsInside(Sandbox.Mouse.Position)` to find the target (mouseover events are silenced during the drag so we can't track hover), guards same-source-and-target as a no-op (otherwise the dual write to one cell would vanish the item), then swaps and updates both slots' visuals.
 
+## Troubleshooting
+
+Drag-and-drop in Sandbox.UI has several non-obvious gotchas — these are the ones that bit us first.
+
+| Symptom | Cause | Fix |
+|---|---|---|
+| Mouseup never fires on the source slot — drag picks up but drop silently does nothing | The controller mutated the source slot's `Style` / class / children during the drag (even a deferred `OnUpdate` tint). Sandbox.UI routes `onmouseup` to the exact `Panel` instance that received `onmousedown`; any mid-gesture mutation desyncs the engine's internal tracking and the mouseup is dropped. | NEVER touch the source slot between `OnSlotMouseDown` and `OnRootMouseUp`. The ghost Panel is the only visual feedback during the drag — leave the source slot frozen. |
+| Cannot tell which slot the cursor is hovering during the drag — `onmouseover` listeners on other slots stay silent | Sandbox.UI silences `onmouseover` / `onmouseout` on sibling Panels for the duration of a native drag (only the captured source Panel sees pointer events). Hover-tracking-based drop detection is impossible. | Hit-test live on mouseup instead: iterate every slot Panel in `OnRootMouseUp` and call `slot.IsInside( Sandbox.Mouse.Position )` to find the target. No hover state needed. |
+| Dropping an item onto its own slot makes the item vanish entirely | The swap writes `source := targetItem` then `target := dragItem`; when source and target alias the same array cell, the second write commits `ItemKind.None` (the value the first write just placed) and the original item is lost. | Guard with `if ( sourceArr == targetArr && srcIdx == tgtIdx ) return;` before any array write in `OnRootMouseUp`. Treat same-slot drop as a no-op. |
+| Ghost preview lags behind / stays pinned to the slot where the drag started | `Panel.MousePosition` is frozen by the engine for the duration of a native drag — it keeps returning the position at mousedown. Per-frame ghost updates that read it never move. | Read `Sandbox.Mouse.Position` (raw screen pixels) in `OnUpdate`, multiply by `ghost.ScaleFromScreen` to convert to ghost-local coords, subtract `HalfSlot`, and write into `ghost.Style.Left/Top` every frame. |
+| Controller fails to compile — `DragDropInventoryPanel` type does not exist | The wrapper class and `.razor` / `.scss` are emitted by the SUI Designer on Compile (Force Regen) — until that runs once, the type the controller references is just a missing symbol. | Open `drag_drop_inventory.sui` in the SUI Designer window and hit **Compile** before building. First compile generates the wrapper; subsequent edits to the `.sui` regenerate it. |
+
 ## Extending it
 
 - **PNG icons instead of letters.** Replace the letter `Label` inside each occupied slot with `slotPanel.AddChild<Image>()` and set `image.SetTexture( ... )`. Items become asset references on the controller.
