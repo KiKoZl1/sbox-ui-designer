@@ -44,6 +44,13 @@ public static class SuiAllowedPropertyList
 		"letter-spacing", "line-height", "white-space",
 		"text-overflow",
 
+		// TextEntry caret. Engine reads ComputedStyle.CaretColor in
+		// Sandbox.UI.TextEntry.DrawContent — confirmed against engine source
+		// at Facepunch/sbox-public game/addons/base/code/UI/Controls/TextEntry.cs.
+		// Without this property, caret falls back to FontColor of the wrapper,
+		// then Color.Black — invisible on dark backgrounds.
+		"caret-color",
+
 		// Motion
 		"transform",
 		"transition", "transition-duration", "transition-property", "transition-timing-function", "transition-delay",

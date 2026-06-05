@@ -727,6 +727,16 @@ public sealed class SuiScssGenerator
 				// Inner `.content-label` holds the typed text + placeholder.
 				Emit( depth, "flex-direction", "row" );
 				Emit( depth, "align-items", "center" );
+				// Caret visibility. The engine draws the blinking caret in
+				// Sandbox.UI.TextEntry.DrawContent (NOT via CSS pseudo-element),
+				// reading ComputedStyle.CaretColor ?? ComputedStyle.FontColor ??
+				// Color.Black from the TextEntry wrapper itself — not the inner
+				// .content-label. Setting color/caret-color on > .content-label
+				// alone leaves the wrapper unstyled and the engine falls back
+				// to BLACK, which is invisible on dark UI backgrounds. Emit
+				// caret-color on the wrapper so the caret matches the text.
+				if ( !string.IsNullOrEmpty( p.Color ) )
+					Emit( depth, "caret-color", p.Color );
 				var teInner = new string( ' ', depth * 2 );
 				_sb.Append( teInner ).AppendLine( "> .content-label {" );
 				Emit( depth + 1, "flex-grow", "1" );
@@ -736,10 +746,16 @@ public sealed class SuiScssGenerator
 				if ( p.FontWeight != SuiFontWeight.Normal ) Emit( depth + 1, "font-weight", FontWeight( p.FontWeight ) );
 				if ( !string.IsNullOrEmpty( p.Color ) ) Emit( depth + 1, "color", p.Color );
 				_sb.Append( teInner ).AppendLine( "}" );
-				// Placeholder = 60% opacity of the text color when label has the
+				// Placeholder = 50% opacity of the text color when label has the
 				// engine-added `.placeholder` class.
 				_sb.Append( teInner ).AppendLine( "> .content-label.placeholder {" );
 				Emit( depth + 1, "opacity", "0.5" );
+				_sb.Append( teInner ).AppendLine( "}" );
+				// UX improvement on top of engine default: engine keeps placeholder
+				// visible until the user types a character. Hiding it on :focus
+				// gives immediate feedback that the field is active.
+				_sb.Append( teInner ).AppendLine( "&:focus > .content-label.placeholder {" );
+				Emit( depth + 1, "opacity", "0" );
 				_sb.Append( teInner ).AppendLine( "}" );
 				break;
 
