@@ -12,31 +12,29 @@ namespace Sandbox.Samples;
 /// <para>Drop this on a GameObject in any scene, hit Play, and a 480x320 dark chat
 /// card mounts in the bottom-left corner with a scrollable message list, an input
 /// field, and a green Send button. Type a message, click Send (or press Enter
-/// via the optional fallback hotkey), and the message gets appended to a runtime-
-/// populated message list with timestamp + author. The header counter ("12
-/// messages") updates after every send.</para>
+/// inside the input), and the message gets appended to a runtime-populated
+/// message list with timestamp + author. The header counter ("12 messages")
+/// updates after every send.</para>
 ///
 /// <para>The UI lives entirely in <c>chat_panel.sui</c>. This Component owns:
 /// the runtime message store (<see cref="_messages"/>), the OnSendClick handler,
-/// the <see cref="RenderMessages"/> routine that rebuilds the runtime panel,
-/// /command coloring (system messages are tinted green; /me is italic), and the
-/// optional <see cref="Input.Pressed(string)"/> Enter fallback so the user
-/// doesn't need to reach for the mouse to send.</para>
+/// the <see cref="RenderMessages"/> routine that rebuilds the runtime panel, and
+/// /command coloring (system messages are tinted green; /me is italic).</para>
 ///
 /// <para><b>Why ExposeAsVariable matters here.</b> The <c>MessageList</c> Panel
 /// and <c>ChatInput</c> TextEntry are both flagged <c>ExposeAsVariable=true</c>
-/// in the <c>.sui</c>. The generator therefore emits <c>[Sui] public Panel
-/// MessageList { get; set; }</c> and the equivalent for <c>ChatInput</c> on the
-/// View class, so this controller can reach them via <c>Hud.View?.MessageList</c>
-/// to AddChild / DeleteChildren / ScrollToBottom, and call
-/// <c>Hud.View?.ChatInput?.Focus()</c> to put the keyboard caret back in the
-/// input after a send. Without the flag the only escape hatch would be
-/// <c>find-by-class</c> on the rendered panel tree, which is brittle.</para>
+/// in the <c>.sui</c>. The generator therefore emits typed fields on the View
+/// class, so this controller can reach them via <c>Hud.View?.MessageList</c> to
+/// AddChild / DeleteChildren / ScrollToBottom, and call
+/// <c>Hud.View?.ChatInputRef.Text = ""</c> to clear the input after a send.
+/// Without the flag the only escape hatch would be <c>find-by-class</c> on the
+/// rendered panel tree, which is brittle.</para>
 ///
-/// <para><b>Hotkey.</b> While the panel is mounted, pressing the input action
-/// <c>Reload</c> (default key: <c>R</c>) triggers an Enter-fallback send so you
-/// can hammer messages without leaving the keyboard. This intentionally uses a
-/// built-in action so the sample works on a fresh project with no input config.</para>
+/// <para><b>Enter to submit.</b> The Sandbox.UI TextEntry fires an
+/// <c>"onsubmit"</c> event when the user presses Enter inside the focused field
+/// (mirroring real chat clients). We wire that listener in <see cref="OnUpdate"/>
+/// once the engine has captured the @ref — binding in OnStart would no-op
+/// because the @ref is null until the first paint.</para>
 /// </summary>
 public sealed class ChatPanelController : Component
 {
@@ -108,27 +106,45 @@ public sealed class ChatPanelController : Component
 		//    needs the cursor.
 		Hud.Show( GameObject, SuiInputMode.All );
 
-		// 4) Seed a friendly welcome line so the panel isn't blank.
+		// 4) Seed a friendly welcome line so the panel isn't blank. RenderMessages
+		//    here would no-op because the engine captures @ref to MessageList
+		//    AFTER the first paint — the bootstrap one-shot in OnUpdate flushes
+		//    it the moment View.MessageList becomes non-null.
 		_messages.Add( new ChatMessage
 		{
 			Author = SystemAuthor,
-			Text = "Welcome - type a message and hit Send (or press R).",
+			Text = "Welcome - type a message and hit Send (or press Enter).",
 			SentAt = Time.Now,
 			Kind = ChatMessageKind.System,
 		} );
-		RenderMessages();
 	}
+
+	private bool _onsubmitWired;
+	private bool _initialRendered;
 
 	protected override void OnUpdate()
 	{
-		// Enter-fallback hotkey: built-in Reload action (default R) sends the
-		// current draft so the user never has to reach for the mouse. Uses
-		// Input.Pressed (edge-triggered) so holding the key doesn't spam-send.
-		// Guarded by Hud.IsMounted so the hotkey is inert before OnStart finishes
-		// or after OnDestroy removes the panel.
-		if ( Hud.IsMounted && Input.Pressed( "Reload" ) )
+		// Two independent one-shots. Each fires the frame its respective @ref
+		// becomes non-null (which happens after the engine paints the panel for
+		// the first time — OnStart sees both as null). Splitting them protects
+		// against the unlikely case where the two refs capture on different
+		// frames; each flips its flag and the branch never enters again.
+		if ( !_onsubmitWired )
 		{
-			OnSendClick();
+			var entry = Hud.View?.ChatInputRef;
+			if ( entry != null )
+			{
+				entry.AddEventListener( "onsubmit", () => OnSendClick() );
+				_onsubmitWired = true;
+			}
+		}
+		if ( !_initialRendered )
+		{
+			if ( Hud.View?.MessageList != null )
+			{
+				RenderMessages();
+				_initialRendered = true;
+			}
 		}
 	}
 
@@ -191,9 +207,14 @@ public sealed class ChatPanelController : Component
 
 		RenderMessages();
 
-		// Clear the input and refocus so the player can type the next line.
+		// Clear the input for the next message. Writing to Hud.ChatInputText
+		// updates the wrapper but Sandbox.UI's Razor doesn't push that back to
+		// the rendered TextEntry on re-render, so the widget keeps showing the
+		// last draft. Push directly onto the engine TextEntry via the @ref so
+		// the field is visually empty.
 		Hud.ChatInputText = "";
-		Hud.View?.ChatInput?.Focus();
+		if ( Hud.View?.ChatInputRef != null )
+			Hud.View.ChatInputRef.Text = "";
 	}
 
 	// ────────────────────────────────────────────────────────────────────────

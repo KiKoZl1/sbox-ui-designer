@@ -9,15 +9,15 @@ If the `settings_full` sample is "every input widget the Designer ships," and `i
 - **`ExposeAsVariable=true` on two elements** so the controller can reach the runtime panel via `Hud.View?.MessageList` and the input via `Hud.View?.ChatInput` without find-by-class
 - **`OneWay` Text binding** on the header counter, driven entirely by the controller
 - **Hover / Pressed interactive styles** on the Send button (1.03× hover, 0.97× pressed, green→darker-green tint)
-- **A built-in input action (`Reload`, default key `R`) as an Enter fallback** so the sample works out of the box on any project without input-config edits
+- **Press Enter inside the input to submit**, wired via the engine's native `"onsubmit"` event on TextEntry — no `actions.cfg` edit required
 
 ## Behavior
 
 End-to-end walkthrough of every interaction the sample wires up.
 
-1. **Mount the panel.** A 480×320 dark card with a 1-pixel border anchors to the bottom-left, 24px in and 20px up from the screen edge. A single seeded welcome message — `[00:00] system: Welcome - type a message and hit Send (or press R).` — is rendered in green. The header reads `Chat` on the left and `1 message` on the right.
+1. **Mount the panel.** A 480×320 dark card with a 1-pixel border anchors to the bottom-left, 24px in and 20px up from the screen edge. A single seeded welcome message — `[00:00] system: Welcome - type a message and hit Send (or press Enter).` — is rendered in green. The header reads `Chat` on the left and `1 message` on the right.
 2. **Type into the input.** The TextEntry is `Manual` mode, so `Hud.ChatInputText` does **not** update as you type — it stays empty until the controller calls `Hud.Apply.All()`. The on-screen widget shows the draft normally; only the bound Variable lags.
-3. **Click Send (or press R).** The controller's `OnSendClick` runs `Hud.Apply.All()` (flushing the draft into `Hud.ChatInputText`), trims the string, exits if empty, then builds a `ChatMessage` and appends it to `_messages`. `RenderMessages()` wipes the `MessageList` panel and re-creates one `Label` child per message. The header counter updates (`2 messages`), the panel scrolls to the bottom (`TryScrollToBottom()`), the input is cleared (`Hud.ChatInputText = ""`), and the keyboard focus is restored to the TextEntry (`Hud.View?.ChatInput?.Focus()`) so you can keep typing.
+3. **Click Send or press Enter inside the input.** The controller's `OnSendClick` runs `Hud.Apply.All()` (flushing the draft into `Hud.ChatInputText`), trims the string, exits if empty, then builds a `ChatMessage` and appends it to `_messages`. `RenderMessages()` wipes the `MessageList` panel and re-creates one `Label` child per message. The header counter updates (`2 messages`), the panel scrolls to the bottom (`TryScrollToBottom()`), and the input is cleared by writing `""` directly to `Hud.View.ChatInputRef.Text`.
 4. **`/me <action>`** is parsed as an emote — the message is tinted amber (`#fbbf24`) and the leading `/me ` is stripped. Try `/me waves`.
 5. **`/system <text>`** is parsed as a system message — author is overridden to `system`, the message is tinted green (`#4ade80`). Try `/system server restarting in 5 minutes`.
 6. **Send 65 messages.** `MaxMessages` (default 64) caps the in-memory list; older entries are dropped from the front. The runtime panel never grows unbounded.
@@ -35,17 +35,13 @@ The seed message — green, system author — fills the panel immediately on mou
 1. Open `chat_panel.sui` once in the **SUI Designer** window (`Window → Sbox UI Designer`) and hit **Compile**. This writes `ChatPanel.razor` + `ChatPanel.scss` + `ChatPanel.cs` (the wrapper) into `Code/Samples/ChatPanel/` of your project, under namespace `Sandbox.Samples`.
 2. Drop `ChatPanelController.cs` into the same folder (or anywhere under `Code/`).
 3. In any scene, add a new GameObject and attach the **ChatPanelController** Component to it.
-4. Press **Play**. The card appears in the bottom-left. Click the input, type something, click **Send** (or press `R`), and watch the message render. Try `/me waves` and `/system maintenance window 22:00 UTC` for the two command flavours.
+4. Press **Play**. The card appears in the bottom-left. Click the input, type something, click **Send** (or press **Enter**), and watch the message render. Try `/me waves` and `/system maintenance window 22:00 UTC` for the two command flavours.
 
 The Component's `Hud` Property surfaces both Variables (`ChatInputText`, `MessageCountText`) under a foldout in the Inspector — handy when debugging whether `Apply.All()` actually flushed. Three additional `[Property]` knobs (`SystemAuthor`, `LocalAuthor`, `MaxMessages`) let you tweak flavour without touching code.
 
-### Hotkeys
+### Enter to submit
 
-| Key | Action input | Effect |
-|---|---|---|
-| `R` (default binding for `Reload`) | `Input.Pressed("Reload")` | Sends the current input draft — Enter-fallback so you can hammer messages without reaching for the mouse. Gated by `Hud.IsMounted` so it's inert before mount / after destroy. |
-
-`Reload` is a built-in action that ships with every fresh s&box project, which is why the sample picks it — no `actions.cfg` edit required. If you'd rather have real `Enter` behaviour, see "Extending it" below.
+Pressing **Enter** inside the focused TextEntry triggers a send via the engine's native `"onsubmit"` event. The controller registers the listener in `OnUpdate` once `Hud.View?.ChatInputRef` becomes non-null (the engine captures `@ref` after the first paint — binding in `OnStart` would no-op). One-shot guard flips after wire-up so the check only costs an `if` per frame for one frame.
 
 ## Variables
 
@@ -103,8 +99,8 @@ The flag tells the wrapper generator to emit a `[Sui] public T Name { get; set; 
 `ChatPanelController` keeps the runtime message store in a `List<ChatMessage>` (a tiny private struct with `Author / Text / SentAt / Kind`). The flow:
 
 - `OnStart` wires `Hud.OnSendClick`, seeds both Variables, calls `Hud.Show(GameObject, SuiInputMode.All)` — `All` mode is required so the TextEntry can receive keyboard input — then seeds a friendly welcome line so the panel isn't blank on frame zero.
-- `OnUpdate` checks `Input.Pressed("Reload")` once per frame and triggers an Enter-fallback send. Guarded by `Hud.IsMounted` so it's inert before mount / after destroy.
-- `OnSendClick` runs `Hud.Apply.All()` to flush the Manual TextEntry, trims the draft, exits if empty, parses `/me` and `/system` command prefixes, appends a `ChatMessage`, trims the list to `MaxMessages`, calls `RenderMessages()`, clears the input, and refocuses the TextEntry.
+- `OnUpdate` runs a one-shot that wires the TextEntry's `"onsubmit"` event to `OnSendClick` once `Hud.View?.ChatInputRef` becomes non-null (engine captures the `@ref` after first paint, so this can't happen in `OnStart`). After wire-up the flag flips and the check no-ops.
+- `OnSendClick` runs `Hud.Apply.All()` to flush the Manual TextEntry, trims the draft, exits if empty, parses `/me` and `/system` command prefixes, appends a `ChatMessage`, trims the list to `MaxMessages`, calls `RenderMessages()`, and clears the input by writing `""` directly to `Hud.View.ChatInputRef.Text` (the wrapper `Hud.ChatInputText = ""` alone doesn't push back to the widget on re-render).
 - `RenderMessages` wipes `MessageList`, rebuilds one `Sandbox.UI.Label` per message with a `[MM:SS] author: text` prefix, applies per-kind `Style.FontColor` (green for system, amber for emotes, grey for normal), updates `MessageCountText` (with singular/plural handling), and calls `TryScrollToBottom()` so the newest row is visible.
 - `OnDestroy` calls `Hud?.Remove()` for clean teardown — without this the panel survives the GameObject and leaks into the next scene.
 
@@ -112,7 +108,6 @@ The use of `SuiInputMode.All` is intentional — the TextEntry needs the keyboar
 
 ## Extending it
 
-- **Send on real Enter instead of `R`.** Add an action named `chat_send` mapped to `KEY_RETURN` in `actions.cfg`, then swap `Input.Pressed("Reload")` for `Input.Pressed("chat_send")` in `OnUpdate`. The whole sample stays 1-Component.
 - **Toggle the panel with a hotkey.** Add a `bool _chatOpen` field and gate `Hud.Show()` / `Hud.Remove()` on `Input.Pressed("Score")` (default `Tab`). When closed, the panel is fully unmounted — no rendering, no input capture, no per-frame `OnUpdate` work beyond the toggle check.
 - **Network the messages.** Promote `_messages` to a `[Sync] List<ChatMessage>` (and add a `[Sync]` attribute to the struct), then call a `[Rpc.Broadcast]` method from `OnSendClick` instead of mutating the list locally. Every client renders from the same authoritative list. The `.sui` doesn't change.
 - **Add more commands.** The `/me` and `/system` parsers in `OnSendClick` are deliberately tiny — add `/whisper <name> <text>`, `/clear`, `/help`, or a slash-command registry the controller iterates over. Each new command lands in `_messages` like any other.
