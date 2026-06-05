@@ -272,15 +272,52 @@ public sealed class SuiRazorGenerator
 				.Append( " { get; set; } = " ).Append( defaultLit ).AppendLine( ";" );
 			hashes.Add( fieldName );
 
-			// V1.5 M3.5 — Highlighted twin field. Same authoring-time default
-			// source (SuiElementProps.IsHighlighted) and same BuildHash entry
-			// so a runtime toggle re-renders the class string with/without
-			// the `.highlighted` CSS class (paired with HighlightedStyle SCSS).
-			var highlightedField = SuiNameSanitizer.ToCSharpIdentifier( ( el.Name ?? el.Id ) + "Highlighted" );
-			var highlightedDefault = (el.Props?.IsHighlighted ?? false) ? "true" : "false";
-			body.Append( "\tpublic bool " ).Append( highlightedField )
-				.Append( " { get; set; } = " ).Append( highlightedDefault ).AppendLine( ";" );
-			hashes.Add( highlightedField );
+			// V1.5 M3.5 — Highlighted toggle. Two emission paths so the class
+			// helper agrees with however the value gets fed in:
+			//   1) Element has a binding on `IsHighlighted` → the Variable
+			//      already owns the panel-side field (emitted by the Variable
+			//      codegen). Reference that Variable name directly in the
+			//      class helper and SKIP the dedicated field — otherwise we'd
+			//      emit a TabActiveHighlighted field that the binding never
+			//      writes to (binding sets the Variable's IsTabActiveHighlighted
+			//      twin), the class helper would read the wrong field, and the
+			//      .highlighted CSS would never fire even with the bool toggled
+			//      from gameplay code. Confirmed-broken pattern in quest_journal
+			//      pre-2026-06-05.
+			//   2) No binding → emit the dedicated `<ElementName>Highlighted`
+			//      field same as before. Gameplay code writes it via
+			//      `Hud.View?.<Name>Highlighted = true` (mirrors the IsDisabled
+			//      pattern — no Variable round-trip needed).
+			string highlightedExpr;
+			var highlightedBinding = el.Bindings?.Find( b => b != null && b.Property == "IsHighlighted" );
+			if ( highlightedBinding != null && highlightedBinding.Source != null )
+			{
+				var sourceVar = _doc.Variables?.Find( v => v != null && v.Id == highlightedBinding.Source.VariableId );
+				if ( sourceVar != null && !string.IsNullOrEmpty( sourceVar.Name ) )
+				{
+					highlightedExpr = SuiNameSanitizer.ToCSharpIdentifier( sourceVar.Name );
+					// Variable already in BuildHash via the Variable codegen path
+					// (SuiBuildHashEmitter walks the doc's Variables list). Do NOT
+					// double-add here.
+				}
+				else
+				{
+					// Binding declared but source variable missing/null. Render
+					// with a literal `false` so the class helper compiles; the
+					// underlying authoring issue will surface as a validator
+					// warning, not a runtime exception.
+					highlightedExpr = "false";
+				}
+			}
+			else
+			{
+				var highlightedField = SuiNameSanitizer.ToCSharpIdentifier( ( el.Name ?? el.Id ) + "Highlighted" );
+				var highlightedDefault = (el.Props?.IsHighlighted ?? false) ? "true" : "false";
+				body.Append( "\tpublic bool " ).Append( highlightedField )
+					.Append( " { get; set; } = " ).Append( highlightedDefault ).AppendLine( ";" );
+				hashes.Add( highlightedField );
+				highlightedExpr = highlightedField;
+			}
 
 			// V1.5 M3.5 — emit a pure C# helper that returns the class string
 			// for this element. The Razor markup invokes it via the simple
@@ -294,7 +331,7 @@ public sealed class SuiRazorGenerator
 			body.Append( "\tprivate string " ).Append( methodName )
 				.Append( "() => \"" ).Append( staticClasses )
 				.Append( "\" + (" ).Append( fieldName ).Append( " ? \" disabled\" : \"\")" )
-				.Append( " + (" ).Append( highlightedField ).AppendLine( " ? \" highlighted\" : \"\");" );
+				.Append( " + (" ).Append( highlightedExpr ).AppendLine( " ? \" highlighted\" : \"\");" );
 		}
 		return hashes;
 	}
