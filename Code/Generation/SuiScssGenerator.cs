@@ -65,6 +65,29 @@ public sealed class SuiScssGenerator
 			EmitElement( root, depth: 1, isRoot: true );
 		}
 
+		// Global helper rules — emitted INSIDE the typeName scope so they
+		// don't leak to other documents but their selectors hit every
+		// matching descendant in this Panel's tree. Currently:
+		//   .sui-progress-fill — the inner fill div the Razor emits for
+		//     every ProgressBar element. Its position/left/top/bottom are
+		//     declared here (in SCSS) instead of via inline style, because
+		//     Sandbox.UI's inline-style parser silently drops position
+		//     properties on first child of an absolutely-positioned parent
+		//     — the fill collapses to flex flow and bars staircase. The
+		//     Razor still emits width:N% + background-color inline since
+		//     those are per-instance and the engine honours them.
+		if ( HasElementType( root, SuiElementType.ProgressBar ) )
+		{
+			_sb.AppendLine();
+			_sb.AppendLine( "\t.sui-progress-fill {" );
+			_sb.AppendLine( "\t\tposition: absolute;" );
+			_sb.AppendLine( "\t\tleft: 0;" );
+			_sb.AppendLine( "\t\ttop: 0;" );
+			_sb.AppendLine( "\t\tbottom: 0;" );
+			_sb.AppendLine( "\t\tpointer-events: none;" );
+			_sb.AppendLine( "\t}" );
+		}
+
 		_sb.AppendLine( "}" );
 
 		// User-owned sidecar — emitted ONLY in Final mode (compile-to-output).
@@ -853,6 +876,25 @@ public sealed class SuiScssGenerator
 		type == SuiElementType.Button
 		|| type == SuiElementType.InventorySlot
 		|| type == SuiElementType.ItemIcon;
+
+	/// <summary>
+	/// Walk the element tree rooted at <paramref name="root"/> and return true
+	/// if any descendant (or the root itself) is of the requested type. Used
+	/// to gate emission of one-shot helper rules (e.g. .sui-progress-fill)
+	/// so documents with no ProgressBar don't carry dead CSS.
+	/// </summary>
+	private bool HasElementType( SuiElement root, SuiElementType type )
+	{
+		if ( root == null ) return false;
+		if ( root.Type == type ) return true;
+		if ( root.Children == null || root.Children.Count == 0 ) return false;
+		foreach ( var childId in root.Children )
+		{
+			var child = _doc.GetElement( childId );
+			if ( child != null && HasElementType( child, type ) ) return true;
+		}
+		return false;
+	}
 
 	/// <summary>
 	/// V1.5 M3.5 — map <see cref="SuiCursor"/> to the matching CSS keyword.

@@ -1313,12 +1313,19 @@ public sealed class SuiRazorGenerator
 			+ "(float)(" + maxExpr + ") - (float)(" + minExpr + ")"
 			+ " ) ) * 100f";
 
+		// position / left / top / bottom / pointer-events for .sui-progress-fill
+		// are emitted ONCE in SCSS (SuiScssGenerator emits the global rule when
+		// the document has any ProgressBar element). Sandbox.UI's inline-style
+		// parser silently drops `position: absolute` on the first child of an
+		// absolutely-positioned parent — fills collapse into flex flow and bars
+		// staircase. width % + bg-color stay inline because they're per-instance
+		// (value-driven + FillColor-driven) and the engine honours them there.
 		_sb.Append( indent )
-			.Append( "<div class=\"sui-progress-fill\" style=\"position: absolute; left: 0; top: 0; bottom: 0; width: @(" )
+			.Append( "<div class=\"sui-progress-fill\" style=\"width: @(" )
 			.Append( pct )
 			.Append( ")%; background-color: @(" )
 			.Append( fillColorExpr )
-			.AppendLine( "); pointer-events: none;\"></div>" );
+			.AppendLine( ");\"></div>" );
 	}
 
 	/// <summary>Bound expression for <paramref name="property"/> if present, else the C# literal for the given float default.</summary>
