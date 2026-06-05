@@ -214,8 +214,8 @@ public sealed class SuiScssGenerator
 					l.Anchor == SuiAnchor.StretchVertical;
 				if ( !isStretchAnchor )
 				{
-					if ( l.Width > 0f ) Emit( depth, "width", $"{Px(l.Width)}" );
-					if ( l.Height > 0f ) Emit( depth, "height", $"{Px(l.Height)}" );
+					if ( l.Width > 0f ) EmitIfNotBound( el, depth, "width", "Width", $"{Px(l.Width)}" );
+					if ( l.Height > 0f ) EmitIfNotBound( el, depth, "height", "Height", $"{Px(l.Height)}" );
 				}
 				else
 				{
@@ -223,9 +223,9 @@ public sealed class SuiScssGenerator
 					// StretchVertical: Width (cross axis) is still a real size.
 					// Stretch: both axes are margins, neither emitted.
 					if ( l.Anchor == SuiAnchor.StretchHorizontal && l.Height > 0f )
-						Emit( depth, "height", $"{Px( l.Height )}" );
+						EmitIfNotBound( el, depth, "height", "Height", $"{Px( l.Height )}" );
 					if ( l.Anchor == SuiAnchor.StretchVertical && l.Width > 0f )
-						Emit( depth, "width", $"{Px( l.Width )}" );
+						EmitIfNotBound( el, depth, "width", "Width", $"{Px( l.Width )}" );
 				}
 				if ( l.MinWidth.HasValue ) Emit( depth, "min-width", $"{Px( l.MinWidth.Value )}" );
 				if ( l.MinHeight.HasValue ) Emit( depth, "min-height", $"{Px( l.MinHeight.Value )}" );
@@ -244,8 +244,8 @@ public sealed class SuiScssGenerator
 			// nearest positioned ancestor (visible as one icon stretching
 			// across the whole card with the others hidden behind it).
 			Emit( depth, "position", "relative" );
-			if ( l.Width > 0f ) Emit( depth, "width", $"{Px(l.Width)}" );
-			if ( l.Height > 0f ) Emit( depth, "height", $"{Px(l.Height)}" );
+			if ( l.Width > 0f ) EmitIfNotBound( el, depth, "width", "Width", $"{Px(l.Width)}" );
+			if ( l.Height > 0f ) EmitIfNotBound( el, depth, "height", "Height", $"{Px(l.Height)}" );
 			if ( l.MinWidth.HasValue ) Emit( depth, "min-width", $"{Px( l.MinWidth.Value )}" );
 			if ( l.MinHeight.HasValue ) Emit( depth, "min-height", $"{Px( l.MinHeight.Value )}" );
 			if ( l.MaxWidth.HasValue ) Emit( depth, "max-width", $"{Px( l.MaxWidth.Value )}" );
@@ -463,7 +463,7 @@ public sealed class SuiScssGenerator
 		var s = el.Style;
 		if ( s == null ) return;
 
-		if ( !string.IsNullOrEmpty( s.BackgroundColor ) ) Emit( depth, "background-color", s.BackgroundColor );
+		if ( !string.IsNullOrEmpty( s.BackgroundColor ) ) EmitIfNotBound( el, depth, "background-color", "BackgroundColor", s.BackgroundColor );
 
 		// V1.5 M3.5 — Normal-state background image (PRD 25). Pseudo-class
 		// blocks for Hover/Pressed/etc handle their own background-image; this
@@ -483,7 +483,9 @@ public sealed class SuiScssGenerator
 		// Canvas divergence the user can't fix from the inspector.
 		var hasBorderColor = !string.IsNullOrEmpty( s.BorderColor );
 		var hasBorderWidth = s.BorderWidth > 0f;
-		if ( hasBorderColor && hasBorderWidth )
+		if ( hasBorderColor && hasBorderWidth
+			&& !HasBindingOnProperty( el, "BorderColor" )
+			&& !HasBindingOnProperty( el, "BorderWidth" ) )
 		{
 			Emit( depth, "border-color", s.BorderColor );
 			Emit( depth, "border-width", Px( s.BorderWidth ) );
@@ -509,7 +511,7 @@ public sealed class SuiScssGenerator
 		{
 			Emit( depth, "opacity", "0" );
 		}
-		else if ( s.Opacity < 0.9999f )
+		else if ( s.Opacity < 0.9999f && !HasBindingOnProperty( el, "Opacity" ) )
 		{
 			Emit( depth, "opacity", Float( s.Opacity ) );
 		}
@@ -544,13 +546,13 @@ public sealed class SuiScssGenerator
 		switch ( el.Type )
 		{
 			case SuiElementType.Text:
-				if ( p.FontSize > 0f ) Emit( depth, "font-size", Px( p.FontSize ) );
-				if ( !string.IsNullOrEmpty( p.FontFamily ) ) Emit( depth, "font-family", p.FontFamily );
-				if ( p.FontWeight != SuiFontWeight.Normal ) Emit( depth, "font-weight", FontWeight( p.FontWeight ) );
-				if ( !string.IsNullOrEmpty( p.Color ) ) Emit( depth, "color", p.Color );
-				if ( p.TextAlign != SuiTextAlign.Left ) Emit( depth, "text-align", TextAlign( p.TextAlign ) );
-				if ( p.LineHeight.HasValue ) Emit( depth, "line-height", Float( p.LineHeight.Value ) );
-				if ( p.LetterSpacing != 0f ) Emit( depth, "letter-spacing", Px( p.LetterSpacing ) );
+				if ( p.FontSize > 0f ) EmitIfNotBound( el, depth, "font-size", "FontSize", Px( p.FontSize ) );
+				if ( !string.IsNullOrEmpty( p.FontFamily ) ) EmitIfNotBound( el, depth, "font-family", "FontFamily", p.FontFamily );
+				if ( p.FontWeight != SuiFontWeight.Normal ) EmitIfNotBound( el, depth, "font-weight", "FontWeight", FontWeight( p.FontWeight ) );
+				if ( !string.IsNullOrEmpty( p.Color ) ) EmitIfNotBound( el, depth, "color", "Color", p.Color );
+				if ( p.TextAlign != SuiTextAlign.Left ) EmitIfNotBound( el, depth, "text-align", "TextAlign", TextAlign( p.TextAlign ) );
+				if ( p.LineHeight.HasValue ) EmitIfNotBound( el, depth, "line-height", "LineHeight", Float( p.LineHeight.Value ) );
+				if ( p.LetterSpacing != 0f ) EmitIfNotBound( el, depth, "letter-spacing", "LetterSpacing", Px( p.LetterSpacing ) );
 				if ( p.TextOverflow != SuiTextOverflow.Clip )
 					Emit( depth, "text-overflow", p.TextOverflow == SuiTextOverflow.Ellipsis ? "ellipsis" : "clip" );
 
@@ -592,7 +594,10 @@ public sealed class SuiScssGenerator
 				var imagePath = !string.IsNullOrEmpty( p.ImagePath ) ? p.ImagePath : p.PreviewIconPath;
 				if ( !string.IsNullOrEmpty( imagePath ) )
 				{
-					Emit( depth, "background-image", $"url(\"{imagePath}\")" );
+					if ( !HasBindingOnProperty( el, "ImagePath" ) )
+					{
+						Emit( depth, "background-image", $"url(\"{imagePath}\")" );
+					}
 					Emit( depth, "background-size", FitMode( p.FitMode ) );
 					Emit( depth, "background-position", BgPosition( p.BackgroundPosition ) );
 					// CSS default for background-repeat is "repeat", which makes
@@ -600,7 +605,8 @@ public sealed class SuiScssGenerator
 					// than the container. Force no-repeat so what the canvas
 					// paints matches what the runtime shows.
 					Emit( depth, "background-repeat", "no-repeat" );
-					if ( !string.IsNullOrEmpty( p.Tint ) && p.Tint != "#ffffff" && p.Tint != "#FFFFFF" )
+					if ( !string.IsNullOrEmpty( p.Tint ) && p.Tint != "#ffffff" && p.Tint != "#FFFFFF"
+						&& !HasBindingOnProperty( el, "Tint" ) )
 						Emit( depth, "background-image-tint", p.Tint );
 				}
 				break;
@@ -649,7 +655,7 @@ public sealed class SuiScssGenerator
 					Emit( depth, "display", "flex" );
 					Emit( depth, "flex-direction", "row" );
 					Emit( depth, "flex-wrap", el.Type == SuiElementType.Hotbar ? "nowrap" : "wrap" );
-					Emit( depth, "gap", Px( p.GridGap ) );
+					EmitIfNotBound( el, depth, "gap", "Gap", Px( p.GridGap ) );
 				}
 
 				// Only auto-size from cells when the user hasn't pinned a size.
@@ -663,20 +669,32 @@ public sealed class SuiScssGenerator
 				// Compensate by adding the border allowance up front.
 				// Padding emission is handled separately via EmitSpacing so a
 				// user-configured padding does NOT need to be added here.
-				var hasExplicitW = gridLayout != null && gridLayout.Width > 0f;
-				var hasExplicitH = gridLayout != null && gridLayout.Height > 0f;
-				var borderSlack = 2f * ((el.Style?.BorderWidth ?? 0f) > 0f ? el.Style.BorderWidth : 0f);
-				var paddingSlackX = (el.Layout?.Padding?.Left ?? 0f) + (el.Layout?.Padding?.Right ?? 0f);
-				var paddingSlackY = (el.Layout?.Padding?.Top ?? 0f) + (el.Layout?.Padding?.Bottom ?? 0f);
-				if ( !hasExplicitW )
+				// When ANY grid dimension input (Columns/Rows/CellWidth/CellHeight)
+				// is runtime-bound, skip the entire auto-derive block — the inline
+				// style the binding emitter writes will own width/height. Emitting
+				// a stale cell-derived size here would compete with the binding on
+				// every BuildHash tick.
+				var gridDimsBound = HasBindingOnProperty( el, "Columns" )
+					|| HasBindingOnProperty( el, "Rows" )
+					|| HasBindingOnProperty( el, "CellWidth" )
+					|| HasBindingOnProperty( el, "CellHeight" );
+				if ( !gridDimsBound )
 				{
-					var w = p.Columns * p.CellWidth + (p.Columns - 1) * p.GridGap + borderSlack + paddingSlackX;
-					Emit( depth, "width", Px( w ) );
-				}
-				if ( !hasExplicitH )
-				{
-					var h = p.Rows * p.CellHeight + (p.Rows - 1) * p.GridGap + borderSlack + paddingSlackY;
-					Emit( depth, "height", Px( h ) );
+					var hasExplicitW = gridLayout != null && gridLayout.Width > 0f;
+					var hasExplicitH = gridLayout != null && gridLayout.Height > 0f;
+					var borderSlack = 2f * ((el.Style?.BorderWidth ?? 0f) > 0f ? el.Style.BorderWidth : 0f);
+					var paddingSlackX = (el.Layout?.Padding?.Left ?? 0f) + (el.Layout?.Padding?.Right ?? 0f);
+					var paddingSlackY = (el.Layout?.Padding?.Top ?? 0f) + (el.Layout?.Padding?.Bottom ?? 0f);
+					if ( !hasExplicitW )
+					{
+						var w = p.Columns * p.CellWidth + (p.Columns - 1) * p.GridGap + borderSlack + paddingSlackX;
+						EmitIfNotBound( el, depth, "width", "Width", Px( w ) );
+					}
+					if ( !hasExplicitH )
+					{
+						var h = p.Rows * p.CellHeight + (p.Rows - 1) * p.GridGap + borderSlack + paddingSlackY;
+						EmitIfNotBound( el, depth, "height", "Height", Px( h ) );
+					}
 				}
 				break;
 
@@ -900,6 +918,21 @@ public sealed class SuiScssGenerator
 			if ( b != null && string.Equals( b.Property, property, StringComparison.Ordinal ) ) return true;
 		}
 		return false;
+	}
+
+	/// <summary>
+	/// Emit a CSS declaration ONLY when the element does NOT declare a runtime
+	/// binding on the supplied SUI property. When a binding is present the
+	/// runtime path (inline style on the Razor side, written every BuildHash
+	/// tick) owns the property — emitting a static SCSS value would either
+	/// flicker on first frame or, worse, reassert itself when the binding
+	/// clears. Three V1.5 bugs traced to this pattern; see [[reference_sandbox_ui_inline_position]]
+	/// in user memory.
+	/// </summary>
+	private void EmitIfNotBound( SuiElement el, int depth, string cssProperty, string suiProperty, string value )
+	{
+		if ( HasBindingOnProperty( el, suiProperty ) ) return;
+		Emit( depth, cssProperty, value );
 	}
 
 	/// <summary>
