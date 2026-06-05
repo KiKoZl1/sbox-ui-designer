@@ -1,4 +1,4 @@
-{
+﻿{
     "Document":  {
                      "SchemaVersion":  3,
                      "DocumentId":  "sui_showcase_quest_journal_a4f1c2",
@@ -728,8 +728,26 @@
                                                         "GridStrategy":  "WrappedFlex",
                                                         "ButtonText":  "Active",
                                                         "ButtonShape":  "Rectangle",
-                                                        "HoverStyle":  null,
-                                                        "PressedStyle":  null,
+                                                        "HoverStyle":  {
+                                                                           "BackgroundImage":  "",
+                                                                           "BackgroundColor":  "#6ee7a3",
+                                                                           "BorderColor":  "",
+                                                                           "BorderWidth":  -1,
+                                                                           "BorderRadius":  -1,
+                                                                           "TextColor":  "",
+                                                                           "Scale":  1.03,
+                                                                           "Opacity":  -1
+                                                                       },
+                                                        "PressedStyle":  {
+                                                                             "BackgroundImage":  "",
+                                                                             "BackgroundColor":  "#22c55e",
+                                                                             "BorderColor":  "",
+                                                                             "BorderWidth":  -1,
+                                                                             "BorderRadius":  -1,
+                                                                             "TextColor":  "",
+                                                                             "Scale":  0.97,
+                                                                             "Opacity":  -1
+                                                                         },
                                                         "DisabledStyle":  null,
                                                         "FocusedStyle":  null,
                                                         "IsDisabled":  false,
@@ -880,8 +898,26 @@
                                                         "GridStrategy":  "WrappedFlex",
                                                         "ButtonText":  "Completed",
                                                         "ButtonShape":  "Rectangle",
-                                                        "HoverStyle":  null,
-                                                        "PressedStyle":  null,
+                                                        "HoverStyle":  {
+                                                                           "BackgroundImage":  "",
+                                                                           "BackgroundColor":  "#374151",
+                                                                           "BorderColor":  "",
+                                                                           "BorderWidth":  -1,
+                                                                           "BorderRadius":  -1,
+                                                                           "TextColor":  "",
+                                                                           "Scale":  1.03,
+                                                                           "Opacity":  -1
+                                                                       },
+                                                        "PressedStyle":  {
+                                                                             "BackgroundImage":  "",
+                                                                             "BackgroundColor":  "#111827",
+                                                                             "BorderColor":  "",
+                                                                             "BorderWidth":  -1,
+                                                                             "BorderRadius":  -1,
+                                                                             "TextColor":  "",
+                                                                             "Scale":  0.97,
+                                                                             "Opacity":  -1
+                                                                         },
                                                         "DisabledStyle":  null,
                                                         "FocusedStyle":  null,
                                                         "IsDisabled":  false,
@@ -1032,8 +1068,26 @@
                                                         "GridStrategy":  "WrappedFlex",
                                                         "ButtonText":  "Failed",
                                                         "ButtonShape":  "Rectangle",
-                                                        "HoverStyle":  null,
-                                                        "PressedStyle":  null,
+                                                        "HoverStyle":  {
+                                                                           "BackgroundImage":  "",
+                                                                           "BackgroundColor":  "#374151",
+                                                                           "BorderColor":  "",
+                                                                           "BorderWidth":  -1,
+                                                                           "BorderRadius":  -1,
+                                                                           "TextColor":  "",
+                                                                           "Scale":  1.03,
+                                                                           "Opacity":  -1
+                                                                       },
+                                                        "PressedStyle":  {
+                                                                             "BackgroundImage":  "",
+                                                                             "BackgroundColor":  "#111827",
+                                                                             "BorderColor":  "",
+                                                                             "BorderWidth":  -1,
+                                                                             "BorderRadius":  -1,
+                                                                             "TextColor":  "",
+                                                                             "Scale":  0.97,
+                                                                             "Opacity":  -1
+                                                                         },
                                                         "DisabledStyle":  null,
                                                         "FocusedStyle":  null,
                                                         "IsDisabled":  false,
@@ -1333,8 +1387,26 @@
                                                         "GridStrategy":  "WrappedFlex",
                                                         "ButtonText":  "Slay 10 Zombies",
                                                         "ButtonShape":  "Rectangle",
-                                                        "HoverStyle":  null,
-                                                        "PressedStyle":  null,
+                                                        "HoverStyle":  {
+                                                                           "BackgroundImage":  "",
+                                                                           "BackgroundColor":  "#4b5563",
+                                                                           "BorderColor":  "",
+                                                                           "BorderWidth":  -1,
+                                                                           "BorderRadius":  -1,
+                                                                           "TextColor":  "",
+                                                                           "Scale":  1.03,
+                                                                           "Opacity":  -1
+                                                                       },
+                                                        "PressedStyle":  {
+                                                                             "BackgroundImage":  "",
+                                                                             "BackgroundColor":  "#111827",
+                                                                             "BorderColor":  "",
+                                                                             "BorderWidth":  -1,
+                                                                             "BorderRadius":  -1,
+                                                                             "TextColor":  "",
+                                                                             "Scale":  0.97,
+                                                                             "Opacity":  -1
+                                                                         },
                                                         "DisabledStyle":  null,
                                                         "FocusedStyle":  null,
                                                         "IsDisabled":  false,
@@ -1376,7 +1448,19 @@
                                                         "DropDownSelectedIndex":  0
                                                     },
                                           "Bindings":  [
+                                                           {
+                                                               "Id":  "bind_quest_card_1_text",
+                                                               "Property":  "ButtonText",
+                                                               "Mode":  "OneWay",
+                                                               "UpdateTrigger":  "OnChange",
+                                                               "Source":  {
+                                                                              "VariableId":  "var_quest_card_1_text"
+                                                                          },
+                                                               "Converters":  [
 
+                                                                              ],
+                                                               "FallbackValue":  null
+                                                           }
                                                        ],
                                           "SuiReference":  null,
                                           "Events":  {
@@ -1485,8 +1569,26 @@
                                                         "GridStrategy":  "WrappedFlex",
                                                         "ButtonText":  "Collect 5 Herbs",
                                                         "ButtonShape":  "Rectangle",
-                                                        "HoverStyle":  null,
-                                                        "PressedStyle":  null,
+                                                        "HoverStyle":  {
+                                                                           "BackgroundImage":  "",
+                                                                           "BackgroundColor":  "#374151",
+                                                                           "BorderColor":  "",
+                                                                           "BorderWidth":  -1,
+                                                                           "BorderRadius":  -1,
+                                                                           "TextColor":  "",
+                                                                           "Scale":  1.03,
+                                                                           "Opacity":  -1
+                                                                       },
+                                                        "PressedStyle":  {
+                                                                             "BackgroundImage":  "",
+                                                                             "BackgroundColor":  "#111827",
+                                                                             "BorderColor":  "",
+                                                                             "BorderWidth":  -1,
+                                                                             "BorderRadius":  -1,
+                                                                             "TextColor":  "",
+                                                                             "Scale":  0.97,
+                                                                             "Opacity":  -1
+                                                                         },
                                                         "DisabledStyle":  null,
                                                         "FocusedStyle":  null,
                                                         "IsDisabled":  false,
@@ -1528,7 +1630,19 @@
                                                         "DropDownSelectedIndex":  0
                                                     },
                                           "Bindings":  [
+                                                           {
+                                                               "Id":  "bind_quest_card_2_text",
+                                                               "Property":  "ButtonText",
+                                                               "Mode":  "OneWay",
+                                                               "UpdateTrigger":  "OnChange",
+                                                               "Source":  {
+                                                                              "VariableId":  "var_quest_card_2_text"
+                                                                          },
+                                                               "Converters":  [
 
+                                                                              ],
+                                                               "FallbackValue":  null
+                                                           }
                                                        ],
                                           "SuiReference":  null,
                                           "Events":  {
@@ -1637,8 +1751,26 @@
                                                         "GridStrategy":  "WrappedFlex",
                                                         "ButtonText":  "Talk to Mayor",
                                                         "ButtonShape":  "Rectangle",
-                                                        "HoverStyle":  null,
-                                                        "PressedStyle":  null,
+                                                        "HoverStyle":  {
+                                                                           "BackgroundImage":  "",
+                                                                           "BackgroundColor":  "#374151",
+                                                                           "BorderColor":  "",
+                                                                           "BorderWidth":  -1,
+                                                                           "BorderRadius":  -1,
+                                                                           "TextColor":  "",
+                                                                           "Scale":  1.03,
+                                                                           "Opacity":  -1
+                                                                       },
+                                                        "PressedStyle":  {
+                                                                             "BackgroundImage":  "",
+                                                                             "BackgroundColor":  "#111827",
+                                                                             "BorderColor":  "",
+                                                                             "BorderWidth":  -1,
+                                                                             "BorderRadius":  -1,
+                                                                             "TextColor":  "",
+                                                                             "Scale":  0.97,
+                                                                             "Opacity":  -1
+                                                                         },
                                                         "DisabledStyle":  null,
                                                         "FocusedStyle":  null,
                                                         "IsDisabled":  false,
@@ -1680,7 +1812,19 @@
                                                         "DropDownSelectedIndex":  0
                                                     },
                                           "Bindings":  [
+                                                           {
+                                                               "Id":  "bind_quest_card_3_text",
+                                                               "Property":  "ButtonText",
+                                                               "Mode":  "OneWay",
+                                                               "UpdateTrigger":  "OnChange",
+                                                               "Source":  {
+                                                                              "VariableId":  "var_quest_card_3_text"
+                                                                          },
+                                                               "Converters":  [
 
+                                                                              ],
+                                                               "FallbackValue":  null
+                                                           }
                                                        ],
                                           "SuiReference":  null,
                                           "Events":  {
@@ -3589,7 +3733,7 @@
                                            "Source":  {
                                                           "Kind":  "Manual"
                                                       },
-                                           "Description":  "Which tab is currently shown â€” \"Active\", \"Completed\", or \"Failed\". Controller updates on tab-button click; helper for any UI that displays the active tab label.",
+                                           "Description":  "Which tab is currently shown Ã¢â‚¬â€ \"Active\", \"Completed\", or \"Failed\". Controller updates on tab-button click; helper for any UI that displays the active tab label.",
                                            "IsAdvanced":  false,
                                            "IsPublic":  true,
                                            "Group":  "Tabs",
@@ -3719,6 +3863,48 @@
                                            "IsAdvanced":  false,
                                            "IsPublic":  true,
                                            "Group":  "Rewards",
+                                           "ResourceType":  null
+                                       },
+                                       {
+                                           "Id":  "var_quest_card_1_text",
+                                           "Name":  "QuestCard1Text",
+                                           "Type":  "string",
+                                           "Default":  "Slay 10 Zombies",
+                                           "Source":  {
+                                                          "Kind":  "Manual"
+                                                      },
+                                           "Description":  "Label text rendered on the first quest-list card on the LEFT. Controller writes via RefreshCardLabels() each time the user switches tab so the list column reflects the new category.",
+                                           "IsAdvanced":  false,
+                                           "IsPublic":  true,
+                                           "Group":  "List",
+                                           "ResourceType":  null
+                                       },
+                                       {
+                                           "Id":  "var_quest_card_2_text",
+                                           "Name":  "QuestCard2Text",
+                                           "Type":  "string",
+                                           "Default":  "Collect 5 Herbs",
+                                           "Source":  {
+                                                          "Kind":  "Manual"
+                                                      },
+                                           "Description":  "Label text rendered on the second quest-list card on the LEFT. Controller writes via RefreshCardLabels().",
+                                           "IsAdvanced":  false,
+                                           "IsPublic":  true,
+                                           "Group":  "List",
+                                           "ResourceType":  null
+                                       },
+                                       {
+                                           "Id":  "var_quest_card_3_text",
+                                           "Name":  "QuestCard3Text",
+                                           "Type":  "string",
+                                           "Default":  "Talk to Mayor",
+                                           "Source":  {
+                                                          "Kind":  "Manual"
+                                                      },
+                                           "Description":  "Label text rendered on the third quest-list card on the LEFT. Controller writes via RefreshCardLabels().",
+                                           "IsAdvanced":  false,
+                                           "IsPublic":  true,
+                                           "Group":  "List",
                                            "ResourceType":  null
                                        }
                                    ],

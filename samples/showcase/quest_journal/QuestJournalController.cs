@@ -199,13 +199,21 @@ public sealed class QuestJournalController : Component
 		Hud.OnQuest2Click       = OnQuest2Click;
 		Hud.OnQuest3Click       = OnQuest3Click;
 
-		// 2) Push the initial selection into the Variables so frame zero shows
-		//    the correct detail pane instead of the authored canvas preview.
-		PushSelectedQuest();
-
-		// 3) Mount the card. MouseOnly so the player can click tabs / cards
+		// 2) Mount the card. MouseOnly so the player can click tabs / cards
 		//    without the journal grabbing keyboard focus from gameplay.
+		//    Show() must happen BEFORE the Restyle* calls — restyle reaches into
+		//    Hud.View?.* Panel refs which are only populated after the
+		//    SuiPanel mounts.
 		Hud.Show( GameObject, SuiInputMode.MouseOnly );
+
+		// 3) Push the initial selection + list labels + tab/card visuals so
+		//    frame zero matches the runtime state instead of leaning on the
+		//    authored canvas preview values (which would silently drift the
+		//    second somebody re-orders the seed quests).
+		RefreshCardLabels();
+		RefreshTabVisuals();
+		RefreshCardVisuals();
+		PushSelectedQuest();
 	}
 
 	protected override void OnUpdate()
@@ -258,18 +266,21 @@ public sealed class QuestJournalController : Component
 
 	private void SwitchTab( QuestTab tab )
 	{
-		if ( _currentTab == tab && _selectedIndex == 0 ) return;
-
+		// Always run the refresh chain — even on a same-tab reclick we want the
+		// selection to reset to 0 and the card visuals to settle. Without this
+		// re-entry the user gets a "dead click" feel if they re-click the tab
+		// they already had open.
 		_currentTab = tab;
 		_selectedIndex = 0;
 		Hud.CurrentTabText = tab.ToString();
 
-		// Refresh the list column with the first 3 entries of the new tab and
-		// push the first quest into the detail pane.
-		PushQuestListLabels();
+		// Refresh the list column with the first 3 entries of the new tab,
+		// re-skin the tabs (active vs inactive), re-skin the cards (selected
+		// vs not), and push the first quest into the detail pane.
+		RefreshCardLabels();
+		RefreshTabVisuals();
+		RefreshCardVisuals();
 		PushSelectedQuest();
-		RestyleTabs();
-		RestyleQuestCards();
 
 		Log.Info( $"[QuestJournal] Switched to tab '{tab}'." );
 	}
@@ -281,8 +292,8 @@ public sealed class QuestJournalController : Component
 		if ( _selectedIndex == index ) return;
 
 		_selectedIndex = index;
+		RefreshCardVisuals();
 		PushSelectedQuest();
-		RestyleQuestCards();
 
 		Log.Info( $"[QuestJournal] Selected quest #{index}: '{list[index].Title}'." );
 	}
@@ -314,39 +325,30 @@ public sealed class QuestJournalController : Component
 	// Variable push helpers — controller → SUI Variables → bound elements.
 	// ─────────────────────────────────────────────────────────────────────────
 
-	/// <summary>Update the three quest-card buttons' label text via the
-	/// <c>ButtonText</c> property on the rendered Panel. The tab-switch
-	/// rebuilds the visible quest list, so the card text must follow.</summary>
-	private void PushQuestListLabels()
+	/// <summary>Push the three quest-card titles into the
+	/// <c>QuestCard1Text</c>/<c>QuestCard2Text</c>/<c>QuestCard3Text</c>
+	/// Variables. The three OneWay bindings on the card Buttons' ButtonText
+	/// property pick the change up on the next frame, so the LEFT column
+	/// always reflects the active tab's quest list.</summary>
+	private void RefreshCardLabels()
 	{
 		var list = CurrentQuests;
 
-		SetQuestCardText( Hud.View?.QuestCard1, list, 0 );
-		SetQuestCardText( Hud.View?.QuestCard2, list, 1 );
-		SetQuestCardText( Hud.View?.QuestCard3, list, 2 );
+		Hud.QuestCard1Text = list.Count > 0 ? list[0].Title : "—";
+		Hud.QuestCard2Text = list.Count > 1 ? list[1].Title : "—";
+		Hud.QuestCard3Text = list.Count > 2 ? list[2].Title : "—";
+
+		// Dim the trailing card slots that don't have a quest behind them so
+		// the player can tell at a glance the category only has 1 or 2 entries.
+		ApplyCardOpacity( Hud.View?.QuestCard1, list.Count > 0 );
+		ApplyCardOpacity( Hud.View?.QuestCard2, list.Count > 1 );
+		ApplyCardOpacity( Hud.View?.QuestCard3, list.Count > 2 );
 	}
 
-	private static void SetQuestCardText( Panel cardPanel, List<Quest> list, int index )
+	private static void ApplyCardOpacity( Panel cardPanel, bool hasQuest )
 	{
 		if ( cardPanel == null ) return;
-
-		// The Button renderer pulls ButtonText from a Label child. We update
-		// the Label directly to keep the runtime in sync with the data.
-		// (We can't bind ButtonText to a Variable per-card without authoring
-		// 3 string Variables; mutating the Label inline is simpler.)
-		var label = cardPanel.ChildrenOfType<Label>().FirstOrDefault();
-		if ( label == null ) return;
-
-		if ( index < list.Count )
-		{
-			label.Text = list[index].Title;
-			cardPanel.Style.Opacity = 1f;
-		}
-		else
-		{
-			label.Text = "—";
-			cardPanel.Style.Opacity = 0.35f;
-		}
+		cardPanel.Style.Opacity = hasQuest ? 1f : 0.35f;
 		cardPanel.Style.Dirty();
 	}
 
@@ -392,7 +394,7 @@ public sealed class QuestJournalController : Component
 	// each of the 6 buttons — without that, Hud.View.* would be null.
 	// ─────────────────────────────────────────────────────────────────────────
 
-	private void RestyleTabs()
+	private void RefreshTabVisuals()
 	{
 		ApplyTabStyle( Hud.View?.TabActive,    _currentTab == QuestTab.Active );
 		ApplyTabStyle( Hud.View?.TabCompleted, _currentTab == QuestTab.Completed );
@@ -409,7 +411,7 @@ public sealed class QuestJournalController : Component
 		tabPanel.Style.Dirty();
 	}
 
-	private void RestyleQuestCards()
+	private void RefreshCardVisuals()
 	{
 		ApplyCardStyle( Hud.View?.QuestCard1, _selectedIndex == 0 );
 		ApplyCardStyle( Hud.View?.QuestCard2, _selectedIndex == 1 );
