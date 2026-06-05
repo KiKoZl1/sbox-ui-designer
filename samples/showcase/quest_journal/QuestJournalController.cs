@@ -405,7 +405,7 @@ public sealed class QuestJournalController : Component
 
 		tabPanel.Style.BackgroundColor = isActive ? TabActiveBg : TabInactiveBg;
 		tabPanel.Style.FontColor       = isActive ? TabActiveText : TabInactiveText;
-		tabPanel.Style.FontWeight      = isActive ? FontWeight.Bold : FontWeight.Normal;
+		tabPanel.Style.FontWeight      = isActive ? 700 : 400;
 		tabPanel.Style.Dirty();
 	}
 
@@ -422,7 +422,7 @@ public sealed class QuestJournalController : Component
 
 		cardPanel.Style.BackgroundColor = isSelected ? CardSelectedBg : CardInactiveBg;
 		cardPanel.Style.FontColor       = isSelected ? CardSelectedText : CardInactiveText;
-		cardPanel.Style.FontWeight      = isSelected ? FontWeight.Bold : FontWeight.Normal;
+		cardPanel.Style.FontWeight      = isSelected ? 700 : 400;
 		cardPanel.Style.Dirty();
 	}
 }
