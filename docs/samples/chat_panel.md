@@ -1,6 +1,26 @@
-# Chat Panel
+---
+layout: default
+title: chat_panel
+parent: Samples
+nav_order: 2
+permalink: /samples/chat_panel/
+---
+
+# chat_panel
+{: .no_toc }
 
 A compact in-game **chat panel** showcase for the s&box UI Designer (`.sui`). One dark card in the bottom-left corner with a scrollable message history, a typed input, and a green Send button — the canonical "twitch-style overlay chat" surface, in pure `.sui` plus a small controller.
+{: .fs-6 .fw-300 }
+
+## Table of contents
+{: .no_toc .text-delta }
+
+- TOC
+{:toc}
+
+---
+
+## Overview
 
 If the `settings_full` sample is "every input widget the Designer ships," and `inventory_grid_full` is "a runtime-populated grid using `ExposeAsVariable`," then `chat_panel` is the **smallest** runtime-driven sample: two `ExposeAsVariable` elements (one Panel, one TextEntry), one Manual TextEntry binding, one Code-mode click event, and a runtime list of `Label` children rebuilt every send. It demonstrates:
 
@@ -8,14 +28,14 @@ If the `settings_full` sample is "every input widget the Designer ships," and `i
 - **A Button with `OnClick → Code`** wired to a delegate the controller assigns *before* `Hud.Show()` (the load-bearing gotcha; see Events table below)
 - **`ExposeAsVariable=true` on two elements** so the controller can reach the runtime panel via `Hud.View?.MessageList` and the input via `Hud.View?.ChatInput` without find-by-class
 - **`OneWay` Text binding** on the header counter, driven entirely by the controller
-- **Hover / Pressed interactive styles** on the Send button (1.03× hover, 0.97× pressed, green→darker-green tint)
+- **Hover / Pressed interactive styles** on the Send button (1.03x hover, 0.97x pressed, green to darker-green tint)
 - **Press Enter inside the input to submit**, wired via the engine's native `"onsubmit"` event on TextEntry — no `actions.cfg` edit required
 
 ## Behavior
 
 End-to-end walkthrough of every interaction the sample wires up.
 
-1. **Mount the panel.** A 480×320 dark card with a 1-pixel border anchors to the bottom-left, 24px in and 20px up from the screen edge. A single seeded welcome message — `[00:00] system: Welcome - type a message and hit Send (or press Enter).` — is rendered in green. The header reads `Chat` on the left and `1 message` on the right.
+1. **Mount the panel.** A 480x320 dark card with a 1-pixel border anchors to the bottom-left, 24px in and 20px up from the screen edge. A single seeded welcome message — `[00:00] system: Welcome - type a message and hit Send (or press Enter).` — is rendered in green. The header reads `Chat` on the left and `1 message` on the right.
 2. **Type into the input.** The TextEntry is `Manual` mode, so `Hud.ChatInputText` does **not** update as you type — it stays empty until the controller calls `Hud.Apply.All()`. The on-screen widget shows the draft normally; only the bound Variable lags.
 3. **Click Send or press Enter inside the input.** The controller's `OnSendClick` runs `Hud.Apply.All()` (flushing the draft into `Hud.ChatInputText`), trims the string, exits if empty, then builds a `ChatMessage` and appends it to `_messages`. `RenderMessages()` wipes the `MessageList` panel and re-creates one `Label` child per message. The header counter updates (`2 messages`), the panel scrolls to the bottom (`TryScrollToBottom()`), and the input is cleared by writing `""` directly to `Hud.View.ChatInputRef.Text`.
 4. **`/me <action>`** is parsed as an emote — the message is tinted amber (`#fbbf24`) and the leading `/me ` is stripped. Try `/me waves`.
@@ -26,7 +46,7 @@ The Manual TextEntry trigger is intentional: a chat input has obvious "submit" s
 
 ## What you'll see
 
-A 480×320 dark card with rounded corners and a thin grey border anchors to the bottom-left of the screen. Top-left of the card reads `Chat` in bold grey; top-right reads `0 messages` (then `1 message`, `2 messages`, …) as you interact. Below the header is a 240px-tall message list with `Overflow=Hidden`, which clips the oldest messages out of view once the list is taller than the card. Beneath that is a 28px-tall darker bar (`#1f2937`) with the text input layered on top — placeholder `Type a message...` until you click and type. A green Send button (with hover scale + pressed darken) sits to the right.
+A 480x320 dark card with rounded corners and a thin grey border anchors to the bottom-left of the screen. Top-left of the card reads `Chat` in bold grey; top-right reads `0 messages` (then `1 message`, `2 messages`, …) as you interact. Below the header is a 240px-tall message list with `Overflow=Hidden`, which clips the oldest messages out of view once the list is taller than the card. Beneath that is a 28px-tall darker bar (`#1f2937`) with the text input layered on top — placeholder `Type a message...` until you click and type. A green Send button (with hover scale + pressed darken) sits to the right.
 
 The seed message — green, system author — fills the panel immediately on mount so it never looks blank. Every subsequent send appends one row below with a `[MM:SS]` timestamp, the local author (`you`), and the typed text.
 
@@ -118,18 +138,6 @@ Surprises specific to this sample — most are codegen quirks fixed in v1.5, plu
 | Pressing **Enter** inside the focused input does nothing — only the Send button submits. | The native `"onsubmit"` event on TextEntry must be wired via `AddEventListener("onsubmit", ...)` on the actual rendered widget, and `Hud.View?.ChatInputRef` is `null` until the first paint captures the `@ref`. Wiring it in `OnStart` no-ops because the ref is still null at that moment. | Wire `onsubmit` from inside `OnUpdate` behind a one-shot guard that waits for `Hud.View?.ChatInputRef != null`. The sample's controller already ships this — see `OnUpdate` and the `_submitWired` flag. |
 | Wrapper class does not exist — controller fails to compile with `CS0246: The type or namespace name 'ChatPanel' could not be found`. | The `.sui` file is the source of truth; the `ChatPanel.razor` / `.scss` / `.cs` wrapper is generated on first **Compile** inside the SUI Designer window. Cloning the sample and opening the project before compiling leaves the controller referencing a type that has not been emitted yet. | Open `chat_panel.sui` in **Window → Sbox UI Designer** and hit **Compile** once. The wrapper appears under `Code/Samples/ChatPanel/` and the controller resolves. Re-Compile any time you change Variables, Events, or `ExposeAsVariable` flags. |
 
-## File map
-
-```text
-Code/Samples/ChatPanel/
-  ChatPanel.cs                    (generated wrapper - do not edit)
-  ChatPanelPanel.razor          (generated markup - do not edit)
-  ChatPanelPanel.razor.scss     (generated styles - do not edit)
-  ChatPanelPanel.User.scss      (your custom styles - survives Force Regen)
-  ChatPanelController.cs        (you ship this - drives the wrapper)
-```
-
-
 ## Extending it
 
 - **Toggle the panel with a hotkey.** Add a `bool _chatOpen` field and gate `Hud.Show()` / `Hud.Remove()` on `Input.Pressed("Score")` (default `Tab`). When closed, the panel is fully unmounted — no rendering, no input capture, no per-frame `OnUpdate` work beyond the toggle check.
@@ -139,3 +147,12 @@ Code/Samples/ChatPanel/
 - **Auto-fade old messages.** Cache the `Label` per row in a `Dictionary<int, Label>` keyed by send index, then in `OnUpdate` walk the dictionary and lower `label.Style.Opacity` based on `(Time.Now - msg.SentAt)`. Twitch-style chat scrollback fade in ~30 lines.
 - **Replace the runtime Labels with a generated row template.** Instead of `AddChild<Label>()` in `RenderMessages`, design a second `chat_row.sui` with author + body + timestamp slots, then `Hud.View?.MessageList.AddChild(new ChatRow { Author = msg.Author, Body = msg.Text })`. Gets you styled rows that the Designer can preview live.
 - **Add a typing indicator.** A second `Text` element bound `OneWay` to a `bool IsRemoteTyping` Variable — controller flips it true on RPC-receive of a "typing" event, false 2s after the last keystroke. Same flow as `MessageCountText`.
+
+## See also
+
+- [Read the full `chat_panel` README on GitHub](https://github.com/KiKoZl1/sbox-ui-designer/tree/main/samples/showcase/chat_panel) — source files (`chat_panel.sui`, `ChatPanelController.cs`) and the canonical README this page is derived from.
+- [Showcase samples]({% link reference/showcase-samples.md %}) — the full V1.5 showcase catalog with inlined Variables / Bindings tables.
+- [Sample index]({% link reference/sample-index.md %}) — quick-reference grid of every shipped sample.
+- [Bindings]({% link concepts/bindings.md %}) — Manual update mode, `Apply.All()`, and how TwoWay bindings flow.
+- [Events & Actions]({% link concepts/events-and-actions.md %}) — Code-mode wiring and the `Hud.OnXxx = ...` before `Show()` rule.
+- [Wrapper generation]({% link concepts/wrapper-generation.md %}) — how `ExposeAsVariable` becomes a `View` field.

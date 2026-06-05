@@ -1,15 +1,35 @@
-# Dialog System
+---
+layout: default
+title: dialog_system
+parent: Samples
+nav_order: 5
+permalink: /samples/dialog_system/
+---
+
+# dialog_system
+{: .no_toc }
 
 A branching NPC dialog showcase: portrait, speaker name, line of text revealed letter-by-letter (typewriter), and 1–3 choice buttons that branch through a small conversation tree. Click anywhere on the card while text is typing to skip the animation; click a choice when the line is complete to advance.
+{: .fs-6 .fw-300 }
 
-The conversation graph is six nodes, hardcoded in `BuildDialogTree()`. Eldrin the Gatekeeper offers a quest, warns about a cursed land, and either farewell or quest-accept ends the dialog. Real games would swap this for a JSON/asset-driven tree.
+## Table of contents
+{: .no_toc .text-delta }
+
+- TOC
+{:toc}
+
+---
+
+## Overview
+
+The conversation graph is six nodes, hardcoded in `BuildDialogTree()`. Eldrin the Gatekeeper offers a quest, warns about a cursed land, and either farewell or quest-accept ends the dialog. Real games would swap this for a JSON / asset-driven tree.
 
 Stress-tests several pipeline areas at once:
 
 1. **Per-frame mutation of an `ExposeAsVariable` Label** — the typewriter rewrites `DialogText.Text` every ~25 ms while a line is animating.
 2. **Runtime `AddChild<Panel>` with `onclick` listeners** — choice buttons are created fresh on every node transition; old ones are deleted via `DeleteChildren(true)`.
 3. **State-machine UI swap** — Portrait colour, SpeakerName, DialogText, and the choices set all change in lockstep on every node change.
-4. **Card-level `onclick` for skip-typewriter** — listener attached on `Hud.View.Card` via the @ref capture one-shot, since the View is null at `OnStart`.
+4. **Card-level `onclick` for skip-typewriter** — listener attached on `Hud.View.Card` via the `@ref` capture one-shot, since the View is null at `OnStart`.
 
 ## Behavior
 
@@ -44,31 +64,11 @@ Node [5] swaps the portrait colour from indigo to green to signal the change in 
 ## How to use
 
 1. Open `dialog_system.sui` in the **SUI Designer** window and hit **Compile**. This writes `DialogSystemPanel.razor` + `.razor.scss` + `DialogSystem.cs` (the wrapper) into `Code/Samples/DialogSystem/`.
-2. Add `DialogSystemPanel.User.scss` (see **Required `User.scss` rules** below) for the runtime choice-button styling.
+2. Add `DialogSystemPanel.User.scss` (see [Required `User.scss` rules](#required-userscss-rules) below) for the runtime choice-button styling.
 3. Drop `DialogSystemController.cs` into the same folder.
 4. Attach `DialogSystemController` to a GameObject in any scene and hit **Play**.
 
 `TypewriterDelay` (default `0.025`) is exposed as a `[Property]` — lower for faster typing, higher for slower / more dramatic pacing.
-
-## Variables
-
-| Name         | Type     | Default | Group  | Role                                                                                                                                  |
-| ------------ | -------- | ------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------- |
-| `DialogText` | `string` | `""`    | *(none)* | Currently-visible dialog line. Controller writes `Hud.DialogText = ...` every typewriter tick; the OneWay binding on `el_dialog_text.Text` picks up the change and survives panel re-renders. |
-
-## Bindings
-
-| Element      | Property | Variable     | Mode   | UpdateTrigger |
-| ------------ | -------- | ------------ | ------ | ------------- |
-| `DialogText` (Text, `el_dialog_text`) | `Text`   | `DialogText` | OneWay | OnChange      |
-
-## Events
-
-| Element / Target              | Event         | Mode    | Handler / Wiring                                                                                                                                                              |
-| ----------------------------- | ------------- | ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| *(none declared in `.sui`)*   | —             | —       | All elements have empty `Events: {}`. Click wiring is runtime-only.                                                                                                            |
-| `Card` (Panel, `ExposeAsVariable`) | `onclick`     | Runtime | One-shot wiring in `OnUpdate` once `Hud.View.Card` captures, via `AddEventListener( "onclick", OnCardClick )` — skips the typewriter to the end of the current line.       |
-| Runtime-spawned `Panel` per choice | `onclick`     | Runtime | `SpawnChoices` calls `AddChild<Panel>` on `ChoicesContainer` and attaches `AddEventListener( "onclick", () => OnChoiceClick( nextNodeId ) )` per row. Cleared with `DeleteChildren(true)` between nodes. |
 
 ## Required `User.scss` rules
 
@@ -107,8 +107,8 @@ DialogSystemPanel {
 
 ## Controller architecture
 
-- **`OnStart`** builds the dialog tree, mounts the panel, sets `_currentNodeId = 0`. Visual application is deferred to OnUpdate because `Hud.View?.X` is null until first paint.
-- **`OnUpdate`** runs the bootstrap one-shot (attach card onclick + ApplyNode(0) once @refs capture) and advances the typewriter (`if (!_typewriterDone && Time.Now >= _nextCharAt) ...`).
+- **`OnStart`** builds the dialog tree, mounts the panel, sets `_currentNodeId = 0`. Visual application is deferred to `OnUpdate` because `Hud.View?.X` is null until first paint.
+- **`OnUpdate`** runs the bootstrap one-shot (attach card `onclick` + `ApplyNode(0)` once `@ref`s capture) and advances the typewriter (`if (!_typewriterDone && Time.Now >= _nextCharAt) ...`).
 - **`ApplyNode(int)`** swaps Portrait colour, SpeakerName, DialogText, clears old choices, restarts the typewriter timer.
 - **`OnCardClick`** is the skip handler — fast-forwards the typewriter index to the end and calls `FinishTypewriter()`.
 - **`FinishTypewriter`** writes the full line, hides the skip hint, calls `SpawnChoices()`.
@@ -122,21 +122,9 @@ Surprises specific to this sample, captured the hard way during development — 
 | Symptom | Cause | Fix |
 |---|---|---|
 | `Hud.View.DialogText` is always null, NRE the first time the typewriter ticks. | Codegen bug: `ExposeAsVariable=true` on a Text element declared the renderer field but never emitted the `@ref` capture onto the `<label>` tag, so the field stayed null forever. | Update to SUI Designer v1.5+ (commit `7199e37`). `EmitTextElement` now calls `EmitRazorRef` the same way container/input emitters do — recompile the `.sui` and the field captures. |
-| Typewriter writes a few chars then the label snaps back to the original template text mid-line. | Direct mutation `Hud.View.DialogText.Text = "..."` is stomped by any panel re-render, which re-emits the static `Props.Text` from the template. | Mark the field as a Variable with a OneWay binding instead of ExposeAsVariable, and assign via the wrapper (`Hud.DialogText = "..."`). The binding survives re-renders. See `reference_sbox_variable_vs_exposeasvariable`. |
+| Typewriter writes a few chars then the label snaps back to the original template text mid-line. | Direct mutation `Hud.View.DialogText.Text = "..."` is stomped by any panel re-render, which re-emits the static `Props.Text` from the template. | Mark the field as a Variable with a OneWay binding instead of `ExposeAsVariable`, and assign via the wrapper (`Hud.DialogText = "..."`). The binding survives re-renders. See `reference_sbox_variable_vs_exposeasvariable`. |
 | Clicking a choice throws `IndexOutOfRangeException` deep inside `Sandbox.UI.Panel`. | `SpawnChoices` calls `DeleteChildren(true)` on `ChoicesContainer` while the engine is still iterating the click handler's parent chain. | Don't transition nodes inline from `OnChoiceClick`. Set `_pendingNodeId = id` and let `OnUpdate` call `ApplyNode(_pendingNodeId)` on the next frame, after the click stack unwinds. |
 | Controller fails to compile: `The type or namespace name 'DialogSystem' could not be found`. | The wrapper class is generated by the SUI Designer on first compile of the `.sui` file — it does not exist until then. | Open `dialog_system.sui` in the SUI Designer window and hit **Compile** once. The wrapper (`DialogSystem.cs`) appears next to the `.razor` and the controller resolves. |
-
-## File map
-
-```text
-Code/Samples/DialogSystem/
-  DialogSystem.cs                    (generated wrapper - do not edit)
-  DialogSystemPanel.razor          (generated markup - do not edit)
-  DialogSystemPanel.razor.scss     (generated styles - do not edit)
-  DialogSystemPanel.User.scss      (your custom styles - survives Force Regen)
-  DialogSystemController.cs        (you ship this - drives the wrapper)
-```
-
 
 ## Extending it
 
@@ -147,3 +135,12 @@ Code/Samples/DialogSystem/
 - **Quest binding.** `NextNodeId = -1` already closes the dialog — add a sibling sentinel like `-2` meaning "accept quest", and call `QuestSystem.Start(questId)` before closing.
 - **Speaker portraits via Image.** Replace the coloured Portrait panel with `slotPanel.AddChild<Image>()`, and put `Texture portrait` references on each node.
 - **Re-open dialog with a hotkey.** Track `_dialogActive`; toggle `Hud.Show()`/`Hud.Remove()` on a hotkey, gated by proximity to the NPC GameObject.
+
+## See also
+
+- [Read the full `dialog_system` README on GitHub](https://github.com/KiKoZl1/sbox-ui-designer/tree/main/samples/showcase/dialog_system).
+- [Showcase samples]({% link reference/showcase-samples.md %}) — the full catalog with Variables / Bindings tables inlined.
+- [Sample index]({% link reference/sample-index.md %}) — short index of every shipped sample.
+- [Bindings]({% link concepts/bindings.md %}) — the OneWay binding pattern used by `DialogText` to survive panel re-renders.
+- [Events & Actions]({% link concepts/events-and-actions.md %}) — background on the `@ref` capture one-shot used to attach the card `onclick`.
+- [Wrapper generation]({% link concepts/wrapper-generation.md %}) — how `DialogSystem.cs` is produced from the `.sui`.

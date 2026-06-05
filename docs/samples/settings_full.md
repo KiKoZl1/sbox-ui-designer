@@ -1,6 +1,24 @@
-# Settings (Full)
+---
+layout: default
+title: settings_full
+parent: Samples
+nav_order: 14
+permalink: /samples/settings_full/
+---
+
+# settings_full
+{: .no_toc }
 
 The end-to-end **settings screen** showcase for the s&box UI Designer (`.sui`). One card on top of a dimming scrim, every input widget the Designer ships, and the classic Apply / Cancel / Reset triad wired through the `Apply.All()` save pattern.
+{: .fs-6 .fw-300 }
+
+## Table of contents
+{: .no_toc .text-delta }
+
+- TOC
+{:toc}
+
+---
 
 If the `counter_button` sample is "the smallest thing that proves the binding loop works," this is "the smallest thing that proves a real settings screen is possible without dropping out to Razor." It exercises:
 
@@ -33,6 +51,7 @@ The toast pattern matters: without `_toastUntilTime` the dirty detector would ov
 A centred 720×680 dark card called "Settings" appears over a dimming scrim that covers the whole screen. Three tabs run across the top — **Audio** is active, **Graphics (V1.6)** and **Controls (V1.6)** are visibly disabled. The `(V1.6)` suffix on those two tabs communicates intent: those panels are on the V1.6 backlog and intentionally do nothing right now. The V1 sample renders only the Audio panel; extending it with real tab switching is one of the suggestions below.
 
 The Audio panel contains, top-to-bottom:
+
 - **Player Name** — a text field, prefilled with `Player`, max 24 chars.
 - **Master Volume** — a slider from 0 to 100 with a `50%` label to the right that tracks live as you drag.
 - **Music Enabled** — a checkbox-style toggle, on by default.
@@ -123,17 +142,6 @@ you embed this card inside a larger HUD that also runs gameplay, swap to
 `MouseOnly` and treat the card as a modal you toggle on/off from a hotkey
 (see "Extending it" below).
 
-## File map
-
-```text
-Code/Samples/SettingsFull/
-  SettingsFull.cs                    (generated wrapper - do not edit)
-  SettingsFullPanel.razor          (generated markup - do not edit)
-  SettingsFullPanel.razor.scss     (generated styles - do not edit)
-  SettingsFullController.cs        (you ship this - drives the wrapper)
-```
-
-
 ## Extending it
 
 - **Wire the Graphics / Controls tabs** by giving each tab an `OnClick` Code handler that flips a `int CurrentTab` Variable, then add `[CSSClass]` or visibility bindings on three separate sub-panels (`AudioPanel`, `GraphicsPanel`, `ControlsPanel`) that toggle based on `CurrentTab`. The tabs are already styled — only the panels and the dispatch are missing.
@@ -143,3 +151,12 @@ Code/Samples/SettingsFull/
 - **Validate the name field** by adding a converter to the `bind_name_value` binding (e.g. `builtin.Compose` with a trimmer) or post-process in `OnApplyClick` (`_savedName = Hud.PlayerName.Trim()`). The TextEntry's `MaxLength` is already capped at 24 in the `.sui` props.
 - **Add a "Defaults differ" badge** by adding a second Variable `bool HasNonDefaults` that the controller flips when any saved value diverges from the defaults — bind a small `Text` element's `Visibility` (universal binding) to it.
 - **Replace the disabled placeholder tabs with a real Graphics panel** containing a `Resolution` DropDown, a `Fullscreen` Toggle, and a `Brightness` Slider — every widget you need is already demoed here; copy / paste / re-bind.
+
+## See also
+
+- [Read the full `settings_full` README on GitHub](https://github.com/KiKoZl1/sbox-ui-designer/tree/main/samples/showcase/settings_full).
+- [Showcase samples]({% link reference/showcase-samples.md %}) — the full catalog with all 16 V1.5 samples.
+- [Sample index]({% link reference/sample-index.md %}) — alphabetical / by-feature lookup.
+- [counter_button]({% link samples/counter_button.md %}) — the smallest binding-loop sample; this one's spiritual prequel.
+- [loadout_selector]({% link samples/loadout_selector.md %}) — DropDown + OnChange driving a richer preview surface.
+- [toggle_pause]({% link samples/toggle_pause.md %}) — modal card + dim scrim pattern without the multi-widget form.

@@ -1,6 +1,26 @@
-# Drag-Drop Inventory
+---
+layout: default
+title: drag_drop_inventory
+parent: Samples
+nav_order: 6
+permalink: /samples/drag_drop_inventory/
+---
+
+# drag_drop_inventory
+{: .no_toc }
 
 A real **drag-and-drop inventory manager** showcase: two 4×4 grids side-by-side, eight starter items spread between them, and the canonical "mouse-down on item → ghost follows cursor → mouse-up on slot to swap" interaction every survival/RPG game needs.
+{: .fs-6 .fw-300 }
+
+## Table of contents
+{: .no_toc .text-delta }
+
+- TOC
+{:toc}
+
+---
+
+## Why this sample matters
 
 This is the SUI Designer's heaviest runtime-rendering sample after `inventory_grid_full` — it stress-tests four corners of the pipeline at once:
 
@@ -9,6 +29,8 @@ This is the SUI Designer's heaviest runtime-rendering sample after `inventory_gr
 3. **Mouse position math during native drag.** `Panel.MousePosition` freezes once the engine claims the drag operation, so the ghost reads `Sandbox.Mouse.Position` directly and multiplies by `ScaleFromScreen` to convert raw screen pixels into the ghost's local panel coordinates.
 4. **Per-element `AddEventListener` on dynamically-created Panels.** Every one of the 32 runtime slots wires `onmousedown`/`onmouseup` against a captured `(side, index)` tuple — a deliberate stress on the closure-capture in C# loops *and* on Sandbox.UI's event bus when many listeners share the same delegate shape.
 
+---
+
 ## Behavior
 
 1. **Mount.** A 600×400 dark card with two sub-panels appears centred on screen. Title `Inventory Manager` at the top, then `BACKPACK` on the left + 4×4 grid below, `STASH` mirror on the right. 8 seeded items (Sword, Potion, Gold, Helmet, Shield, Bow, Gem, Scroll) are placed across both grids with empty slots between them so there's room to drag into.
@@ -16,6 +38,8 @@ This is the SUI Designer's heaviest runtime-rendering sample after `inventory_gr
 3. **Move the mouse.** Each `OnUpdate` reads `Sandbox.Mouse.Position * ghost.ScaleFromScreen` and writes the result minus `HalfSlot` into `ghost.Style.Left/Top` so the cursor sits in the centre of the preview.
 4. **Release on any slot.** That slot's `onmouseup` fires first (Sandbox.UI bubbles child → parent), the controller swaps the source and target items in the backing arrays, calls `Rerender()` to rebuild both grids, and hides the ghost.
 5. **Release outside any slot.** Only the root-level `onmouseup` fires. The controller cancels the drag, hides the ghost, leaves the inventories untouched.
+
+---
 
 ## Items
 
@@ -32,6 +56,8 @@ This is the SUI Designer's heaviest runtime-rendering sample after `inventory_gr
 
 All visuals are pure CSS — no PNG/VTEX assets. Replacing `GetItemVisual` with an `ImagePath` lookup is one of the "Extending it" ideas below.
 
+---
+
 ## How to use
 
 1. Open `drag_drop_inventory.sui` in the **SUI Designer** window (`Window → Sbox UI Designer`) and hit **Compile** (Force Regen). This emits `DragDropInventoryPanel.razor` + `.scss` + the `DragDropInventory.cs` wrapper into `Code/Samples/DragDropInventory/` under namespace `Sandbox.Samples`.
@@ -39,38 +65,7 @@ All visuals are pure CSS — no PNG/VTEX assets. Replacing `GetItemVisual` with 
 3. Drop `DragDropInventoryController.cs` into `Code/Samples/DragDropInventory/` (or anywhere under `Code/`).
 4. In any scene, attach `DragDropInventoryController` to a GameObject and hit **Play**.
 
-## Variables
-
-| Name | Type | Default | Group | Role |
-|---|---|---|---|---|
-| _None_ | — | — | — | This sample declares **zero** `.sui` Variables. All state lives controller-side in two `ItemKind[16]` arrays (`_backpack`, `_stash`) plus a small drag-state struct (`_dragActive`, `_dragSide`, `_dragIndex`, `_dragItem`). The pattern here is **runtime mutation via captured `@ref` Panels**, not data-bound Variables — see the Bindings table for why. |
-
-The three Panels that the controller actually touches at runtime are exposed via `ExposeAsVariable=true` (NOT the same as a `.sui` Variable — they only emit `@ref` field captures on the wrapper, no bindings):
-
-| Exposed Panel | Wrapper field type | Role |
-|---|---|---|
-| `BackpackGrid` | `Sandbox.UI.Panel` | Left 4×4 grid container. Controller wipes its children and adds 16 runtime slot Panels every `Rerender()`. |
-| `StashGrid` | `Sandbox.UI.Panel` | Right 4×4 grid container. Same lifecycle as `BackpackGrid`. |
-| `DragGhost` | `Sandbox.UI.Panel` | 56×56 floating preview Panel. Hidden by default; controller toggles `Style.Display` and rewrites `Style.Left/Top` every `OnUpdate` while a drag is in flight. |
-
-## Bindings
-
-| Element | Property | Variable | Mode |
-|---|---|---|---|
-| _None_ | — | — | — |
-
-This sample uses **zero** Bindings. The reason is deliberate: every visual the controller cares about (slot visuals, ghost position, ghost visibility) is mutated by direct `@ref` writes (`ghost.Style.Left = ...`, `slotPanel.AddChild<Label>()`, `slotPanel.SetClass("occupied", true)`). A OneWay binding from a Variable would round-trip through the panel re-render and clobber the runtime-created child Panels every tick — exactly the failure mode `dialog_system` hit with `ExposeAsVariable` on a Text element. For dynamic-children UIs, prefer **captured Panels + runtime mutation** over **Variables + Bindings**.
-
-## Events
-
-No widget-level events are declared in the `.sui` file (every element's `"Events": {}` is empty). All input wiring happens at runtime via `AddEventListener` against the captured Panels:
-
-| Source | Event | Where it's wired | Handler |
-|---|---|---|---|
-| Each of the 32 runtime slot Panels (16 in `BackpackGrid` + 16 in `StashGrid`) | `onmousedown` | `RenderGrid` loop in `DragDropInventoryController`, per slot | `OnSlotMouseDown(side, index)` — captures `(side, index, item)`, flips `_dragActive`, shows `DragGhost`. |
-| Root Panel (`Hud.Panel`) | `onmouseup` | One-shot in `OnUpdate` after the wrapper is mounted (`_rootListenerWired` guard) | `OnRootMouseUp()` — hit-tests every slot via `Panel.IsInside(Sandbox.Mouse.Position)`, performs the array swap, hides the ghost. |
-
-The root-level `onmouseup` is the only drop point — Sandbox.UI silences `onmouseover`/`onmouseout` on sibling Panels during a native drag, so per-slot mouseup listeners would miss drops onto empty slots. See **Troubleshooting** for the full list of gotchas this design works around.
+---
 
 ## Required `User.scss` rules
 
@@ -114,6 +109,8 @@ DragDropInventoryPanel {
 }
 ```
 
+---
+
 ## Controller architecture
 
 `DragDropInventoryController` keeps two `ItemKind[16]` arrays (`_backpack`, `_stash`) as the source of truth. The flow:
@@ -124,6 +121,8 @@ DragDropInventoryPanel {
 - **`UpdateSlotVisual`** mutates a single slot's visuals (children + class + background colour) WITHOUT destroying the Panel — critical so the engine can still route the eventual `onmouseup` to the same Panel reference that received `onmousedown`.
 - **`OnSlotMouseDown`** captures the source `(side, index, item)` and shows the ghost. The source slot is intentionally NOT mutated during the drag (any visual change to the source mid-gesture breaks the engine's mouseup routing — confirmed empirically).
 - **`OnRootMouseUp`** is the single drop point. It hit-tests every slot via `Panel.IsInside(Sandbox.Mouse.Position)` to find the target (mouseover events are silenced during the drag so we can't track hover), guards same-source-and-target as a no-op (otherwise the dual write to one cell would vanish the item), then swaps and updates both slots' visuals.
+
+---
 
 ## Troubleshooting
 
@@ -137,17 +136,7 @@ Drag-and-drop in Sandbox.UI has several non-obvious gotchas — these are the on
 | Ghost preview lags behind / stays pinned to the slot where the drag started | `Panel.MousePosition` is frozen by the engine for the duration of a native drag — it keeps returning the position at mousedown. Per-frame ghost updates that read it never move. | Read `Sandbox.Mouse.Position` (raw screen pixels) in `OnUpdate`, multiply by `ghost.ScaleFromScreen` to convert to ghost-local coords, subtract `HalfSlot`, and write into `ghost.Style.Left/Top` every frame. |
 | Controller fails to compile — `DragDropInventoryPanel` type does not exist | The wrapper class and `.razor` / `.scss` are emitted by the SUI Designer on Compile (Force Regen) — until that runs once, the type the controller references is just a missing symbol. | Open `drag_drop_inventory.sui` in the SUI Designer window and hit **Compile** before building. First compile generates the wrapper; subsequent edits to the `.sui` regenerate it. |
 
-## File map
-
-```text
-Code/Samples/DragDropInventory/
-  DragDropInventory.cs                    (generated wrapper - do not edit)
-  DragDropInventoryPanel.razor          (generated markup - do not edit)
-  DragDropInventoryPanel.razor.scss     (generated styles - do not edit)
-  DragDropInventoryPanel.User.scss      (your custom styles - survives Force Regen)
-  DragDropInventoryController.cs        (you ship this - drives the wrapper)
-```
-
+---
 
 ## Extending it
 
@@ -157,3 +146,14 @@ Code/Samples/DragDropInventory/
 - **Network sync.** Promote both arrays to `[Sync] NetList<ItemKind>` on a networked `Component`, and call `[Rpc.Broadcast] Swap(side1, idx1, side2, idx2)` from `OnSlotMouseUp`. Every client renders from the authoritative state.
 - **Constraints.** Add `ItemKind[] AllowedKinds` per grid (e.g. "Stash only accepts Currency") and short-circuit `OnSlotMouseUp` when the target doesn't accept the dragged item.
 - **Drag-from-empty insertion.** A "shop" or "loot pool" panel becomes the source for new items via the same handler shape — pretend the slot is occupied with a virtual item.
+
+---
+
+## See also
+
+- [Read the full `drag_drop_inventory` README on GitHub](https://github.com/KiKoZl1/sbox-ui-designer/tree/main/samples/showcase/drag_drop_inventory).
+- [Showcase samples]({% link reference/showcase-samples.md %}) — landing page for all v1.5 showcase samples.
+- [Sample index]({% link reference/sample-index.md %}) — flat catalog of every sample shipped with the Designer.
+- [`inventory_grid_full`]({% link samples/inventory_grid_full.md %}) — the larger sibling sample, full inventory with tooltips and category filters.
+- [`loadout_selector`]({% link samples/loadout_selector.md %}) — companion grid-based selection UI without the drag mechanic.
+- [`hotbar_quickslots`]({% link samples/hotbar_quickslots.md %}) — minimal slot-based UI that complements the inventory grid.

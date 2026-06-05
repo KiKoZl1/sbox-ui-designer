@@ -60,17 +60,14 @@ the entire detail column.
    the three `IsQuestCardNHighlighted` bools, the detail column rewrites,
    and the three objective progress bars animate to the selected quest's
    values.
-5. **Press Tab** (`Score` action) to bump objective #1 of the selected quest
-   forward by 10%. The bound `ProgressBar` value animates live — useful for
-   verifying the binding pipeline without writing real quest-progress code.
-6. **Press R** (`Reload` action) to reset every objective on the current
-   tab's quest list back to zero. (Note: this resets to zero, not to the
-   authored seed defaults — see the `ResetAllProgress` comment in the
-   controller for why.)
-7. **Reshape the demo from the inspector.** `ActiveQuests`, `CompletedQuests`,
+5. **Reshape the demo from the inspector.** `ActiveQuests`, `CompletedQuests`,
    and `FailedQuests` are `[Property]` `List<Quest>` — edit them inline to
    change the quest titles, descriptions, rewards, and objective lists
    without touching code. Same pattern as `inventory_grid_full`.
+
+> For the keyboard nudge / reset shortcuts mentioned earlier in development,
+> see **Debug hotkeys** below — they are **debug-only** and should be
+> removed before shipping.
 
 ## Variables
 
@@ -185,6 +182,21 @@ authors who want a custom one-off Panel mutation (animating a single
 button, attaching a tween, swapping a child icon) still have the escape
 hatch without re-saving the .sui. Same `@ref` mechanism `boss_hp_bar` uses
 for `DamageFlash`.
+
+## Debug hotkeys
+
+These are wired by the sample's controller for testing only — **debug-only,
+remove before shipping.**
+
+| Key | Action | What it does |
+|---|---|---|
+| `Tab` | `Score` | Bumps objective #1 of the selected quest forward by 10% (clamped 0..1) so you can watch the bound `ProgressBar` animate live. Logs `[QuestJournal] Bumped '<title>' objective #1 to N%.` |
+| `R` | `Reload` | Resets every objective on the current tab's quest list back to zero (not to the authored seed defaults). Logs `[QuestJournal] Reset all objective progress to defaults.` |
+
+Both hijack default s&box input actions (`Score` = Tab, `Reload` = R), so
+shipping with them wired means the player's reload key will silently wipe
+quest progress every time they reload a weapon. Search the controller for
+`Input.Pressed` to find these and remove.
 
 ## Extending it
 

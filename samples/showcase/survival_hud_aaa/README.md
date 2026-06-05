@@ -33,8 +33,11 @@ blue in `Snow`, warm amber in `Desert`, sickly green in `Swamp`, no tint in
 `Default`). When `TakeDamage` is called, the entire screen briefly washes red
 for `DamageFlashDuration` seconds (default 0.3s), then fades back.
 
-Nothing is interactive - this is a passive read-only HUD. The cursor is never
-captured and gameplay input is untouched.
+The HUD itself is read-only — the cursor is never captured and the click
+surface is empty. The controller does, however, consume two debug-only
+keyboard hotkeys in `OnUpdate` to make the damage-flash + heal pipeline
+easy to eyeball without writing gameplay code. See **Debug hotkeys** below;
+remove them before shipping.
 
 ## How to use
 
@@ -102,10 +105,13 @@ for `ProgressBar.Value`, `string` for `Text.Text`, `Color` for
 
 ## Events
 
-**None.** This HUD is read-only - it never reacts to clicks or hover. All
-updates flow one-way from the controller's `[Property]` fields into the SUI
-Variables via `PushAll()` on `OnUpdate`. See `counter_button` if you need the
-"Code-mode event handler must be assigned before `Show()`" pattern.
+**No SUI element events.** The HUD never reacts to clicks or hover — all
+state flows one-way from the controller's `[Property]` fields into the SUI
+Variables via `PushAll()` on `OnUpdate`. The controller does swallow two
+keyboard actions in `OnUpdate` for testing (see **Debug hotkeys** below),
+but those are debug-only and should be stripped before shipping. See
+`counter_button` if you need the "Code-mode event handler must be assigned
+before `Show()`" pattern for a real interactive element.
 
 > If you later add an interactive element (e.g. a "Sleep" button to refill
 > Stamina), remember the Code-mode delegate wiring rule:
@@ -117,6 +123,32 @@ Variables via `PushAll()` on `OnUpdate`. See `counter_button` if you need the
 >
 > `Show()` triggers `SyncFieldsTo`, which copies the wrapper's delegate into
 > the rendered Panel. Assign after `Show()` and the click silently no-ops.
+
+## Debug hotkeys
+
+These are wired by the sample's controller for testing only — **debug-only,
+remove before shipping.**
+
+| Key | Action | What it does |
+|---|---|---|
+| `Tab` | `Score` | Calls `TakeDamage( 10f )` — subtracts 10 HP, resets `_timeSinceDamage`, and pulses the red `DamageFlashVisible` full-screen overlay for `DamageFlashDuration` seconds (default 0.3s). |
+| `R` | `Reload` | Calls `Heal( 25f )` — adds 25 HP clamped at `MaxHealth`. |
+
+Both hijack default s&box input actions (`Score` = Tab, `Reload` = R), so
+shipping with them wired means every weapon reload silently tops the player
+up by 25 HP. Search the controller for `Input.Pressed` to find these and
+remove.
+
+## File map
+
+```text
+Code/Samples/SurvivalHudAaa/
+  SurvivalHudAaa.cs                    (generated wrapper - do not edit)
+  SurvivalHudAaaPanel.razor          (generated markup - do not edit)
+  SurvivalHudAaaPanel.razor.scss     (generated styles - do not edit)
+  SurvivalHudAaaController.cs        (you ship this - drives the wrapper)
+```
+
 
 ## Extending it
 

@@ -192,6 +192,17 @@ grid padding / gaps.
 > `docs/elements/inventory-slot.md` § *Stack count badge* for the full
 > recipe.
 
+## File map
+
+```text
+Code/Samples/InventoryGridFull/
+  InventoryGridFull.cs                    (generated wrapper - do not edit)
+  InventoryGridFullPanel.razor          (generated markup - do not edit)
+  InventoryGridFullPanel.razor.scss     (generated styles - do not edit)
+  InventoryGridFullController.cs        (you ship this - drives the wrapper)
+```
+
+
 ## Extending it
 
 ### Using real PNG icons
