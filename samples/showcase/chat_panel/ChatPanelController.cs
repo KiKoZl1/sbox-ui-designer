@@ -61,11 +61,9 @@ public sealed class ChatPanelController : Component
 
 	/// <summary>
 	/// Maximum number of messages kept in <see cref="_messages"/>. Older entries
-	/// are trimmed off the front so the panel never grows unbounded. Set to a
-	/// Discord/Slack-friendly default of 50 so the visible sliding window stays
-	/// readable even on long sessions.
+	/// are trimmed off the front so the panel never grows unbounded.
 	/// </summary>
-	[Property] public int MaxMessages { get; set; } = 50;
+	[Property] public int MaxMessages { get; set; } = 64;
 
 	// ────────────────────────────────────────────────────────────────────────
 	// Runtime state
@@ -114,41 +112,20 @@ public sealed class ChatPanelController : Component
 		_messages.Add( new ChatMessage
 		{
 			Author = SystemAuthor,
-			Text = "Welcome - type a message and hit Enter or Send (R also works).",
+			Text = "Welcome - type a message and hit Send (or press R).",
 			SentAt = Time.Now,
 			Kind = ChatMessageKind.System,
 		} );
 		RenderMessages();
-
-		// 5) Wire Enter-to-submit on the live TextEntry. The .sui Designer's
-		//    Events schema doesn't (yet) expose OnSubmit as a Code-mode event
-		//    for TextEntry, so we attach via the engine Panel API after Show().
-		//    Sandbox.UI fires "onsubmit" when the user presses Enter inside a
-		//    focused TextEntry, mirroring real chat clients.
-		var entry = Hud.View?.ChatInput;
-		if ( entry != null )
-		{
-			entry.AddEventListener( "onsubmit", () => OnSendClick() );
-
-			// Put the caret in the input on mount so the player can type
-			// immediately without clicking. Without this the SuiInputMode.All
-			// capture grabs the root and the TextEntry never holds focus on
-			// frame zero. Diagnosed in the Bug 3a investigation.
-			entry.Focus();
-		}
 	}
 
 	protected override void OnUpdate()
 	{
-		// Bonus hotkey: built-in Reload action (default R) also sends the draft
-		// so the user can hammer messages even without the TextEntry focused.
-		// The native Enter-submit path is wired in OnStart via AddEventListener
-		// on the live ChatInput - this Reload binding stays as a secondary
-		// hotkey because it's already documented in the README and works even
-		// when focus has drifted off the TextEntry. Uses Input.Pressed (edge-
-		// triggered) so holding the key doesn't spam-send. Guarded by
-		// Hud.IsMounted so the hotkey is inert before OnStart finishes or
-		// after OnDestroy removes the panel.
+		// Enter-fallback hotkey: built-in Reload action (default R) sends the
+		// current draft so the user never has to reach for the mouse. Uses
+		// Input.Pressed (edge-triggered) so holding the key doesn't spam-send.
+		// Guarded by Hud.IsMounted so the hotkey is inert before OnStart finishes
+		// or after OnDestroy removes the panel.
 		if ( Hud.IsMounted && Input.Pressed( "Reload" ) )
 		{
 			OnSendClick();
@@ -240,15 +217,6 @@ public sealed class ChatPanelController : Component
 		{
 			var row = list.AddChild<Panel>();
 			row.AddClass( "chat-row" );
-
-			// Force each row to span the full list width via Style.Width. The
-			// matching `flex-shrink: 0` rule lives in ChatPanelPanel.User.scss
-			// so we don't have to depend on a runtime FlexShrink property that
-			// may not exist on every Sandbox.UI build. The .sui's
-			// FlexDirection=Column on MessageList stacks them vertically; this
-			// width keeps the row from collapsing into a content-sized box.
-			row.Style.Width = Length.Percent( 100 );
-			row.Style.Dirty();
 
 			// Author + timestamp prefix.
 			var stamp = $"[{FormatClock( msg.SentAt )}] {msg.Author}: ";

@@ -625,8 +625,8 @@
           "PivotX": 0,
           "PivotY": 0,
           "ZIndex": 0,
-          "FlexDirection": "Column",
-          "JustifyContent": "FlexEnd",
+          "FlexDirection": "Row",
+          "JustifyContent": "FlexStart",
           "AlignItems": "Stretch",
           "FlexWrap": "NoWrap",
           "Gap": 0,
@@ -661,7 +661,7 @@
           "Opacity": 1,
           "Visibility": "Visible",
           "PointerEvents": "All",
-          "Overflow": "Scroll"
+          "Overflow": "Hidden"
         },
         "Props": {
           "Text": "",
