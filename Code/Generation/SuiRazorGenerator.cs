@@ -601,16 +601,25 @@ public sealed class SuiRazorGenerator
 		var hasChildren = el.Children != null && el.Children.Count > 0;
 
 		// Open tag — class attribute first, then V1.5 data-sui-* binding attrs
-		// + a unified inline style="" body (extended with positioning rules for
-		// the ProgressBar fill-child special case).
+		// + a unified inline style="" body.
+		//
+		// IMPORTANT: do NOT inject `position: relative` here for ProgressBar
+		// containers. The element's SCSS already emits `position: absolute`
+		// (via EmitLayout — every Absolute-mode element gets it) AND
+		// `overflow: hidden` (via EmitStyle when Overflow=Hidden on the
+		// element, which the ProgressBar default already sets). Injecting
+		// inline `position: relative` overrides the SCSS-declared absolute,
+		// dropping the bar out of its own X/Y placement and into the parent
+		// container's flex flow. With multiple bars in the same parent,
+		// each bar staircases right (Sandbox.UI flex with auto-shrink). The
+		// inner `.sui-progress-fill` div anchors via its own SCSS rule
+		// (SuiScssGenerator emits it scoped to typeName when ProgressBar
+		// is present) — that rule uses position:absolute + left/top/bottom:0,
+		// so it stretches the parent's content box regardless of whether
+		// the parent is relative or absolute, as long as it's positioned.
+		// The parent's SCSS-declared `position: absolute` satisfies that.
 		var dataAttrs = SuiBindingEmitter.EmitElementDataAttrs( el, _doc );
 		var styleBody = SuiBindingEmitter.EmitElementStyleBody( el, _doc );
-		var needsProgressFill = SuiBindingEmitter.HasProgressFillBindings( el );
-		if ( needsProgressFill )
-		{
-			styleBody = "position: relative; overflow: hidden;"
-				+ ( styleBody.Length > 0 ? " " + styleBody : "" );
-		}
 
 		// V1.5 M3.5 (PRD 25) — interactive types ship a runtime-toggleable
 		// IsDisabled bool. Class string gains "disabled" when the field is
