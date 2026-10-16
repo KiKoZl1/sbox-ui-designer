@@ -364,7 +364,7 @@ public class SuiDesignerWindow : DockWindow, IAssetEditor
 		OnControllerDocumentChanged();
 	}
 
-	protected override void RestoreDefaultDockLayout()
+	protected void RestoreDefaultDockLayout()
 	{
 		// 100% custom layout — nothing to restore from a dock cookie.
 	}
